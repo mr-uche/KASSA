@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Bell,
   ChevronDown,
@@ -10,6 +11,7 @@ import KassaSidebar from "@/components/KassaSidebar";
 
 const transactions = [
   {
+    id: "TXN-2026-000141",
     customer: "Mary Adeyemi",
     cashier: "Ifeoma Bassey",
     channel: "Transfer",
@@ -19,6 +21,7 @@ const transactions = [
     time: "9:14 AM",
   },
   {
+    id: "TXN-2026-000142",
     customer: "Walk-in customer",
     cashier: "Ifeoma Bassey",
     channel: "Cash",
@@ -28,6 +31,7 @@ const transactions = [
     time: "9:26 AM",
   },
   {
+    id: "TXN-2026-000143",
     customer: "Chuka Nwosu",
     cashier: "Ibrahim Musa",
     channel: "POS",
@@ -37,6 +41,7 @@ const transactions = [
     time: "9:41 AM",
   },
   {
+    id: "TXN-2026-000144",
     customer: "Grace Umeh",
     cashier: "Ifeoma Bassey",
     channel: "USSD",
@@ -46,6 +51,7 @@ const transactions = [
     time: "9:52 AM",
   },
   {
+    id: "TXN-2026-000145",
     customer: "Walk-in customer",
     cashier: "Ibrahim Musa",
     channel: "Card",
@@ -55,6 +61,7 @@ const transactions = [
     time: "10:03 AM",
   },
   {
+    id: "TXN-2026-000146",
     customer: "Tunde Bakare",
     cashier: "Ifeoma Bassey",
     channel: "Hefa Wallet",
@@ -246,13 +253,22 @@ export default function TransactionsPage() {
               </thead>
 
               <tbody>
-                {transactions.map((transaction, index) => (
+                {transactions.map((transaction) => (
                   <tr
-                    key={index}
+                    key={transaction.id}
                     className="h-[52px] border-b border-[#EEF0F3] last:border-0"
                   >
-                    <td className="px-[23px] text-[13px] text-[#354052]">
-                      {transaction.customer}
+                    <td className="px-[23px] text-[13px]">
+                      <Link
+                        href={
+                          transaction.status === "Pending"
+                            ? `/transactions/${transaction.id}/dispute`
+                            : `/transactions/${transaction.id}`
+                        }
+                        className="text-[#354052] hover:text-emerald-700 hover:underline"
+                      >
+                        {transaction.customer}
+                      </Link>
                     </td>
 
                     <td className="px-[23px] text-[13px] text-[#536074]">

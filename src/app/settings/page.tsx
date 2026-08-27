@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X, Check } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 
 const navItems = [
@@ -30,6 +31,10 @@ const billingHistory = [
 
 export default function SettingsPage() {
   const [active, setActive] = useState<NavItem>("Business profile");
+  const [showChangePlan, setShowChangePlan] = useState(false);
+  const [upgradeStep, setUpgradeStep] = useState<0 | 1 | 2 | 3>(0);
+  const [branchName, setBranchName] = useState("");
+  const [branchAddress, setBranchAddress] = useState("");
 
   const [form, setForm] = useState({
     businessName: "Adebola Pharmacy",
@@ -44,13 +49,11 @@ export default function SettingsPage() {
   };
 
   return (
-    
     <div className="min-h-screen bg-gray-50">
-          <KassaSidebar />
-      
-          <main className="ml-[198px] p-8">
-            <h1 className="text-2xl font-semibold text-gray-900 mb-6">Settings</h1>
-        
+      <KassaSidebar />
+
+      <main className="ml-[198px] p-8">
+        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Settings</h1>
 
         <div className="flex gap-6">
           {/* Left nav */}
@@ -154,7 +157,10 @@ export default function SettingsPage() {
                         ₦12,500 / month · renews 1 Sep 2026
                       </span>
                     </div>
-                    <button className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    <button
+                      onClick={() => setShowChangePlan(true)}
+                      className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
                       Change plan
                     </button>
                   </div>
@@ -201,7 +207,10 @@ export default function SettingsPage() {
                         Next billing date: September 18, 2026
                       </p>
                     </div>
-                    <button className="bg-emerald-800 hover:bg-emerald-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0">
+                    <button
+                      onClick={() => setShowChangePlan(true)}
+                      className="bg-emerald-800 hover:bg-emerald-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0"
+                    >
                       Change plan
                     </button>
                   </div>
@@ -287,105 +296,101 @@ export default function SettingsPage() {
             )}
 
             {active === "Payout Preferences" && (
-              <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
-                Payout preferences will be coming soon.
-              </div>
+              <>
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                    Payout Preferences
+                  </h2>
+                  <p className="text-sm text-gray-500 mb-5">
+                    Choose where and when your business receives payouts.
+                  </p>
+
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                    Payout account
+                  </p>
+                  <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center">
+                        <div className="w-4 h-0.5 bg-emerald-700 relative before:content-[''] before:absolute before:-top-1.5 before:w-4 before:h-0.5 before:bg-emerald-700 after:content-[''] after:absolute after:top-1.5 after:w-4 after:h-0.5 after:bg-emerald-700" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          GTBank Business Account
+                        </p>
+                        <p className="text-xs text-gray-500">**** 4821 · Adebola Okafor</p>
+                        <p className="text-xs text-gray-400">Primary payout account</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
+                        Verified
+                      </span>
+                      <button className="text-sm font-medium text-emerald-700 hover:text-emerald-800">
+                        Change
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+                    Payout schedule
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1.5">Frequency</p>
+                      <select className="w-full font-semibold text-gray-900 bg-transparent focus:outline-none">
+                        <option>Daily</option>
+                        <option>Weekly</option>
+                        <option>Monthly</option>
+                      </select>
+                    </div>
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">Next payout</p>
+                      <p className="font-semibold text-gray-900">Today · 5:00 PM</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+                    Automatic payouts
+                  </p>
+                  <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Automatic payouts</p>
+                      <p className="text-sm text-gray-500">
+                        Automatically send your available balance to the payout account.
+                      </p>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked="true"
+                      className="w-11 h-6 rounded-full bg-emerald-700 relative shrink-0"
+                    >
+                      <span className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-white transition-transform" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+                    Payout rules
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">Minimum payout amount</p>
+                      <p className="font-semibold text-gray-900">₦10,000</p>
+                    </div>
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">Payout currency</p>
+                      <p className="font-semibold text-gray-900">NGN (₦)</p>
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
-            {active === "Payout Preferences" && (
-  <>
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-1">
-        Payout Preferences
-      </h2>
-      <p className="text-sm text-gray-500 mb-5">
-        Choose where and when your business receives payouts.
-      </p>
 
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-        Payout account
-      </p>
-      <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center">
-            <div className="w-4 h-0.5 bg-emerald-700 relative before:content-[''] before:absolute before:-top-1.5 before:w-4 before:h-0.5 before:bg-emerald-700 after:content-[''] after:absolute after:top-1.5 after:w-4 after:h-0.5 after:bg-emerald-700" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-900">
-              GTBank Business Account
-            </p>
-            <p className="text-xs text-gray-500">**** 4821 · Adebola Okafor</p>
-            <p className="text-xs text-gray-400">Primary payout account</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
-            Verified
-          </span>
-          <button className="text-sm font-medium text-emerald-700 hover:text-emerald-800">
-            Change
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
-        Payout schedule
-      </p>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="border border-gray-200 rounded-lg p-4">
-          <p className="text-xs text-gray-500 mb-1.5">Frequency</p>
-          <select className="w-full font-semibold text-gray-900 bg-transparent focus:outline-none">
-            <option>Daily</option>
-            <option>Weekly</option>
-            <option>Monthly</option>
-          </select>
-        </div>
-        <div className="border border-gray-200 rounded-lg p-4">
-          <p className="text-xs text-gray-500 mb-1">Next payout</p>
-          <p className="font-semibold text-gray-900">Today · 5:00 PM</p>
-        </div>
-      </div>
-    </div>
-
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
-        Automatic payouts
-      </p>
-      <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold text-gray-900">Automatic payouts</p>
-          <p className="text-sm text-gray-500">
-            Automatically send your available balance to the payout account.
-          </p>
-        </div>
-        <button
-          role="switch"
-          aria-checked="true"
-          className="w-11 h-6 rounded-full bg-emerald-700 relative shrink-0"
-        >
-          <span className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-white transition-transform" />
-        </button>
-      </div>
-    </div>
-
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
-        Payout rules
-      </p>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="border border-gray-200 rounded-lg p-4">
-          <p className="text-xs text-gray-500 mb-1">Minimum payout amount</p>
-          <p className="font-semibold text-gray-900">₦10,000</p>
-        </div>
-        <div className="border border-gray-200 rounded-lg p-4">
-          <p className="text-xs text-gray-500 mb-1">Payout currency</p>
-          <p className="font-semibold text-gray-900">NGN (₦)</p>
-        </div>
-      </div>
-    </div>
-  </>
-)}
             {active === "Notifications" && (
               <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
                 Notification settings coming soon.
@@ -413,6 +418,294 @@ export default function SettingsPage() {
           </div>
         </div>
       </main>
+
+      {/* Change Plan modal */}
+      {showChangePlan && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-2xl w-full max-w-3xl p-8 relative">
+            <button
+              onClick={() => setShowChangePlan(false)}
+              className="absolute top-6 right-6 text-gray-400 hover:text-gray-600"
+            >
+              <X size={20} />
+            </button>
+
+            <h2 className="text-xl font-semibold text-gray-900 mb-1">Change your plan</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              Upgrade or downgrade anytime. Changes apply from your next billing date.
+            </p>
+
+            <div className="grid grid-cols-3 gap-4">
+              {/* Starter */}
+              <div className="border border-gray-200 rounded-xl p-5 flex flex-col">
+                <h3 className="font-semibold text-gray-900 mb-1">Starter</h3>
+                <p className="text-xs text-gray-500 mb-4">For single-branch businesses</p>
+                <p className="text-2xl font-bold text-gray-900 mb-4">
+                  ₦5,000<span className="text-sm font-normal text-gray-400">/month</span>
+                </p>
+                <ul className="space-y-2 text-sm text-gray-600 flex-1 mb-5">
+                  {["1 branch", "Up to 500 transactions/month", "Basic daily reporting", "Digital receipts", "Standard support"].map(
+                    (f) => (
+                      <li key={f} className="flex items-start gap-2">
+                        <Check size={15} className="text-emerald-600 mt-0.5 shrink-0" />
+                        {f}
+                      </li>
+                    )
+                  )}
+                </ul>
+                <button className="w-full py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  Downgrade
+                </button>
+              </div>
+
+              {/* Growth - current plan */}
+              <div className="border-2 border-emerald-700 rounded-xl p-5 flex flex-col relative">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-700 text-white text-[10px] font-semibold px-3 py-1 rounded-full uppercase tracking-wide">
+                  Your current plan
+                </span>
+                <h3 className="font-semibold text-gray-900 mb-1 mt-2">Growth</h3>
+                <p className="text-xs text-gray-500 mb-4">For growing multi-branch businesses</p>
+                <p className="text-2xl font-bold text-gray-900 mb-4">
+                  ₦12,500<span className="text-sm font-normal text-gray-400">/month</span>
+                </p>
+                <ul className="space-y-2 text-sm text-gray-600 flex-1 mb-5">
+                  {["Up to 2 branches", "Unlimited transactions", "Full reports & analytics", "Staff roles & permissions", "Priority support", "WhatsApp payment links"].map(
+                    (f) => (
+                      <li key={f} className="flex items-start gap-2">
+                        <Check size={15} className="text-emerald-600 mt-0.5 shrink-0" />
+                        {f}
+                      </li>
+                    )
+                  )}
+                </ul>
+                <button className="w-full py-2.5 rounded-lg bg-emerald-50 text-emerald-700 text-sm font-semibold">
+                  Current plan
+                </button>
+              </div>
+
+              {/* Scale */}
+              <div className="border border-gray-200 rounded-xl p-5 flex flex-col">
+                <h3 className="font-semibold text-gray-900 mb-1">Scale</h3>
+                <p className="text-xs text-gray-500 mb-4">For high-volume, multi-branch chains</p>
+                <p className="text-2xl font-bold text-gray-900 mb-4">
+                  ₦15,000<span className="text-sm font-normal text-gray-400">/month</span>
+                </p>
+                <ul className="space-y-2 text-sm text-gray-600 flex-1 mb-5">
+                  {["Unlimited branches", "Unlimited transactions", "Advanced analytics", "Auditor & accountant access", "Dedicated account manager"].map(
+                    (f) => (
+                      <li key={f} className="flex items-start gap-2">
+                        <Check size={15} className="text-emerald-600 mt-0.5 shrink-0" />
+                        {f}
+                      </li>
+                    )
+                  )}
+                </ul>
+                <button
+                  onClick={() => {
+                    setShowChangePlan(false);
+                    setUpgradeStep(1);
+                  }}
+                  className="w-full py-2.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors"
+                >
+                  Upgrade
+                </button>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-400 mt-6">
+              Downgrading may restrict access to features and branches above your new plan&apos;s limit.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Scale-plan upgrade flow (3 steps) */}
+      {upgradeStep > 0 && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 relative">
+            {upgradeStep < 3 && (
+              <button
+                onClick={() => setUpgradeStep(0)}
+                className="absolute top-5 right-5 text-gray-400 hover:text-gray-600"
+              >
+                <X size={18} />
+              </button>
+            )}
+
+            <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-4">
+              Step {upgradeStep} of 3
+            </p>
+
+            {/* ---------------- STEP 1: Confirm upgrade ---------------- */}
+            {upgradeStep === 1 && (
+              <>
+                <div className="flex flex-col items-center text-center mb-5">
+                  <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center mb-3">
+                    <Check size={20} className="text-emerald-700" />
+                  </div>
+                  <h2 className="text-lg font-semibold text-gray-900">Confirm your upgrade</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    You&apos;re switching to the Scale plan.
+                  </p>
+                </div>
+
+                <div className="border border-gray-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm font-semibold text-gray-900 mb-1">Scale plan</p>
+                  <p className="text-xs text-gray-500 mb-4">Unlimited branches & transactions</p>
+
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-gray-500">New monthly price</span>
+                    <span className="font-semibold text-gray-900">₦15,000</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Prorated charge today</span>
+                    <span className="font-semibold text-gray-900">₦1,340</span>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex gap-2 mb-5">
+                  <span className="text-blue-600 shrink-0">ⓘ</span>
+                  <p className="text-xs text-blue-700">
+                    Full plan price applies from your next billing date, 1 Sep 2026.
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setUpgradeStep(0)}
+                    className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => setUpgradeStep(2)}
+                    className="flex-1 py-2.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors"
+                  >
+                    Confirm upgrade
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ---------------- STEP 2: Add second branch ---------------- */}
+            {upgradeStep === 2 && (
+              <>
+                <div className="flex flex-col items-center text-center mb-5">
+                  <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center mb-3">
+                    <Check size={20} className="text-emerald-700" />
+                  </div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    You&apos;re on the <span className="bg-yellow-100 px-1">Growth</span> plan
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    You now have room for a second branch.
+                  </p>
+                </div>
+
+                <div className="border border-gray-200 rounded-lg p-3 flex items-center gap-3 mb-5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Main branch — Wuse II</p>
+                    <p className="text-xs text-gray-500">4 staff · already active</p>
+                  </div>
+                </div>
+
+                <p className="text-sm font-semibold text-gray-900 mb-3">Add your second branch</p>
+
+                <div className="space-y-3 mb-5">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Branch name
+                    </label>
+                    <input
+                      value={branchName}
+                      onChange={(e) => setBranchName(e.target.value)}
+                      placeholder="e.g. Garki branch"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Branch address
+                    </label>
+                    <input
+                      value={branchAddress}
+                      onChange={(e) => setBranchAddress(e.target.value)}
+                      placeholder="Street, area, city"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Staff at this branch (optional)
+                    </label>
+                    <input
+                      placeholder="You can invite staff later from Staff & branches"
+                      disabled
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-gray-50 text-gray-400 placeholder:text-gray-400"
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-400 mb-5">
+                  You can also add this branch anytime from Staff & branches.
+                </p>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setUpgradeStep(3)}
+                    className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Skip for now
+                  </button>
+                  <button
+                    onClick={() => setUpgradeStep(3)}
+                    className="flex-1 py-2.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors"
+                  >
+                    Add branch
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ---------------- STEP 3: Redirecting to payment ---------------- */}
+            {upgradeStep === 3 && (
+              <div className="flex flex-col items-center text-center py-2">
+                <div className="w-12 h-12 rounded-full border-4 border-gray-100 border-t-emerald-600 animate-spin mb-5" />
+
+                <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                  Redirecting to secure payment
+                </h2>
+                <p className="text-sm text-gray-500 mb-4">
+                  Processing your ₦1,340 upgrade charge
+                </p>
+
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium mb-5">
+                  ✓ Secured by payment partner
+                </span>
+
+                <p className="text-xs text-gray-400 mb-6 max-w-xs">
+                  You&apos;ll briefly leave Hefa to confirm this payment with your bank or card
+                  provider, then return here automatically.
+                </p>
+
+                <div className="flex items-center gap-1.5 mb-5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-200" />
+                </div>
+
+                <button
+                  onClick={() => setUpgradeStep(0)}
+                  className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
+                >
+                  Cancel and stay on Growth plan
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
