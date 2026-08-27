@@ -15,6 +15,8 @@ const channelColors: Record<string, string> = {
   "Card & wallet": "bg-emerald-100",
 };
 
+const channelOrder = ["Bank transfer", "POS", "Cash", "USSD", "Card & wallet"];
+
 function SummaryCard({
   label,
   value,
@@ -42,18 +44,12 @@ function SummaryCard({
   );
 }
 
-function ChannelBreakdown({
-  data,
-  note,
-}: {
-  data: { name: string; pct: number }[];
-  note?: string;
-}) {
+function ChannelBreakdown({ data }: { data: { name: string; pct: number }[] }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
       <h2 className="text-base font-semibold text-gray-900 mb-1">Sales by channel</h2>
-      {note && <p className="text-xs text-gray-400 mb-5">{note}</p>}
-      <div className={`space-y-5 ${note ? "" : "mt-5"}`}>
+      <p className="text-xs text-gray-400 mb-5">Colors match the trend chart on the left</p>
+      <div className="space-y-4">
         {data.map((c) => (
           <div key={c.name}>
             <div className="flex items-center gap-2 mb-1.5">
@@ -67,6 +63,59 @@ function ChannelBreakdown({
                 style={{ width: `${c.pct}%` }}
               />
             </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StackedTrendChart({
+  data,
+  title,
+}: {
+  data: { label: string; segments: number[] }[];
+  title: string;
+}) {
+  const maxTotal = Math.max(...data.map((d) => d.segments.reduce((a, b) => a + b, 0)));
+
+  return (
+    <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6">
+      <h2 className="text-base font-semibold text-gray-900 mb-1">{title}</h2>
+      <p className="text-xs text-gray-400 mb-6">
+        Colors match the trend chart on the left
+      </p>
+
+      <div className="flex items-end justify-between gap-4 h-64">
+        {data.map((d) => {
+          const total = d.segments.reduce((a, b) => a + b, 0);
+          return (
+            <div key={d.label} className="flex flex-col items-center gap-2 flex-1 h-full">
+              <div className="w-full max-w-[52px] flex flex-col-reverse justify-start flex-1">
+                {d.segments.map((seg, i) => {
+                  const heightPct = (seg / maxTotal) * 100;
+                  return (
+                    <div
+                      key={i}
+                      className={`w-full ${channelColors[channelOrder[i]]} ${
+                        i === d.segments.length - 1 ? "rounded-t-md" : ""
+                      }`}
+                      style={{ height: `${heightPct}%` }}
+                    />
+                  );
+                })}
+              </div>
+              <span className="text-xs text-gray-500">{d.label}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex flex-wrap gap-4 mt-6 pt-4 border-t border-gray-100">
+        {channelOrder.map((name) => (
+          <div key={name} className="flex items-center gap-2">
+            <span className={`w-2.5 h-2.5 rounded-sm ${channelColors[name]}`} />
+            <span className="text-xs text-gray-600">{name}</span>
           </div>
         ))}
       </div>
@@ -99,7 +148,7 @@ function StaffTable({
               <td className="py-3 text-gray-700">{r.name}</td>
               <td className="py-3 text-gray-700">{r.transactions.toLocaleString()}</td>
               <td className="py-3 font-medium text-gray-900">{r.total}</td>
-              <td className="py-3 text-gray-700">{r.failed}</td>
+              <td className="py-3 text-red-600">{r.failed}</td>
             </tr>
           ))}
         </tbody>
@@ -110,13 +159,13 @@ function StaffTable({
 
 // ----- Daily data -----
 const dailyTrend = [
-  { label: "Mon", value: 62 },
-  { label: "Tue", value: 78 },
-  { label: "Wed", value: 48 },
-  { label: "Thu", value: 92 },
-  { label: "Fri", value: 82 },
-  { label: "Sat", value: 96 },
-  { label: "Sun", value: 100 },
+  { label: "Mon", segments: [26, 17, 11, 6, 2] },
+  { label: "Tue", segments: [33, 21, 14, 7, 3] },
+  { label: "Wed", segments: [20, 13, 9, 4, 2] },
+  { label: "Thu", segments: [39, 25, 17, 8, 3] },
+  { label: "Fri", segments: [34, 22, 15, 7, 3] },
+  { label: "Sat", segments: [40, 26, 17, 9, 4] },
+  { label: "Sun", segments: [42, 27, 18, 9, 4] },
 ];
 const dailyChannels = [
   { name: "Bank transfer", pct: 42 },
@@ -125,15 +174,19 @@ const dailyChannels = [
   { name: "USSD", pct: 9 },
   { name: "Card & wallet", pct: 4 },
 ];
+const dailyStaff = [
+  { name: "Ifeoma Bassey", transactions: 88, total: "₦612,400", failed: 2 },
+  { name: "Ibrahim Musa", transactions: 58, total: "₦408,200", failed: 1 },
+];
 
-// ----- Weekly data (stacked) -----
-const weeklyStacked = [
-  { label: "Wk 1", segments: [40, 25, 15, 10, 3] },
-  { label: "Wk 2", segments: [48, 28, 18, 11, 3] },
-  { label: "Wk 3", segments: [28, 18, 10, 6, 2] },
-  { label: "Wk 4", segments: [50, 32, 20, 12, 4] },
-  { label: "Wk 5", segments: [42, 26, 16, 10, 3] },
-  { label: "Wk 6", segments: [56, 34, 22, 13, 4] },
+// ----- Weekly data -----
+const weeklyTrend = [
+  { label: "Wk 1", segments: [16, 10, 7, 4, 1] },
+  { label: "Wk 2", segments: [24, 14, 9, 5, 2] },
+  { label: "Wk 3", segments: [11, 7, 5, 3, 1] },
+  { label: "Wk 4", segments: [25, 16, 10, 6, 2] },
+  { label: "Wk 5", segments: [21, 13, 8, 5, 2] },
+  { label: "Wk 6", segments: [28, 18, 12, 7, 2] },
 ];
 const weeklyChannels = [
   { name: "Bank transfer", pct: 41 },
@@ -142,15 +195,19 @@ const weeklyChannels = [
   { name: "USSD", pct: 10 },
   { name: "Card & wallet", pct: 3 },
 ];
+const weeklyStaff = [
+  { name: "Ifeoma Bassey", transactions: 512, total: "₦10,214,600", failed: 6 },
+  { name: "Ibrahim Musa", transactions: 338, total: "₦6,725,600", failed: 3 },
+];
 
 // ----- Monthly data -----
 const monthlyTrend = [
-  { label: "Mar", value: 42 },
-  { label: "Apr", value: 55 },
-  { label: "May", value: 38 },
-  { label: "Jun", value: 82 },
-  { label: "Jul", value: 100 },
-  { label: "Aug", value: 88 },
+  { label: "Mar", segments: [17, 11, 7, 4, 2] },
+  { label: "Apr", segments: [22, 14, 9, 5, 2] },
+  { label: "May", segments: [15, 10, 6, 3, 1] },
+  { label: "Jun", segments: [33, 21, 14, 8, 3] },
+  { label: "Jul", segments: [40, 26, 17, 9, 4] },
+  { label: "Aug", segments: [35, 23, 15, 8, 3] },
 ];
 const monthlyChannels = [
   { name: "Bank transfer", pct: 39 },
@@ -164,6 +221,7 @@ const monthlyStaff = [
   { name: "Ibrahim Musa", transactions: 1458, total: "₦27,368,300", failed: 14 },
 ];
 
+// ----- Custom range data -----
 // ----- Custom range data -----
 const customTrend = [18, 22, 15, 28, 24, 32, 27, 36, 30, 40];
 const customChannels = [
@@ -261,23 +319,12 @@ export default function ReportsPage() {
               <SummaryCard label="Top branch" value="Main branch" sub="64% of total sales" />
             </div>
 
-            <div className="grid grid-cols-3 gap-6">
-              <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-base font-semibold text-gray-900 mb-6">Sales trend</h2>
-                <div className="flex items-end justify-between gap-3 h-64">
-                  {dailyTrend.map((d) => (
-                    <div key={d.label} className="flex flex-col items-center gap-2 flex-1">
-                      <div
-                        className="w-full max-w-[48px] rounded-t-md bg-emerald-400"
-                        style={{ height: `${d.value}%` }}
-                      />
-                      <span className="text-xs text-gray-500">{d.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div className="grid grid-cols-3 gap-6 mb-6">
+              <StackedTrendChart data={dailyTrend} title="Sales trend — last 7 days, by channel" />
               <ChannelBreakdown data={dailyChannels} />
             </div>
+
+            <StaffTable title="Sales by staff member — last 7 days" rows={dailyStaff} />
           </>
         )}
 
@@ -296,47 +343,16 @@ export default function ReportsPage() {
               <SummaryCard label="Best week" value="Week 6" sub="₦3,412,800 in sales" />
             </div>
 
-            <div className="grid grid-cols-3 gap-6">
-              <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-base font-semibold text-gray-900 mb-1">
-                  Sales trend — last 6 weeks, by channel
-                </h2>
-                <div className="flex items-end justify-between gap-4 h-64 mt-6">
-                  {weeklyStacked.map((week) => (
-                    <div key={week.label} className="flex flex-col items-center gap-2 flex-1">
-                      <div className="w-full max-w-[52px] flex flex-col-reverse h-full justify-start">
-                        {week.segments.map((seg, i) => (
-                          <div
-                            key={i}
-                            className={`w-full ${Object.values(channelColors)[i]} ${
-                              i === week.segments.length - 1 ? "rounded-t-md" : ""
-                            }`}
-                            style={{ height: `${seg * 2}%` }}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-xs text-gray-500">{week.label}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-4 mt-6 pt-4 border-t border-gray-100">
-                  {weeklyChannels.map((c) => (
-                    <div key={c.name} className="flex items-center gap-2">
-                      <span className={`w-2.5 h-2.5 rounded-sm ${channelColors[c.name]}`} />
-                      <span className="text-xs text-gray-600">{c.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <ChannelBreakdown
-                data={weeklyChannels}
-                note="Colors match the trend chart on the left"
-              />
+            <div className="grid grid-cols-3 gap-6 mb-6">
+              <StackedTrendChart data={weeklyTrend} title="Sales trend — last 6 weeks, by channel" />
+              <ChannelBreakdown data={weeklyChannels} />
             </div>
+
+            <StaffTable title="Sales by staff member — last 6 weeks" rows={weeklyStaff} />
           </>
         )}
 
-        {/* ------------ MONTHLY ------------ */}
+        {/* ---------------- MONTHLY ---------------- */}
         {range === "Monthly" && (
           <>
             <div className="grid grid-cols-4 gap-4 mb-6">
@@ -352,24 +368,7 @@ export default function ReportsPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-6 mb-6">
-              <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-base font-semibold text-gray-900 mb-6">
-                  Sales trend — last 6 months
-                </h2>
-                <div className="flex items-end justify-between gap-3 h-64">
-                  {monthlyTrend.map((d, i) => (
-                    <div key={d.label} className="flex flex-col items-center gap-2 flex-1">
-                      <div
-                        className={`w-full max-w-[48px] rounded-t-md ${
-                          i >= 3 ? "bg-emerald-700" : "bg-emerald-300"
-                        }`}
-                        style={{ height: `${d.value}%` }}
-                      />
-                      <span className="text-xs text-gray-500">{d.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <StackedTrendChart data={monthlyTrend} title="Sales trend — last 6 months, by channel" />
               <ChannelBreakdown data={monthlyChannels} />
             </div>
 
@@ -377,7 +376,7 @@ export default function ReportsPage() {
           </>
         )}
 
-        {/* ------------ CUSTOM RANGE ------------ */}
+{/* ------------ CUSTOM RANGE ------------ */}
         {range === "Custom range" && (
           <>
             <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 flex items-end gap-4">
