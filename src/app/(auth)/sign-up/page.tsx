@@ -54,33 +54,35 @@ export default function SignUpPage() {
         onSubmit={handleSubmit}
         className="mt-6 flex flex-col gap-4"
       >
-        <TextField
-          label="Business name"
-          name="businessName"
-          placeholder="e.g. Adebola Pharmacy"
-        />
-
         <div className="grid grid-cols-2 gap-4">
+          <TextField
+            label="Business name"
+            name="businessName"
+            placeholder="e.g. Adebola Pharmacy"
+          />
+
           <TextField
             label="Your full name"
             name="fullName"
             placeholder="Full name"
           />
+        </div>
 
+        <div className="grid grid-cols-2 gap-4">
           <TextField
             label="Phone number"
             name="phone"
             type="tel"
             placeholder="+234"
           />
-        </div>
 
-        <TextField
-          label="Work email"
-          name="email"
-          type="email"
-          placeholder="name@business.com"
-        />
+          <TextField
+            label="Work email"
+            name="email"
+            type="email"
+            placeholder="name@business.com"
+          />
+        </div>
 
         <SelectField
           label="Business type"
@@ -96,21 +98,23 @@ export default function SignUpPage() {
           <option value="other">Other</option>
         </SelectField>
 
-        <TextField
-          label="Password"
-          name="password"
-          type="password"
-          placeholder="Minimum 8 characters"
-          trailingIcon={<EyeIcon />}
-        />
+        <div className="grid grid-cols-2 gap-4">
+          <TextField
+            label="Password"
+            name="password"
+            type="password"
+            placeholder="Minimum 8 characters"
+            trailingIcon={<EyeIcon />}
+          />
 
-        <TextField
-          label="Confirm password"
-          name="confirmPassword"
-          type="password"
-          placeholder="Re-enter password"
-          trailingIcon={<EyeIcon />}
-        />
+          <TextField
+            label="Confirm password"
+            name="confirmPassword"
+            type="password"
+            placeholder="Re-enter password"
+            trailingIcon={<EyeIcon />}
+          />
+        </div>
 
         <label className="flex items-start gap-2 text-sm text-text-secondary">
           <input
@@ -144,14 +148,6 @@ export default function SignUpPage() {
         >
           Sign up
         </Button>
-
-        <div className="relative py-1 text-center">
-          <span className="relative bg-surface-muted px-3 text-xs text-text-secondary">
-            or
-          </span>
-
-          <div className="absolute inset-x-0 top-1/2 -z-10 h-px bg-border-subtle" />
-        </div>
 
         <p className="text-center text-sm text-text-secondary">
           Already have an account?{" "}
