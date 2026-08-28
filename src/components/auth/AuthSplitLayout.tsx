@@ -9,7 +9,7 @@ export default function AuthSplitLayout({ children }: AuthSplitLayoutProps) {
   return (
     <div className="min-h-screen w-full lg:grid lg:grid-cols-2">
       {/* Marketing panel */}
-      <div className="hidden lg:flex lg:flex-col lg:justify-between bg-brand-500 px-12 py-14 text-white">
+      <div className="hidden lg:flex lg:flex-col lg:justify-between bg-brand-500 px-12 py-20 text-white">
         <div>
           <Link href="/" className="inline-flex items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-md bg-white text-sm font-bold text-brand-500">
