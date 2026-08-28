@@ -33,7 +33,7 @@ export default function SignUpPage() {
 
     // No authentication.
     // Just move to the first onboarding page.
-    router.push("/setup/business");
+    router.push("/onboarding");
   };
 
   return (
