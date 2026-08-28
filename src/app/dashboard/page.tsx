@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "next/link";                                            
 import {
   Bell,
   ChevronDown,
@@ -52,7 +52,7 @@ function StatusBadge({ status }: { status: string }) {
     Failed: "bg-[#FCE5E5] text-[#A42626]",
     Pending: "bg-[#FCEED8] text-[#8A4F05]",
   };
-
+  
   return (
     <span
       className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
@@ -222,7 +222,7 @@ export default function DashboardPage() {
                     </th>
                   </tr>
                 </thead>
-
+                                                     
                 <tbody>
                   {transactions.map((transaction, index) => (
                     <tr
