@@ -29,12 +29,50 @@ const billingHistory = [
   },
 ];
 
+const recentExports = [
+  {
+    name: "Export_2026-08-20.csv",
+    data: "All selected data",
+    requested: "20 Aug 2026",
+    status: "Ready",
+  },
+];
+
+function ToggleSwitch({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className={`w-11 h-6 rounded-full relative shrink-0 transition-colors ${
+        checked ? "bg-emerald-700" : "bg-gray-200"
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${
+          checked ? "right-0.5" : "left-0.5"
+        }`}
+      />
+    </button>
+  );
+}
+
 export default function SettingsPage() {
   const [active, setActive] = useState<NavItem>("Business profile");
   const [showChangePlan, setShowChangePlan] = useState(false);
   const [upgradeStep, setUpgradeStep] = useState<0 | 1 | 2 | 3>(0);
   const [branchName, setBranchName] = useState("");
   const [branchAddress, setBranchAddress] = useState("");
+
+  const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0); // 0 = confirm, 1 = final, 2 = deleted
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const [form, setForm] = useState({
     businessName: "Adebola Pharmacy",
@@ -47,6 +85,36 @@ export default function SettingsPage() {
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
+
+  // ---- Notifications state ----
+  const [notif, setNotif] = useState({
+    successfulPayments: true,
+    failedPayments: true,
+    lowStockAlerts: true,
+    payoutUpdates: true,
+    staffActivity: false,
+    securityAlerts: true,
+    productUpdates: false,
+    channelEmail: true,
+    channelInApp: true,
+    channelSms: false,
+  });
+  const toggleNotif = (key: keyof typeof notif) =>
+    setNotif((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  // ---- Data export state ----
+  const [exportData, setExportData] = useState({
+    transactions: true,
+    productsInventory: true,
+    customers: true,
+    staff: true,
+    branches: true,
+    reportsAnalytics: false,
+  });
+  const toggleExportData = (key: keyof typeof exportData) =>
+    setExportData((prev) => ({ ...prev, [key]: !prev[key] }));
+  const [exportFormat, setExportFormat] = useState("CSV");
+  const [exportDateRange, setExportDateRange] = useState("All available data");
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -62,7 +130,13 @@ export default function SettingsPage() {
               {navItems.map((item) => (
                 <button
                   key={item}
-                  onClick={() => setActive(item)}
+                  onClick={() => {
+                    setActive(item);
+                    if (item === "Delete Account") {
+                      setDeleteStep(0);
+                      setDeleteConfirmText("");
+                    }
+                  }}
                   className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     active === item
                       ? "bg-emerald-50 text-emerald-800"
@@ -392,27 +466,469 @@ export default function SettingsPage() {
             )}
 
             {active === "Notifications" && (
-              <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
-                Notification settings coming soon.
+              <div className="grid grid-cols-3 gap-6 items-start">
+                <div className="col-span-2 space-y-6">
+                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <h3 className="text-sm font-semibold text-gray-900">Transaction alerts</h3>
+                    <p className="text-xs text-gray-500 mb-4">
+                      Stay informed about important payment activity.
+                    </p>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Successful payments</p>
+                          <p className="text-xs text-gray-500">
+                            Get notified when a payment is completed.
+                          </p>
+                        </div>
+                        <ToggleSwitch
+                          checked={notif.successfulPayments}
+                          onChange={() => toggleNotif("successfulPayments")}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-900">
+                          Failed or reversed payments
+                        </p>
+                        <ToggleSwitch
+                          checked={notif.failedPayments}
+                          onChange={() => toggleNotif("failedPayments")}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <h3 className="text-sm font-semibold text-gray-900">Business alerts</h3>
+                    <p className="text-xs text-gray-500 mb-4">
+                      Receive alerts that help you stay on top of operations.
+                    </p>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-900">Low stock alerts</p>
+                        <ToggleSwitch
+                          checked={notif.lowStockAlerts}
+                          onChange={() => toggleNotif("lowStockAlerts")}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-900">Payout updates</p>
+                        <ToggleSwitch
+                          checked={notif.payoutUpdates}
+                          onChange={() => toggleNotif("payoutUpdates")}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-900">Staff activity</p>
+                        <ToggleSwitch
+                          checked={notif.staffActivity}
+                          onChange={() => toggleNotif("staffActivity")}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">
+                      Account & system
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-900">Security alerts</p>
+                        <ToggleSwitch
+                          checked={notif.securityAlerts}
+                          onChange={() => toggleNotif("securityAlerts")}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-900">
+                          Product and feature updates
+                        </p>
+                        <ToggleSwitch
+                          checked={notif.productUpdates}
+                          onChange={() => toggleNotif("productUpdates")}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button className="bg-emerald-800 hover:bg-emerald-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
+                    Save Changes
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Delivery channels</h3>
+                  <p className="text-xs text-gray-500 -mt-3 mb-4">Where your notifications are sent.</p>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">Email</p>
+                        <p className="text-xs text-gray-400">admin@kassa.business</p>
+                      </div>
+                      <ToggleSwitch
+                        checked={notif.channelEmail}
+                        onChange={() => toggleNotif("channelEmail")}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">In-app</p>
+                        <p className="text-xs text-gray-400">Notifications in Kassa</p>
+                      </div>
+                      <ToggleSwitch
+                        checked={notif.channelInApp}
+                        onChange={() => toggleNotif("channelInApp")}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">SMS</p>
+                        <p className="text-xs text-gray-400">For critical alerts only</p>
+                      </div>
+                      <ToggleSwitch
+                        checked={notif.channelSms}
+                        onChange={() => toggleNotif("channelSms")}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-5 bg-emerald-50 border border-emerald-100 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-emerald-800 mb-1">Notification tip</p>
+                    <p className="text-xs text-emerald-700">
+                      Keep alerts enabled for important security and payout events so nothing gets
+                      missed.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
+
             {active === "Data Export" && (
-              <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
-                Data export tools coming soon.
+              <>
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-1">Data Export</h2>
+                  <p className="text-sm text-gray-500 mb-5">
+                    Choose the business data you want to download.
+                  </p>
+
+                  <p className="text-sm font-medium text-gray-900 mb-3">Data to export</p>
+                  <div className="grid grid-cols-3 gap-3 mb-6">
+                    {(
+                      [
+                        { key: "transactions", label: "Transactions" },
+                        { key: "productsInventory", label: "Products & Inventory" },
+                        { key: "customers", label: "Customers" },
+                        { key: "staff", label: "Staff" },
+                        { key: "branches", label: "Branches" },
+                        { key: "reportsAnalytics", label: "Reports & Analytics" },
+                      ] as const
+                    ).map(({ key, label }) => (
+                      <label
+                        key={key}
+                        className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={exportData[key]}
+                          onChange={() => toggleExportData(key)}
+                          className="w-4 h-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-700"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-5">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Export format
+                      </label>
+                      <select
+                        value={exportFormat}
+                        onChange={(e) => setExportFormat(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                      >
+                        <option>CSV</option>
+                        <option>XLSX</option>
+                        <option>PDF</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Transaction date range
+                      </label>
+                      <select
+                        value={exportDateRange}
+                        onChange={(e) => setExportDateRange(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                      >
+                        <option>All available data</option>
+                        <option>Last 30 days</option>
+                        <option>Last 90 days</option>
+                        <option>This year</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 flex gap-2 mb-5">
+                    <span className="text-emerald-600 shrink-0">ⓘ</span>
+                    <p className="text-xs text-emerald-700">
+                      Your export will be prepared securely. Large exports may take a few minutes.
+                      You can continue using Kassa while it is prepared.
+                    </p>
+                  </div>
+
+                  <button className="bg-emerald-800 hover:bg-emerald-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
+                    Export data
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <h3 className="text-base font-semibold text-gray-900 mb-1">Recent Exports</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Your most recent data export requests.
+                  </p>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                        <th className="pb-3 font-medium">Export</th>
+                        <th className="pb-3 font-medium">Data</th>
+                        <th className="pb-3 font-medium">Requested</th>
+                        <th className="pb-3 font-medium">Status</th>
+                        <th className="pb-3 font-medium">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentExports.map((row) => (
+                        <tr key={row.name} className="border-b border-gray-50 last:border-0">
+                          <td className="py-3 text-gray-900 font-medium">{row.name}</td>
+                          <td className="py-3 text-gray-700">{row.data}</td>
+                          <td className="py-3 text-gray-700">{row.requested}</td>
+                          <td className="py-3">
+                            <span className="px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                              {row.status}
+                            </span>
+                          </td>
+                          <td className="py-3">
+                            <button className="text-sm font-medium text-emerald-700 hover:text-emerald-800">
+                              Download
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                    Your Data, Your Control
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    Exports contain business information and should be stored securely. Kassa does
+                    not lock your data in.
+                  </p>
+                </div>
+              </>
+            )}
+
+            {active === "Delete Account" && deleteStep === 0 && (
+              <div className="space-y-6">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-5">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-red-700 mb-1">
+                    <span className="text-red-500">⚠</span> This action is permanent
+                  </p>
+                  <p className="text-sm text-red-600">
+                    You will be signed out and will no longer be able to access this account.
+                    <br />
+                    There is no undo option after deletion is completed.
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">
+                    What will be deleted
+                  </h3>
+                  <ul className="space-y-2.5 text-sm text-gray-600">
+                    {[
+                      "Your Kassa account and login access",
+                      "Business profile and eligible account settings",
+                      "Eligible customer, staff, product and catalogue data",
+                      "Saved preferences and notification settings",
+                      "Eligible reports and account history",
+                    ].map((item) => (
+                      <li key={item} className="flex items-start gap-2">
+                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-amber-800 mb-1">
+                    <span className="text-amber-500">ⓘ</span> Some financial records may be
+                    retained
+                  </p>
+                  <p className="text-sm text-amber-700">
+                    Certain transaction, payout, tax, audit, or compliance records may need to be
+                    retained where required by law or for legitimate business records.
+                    <br />
+                    Retained records do not restore your account or login access.
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                    Ready to delete your account?
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-5">
+                    The next step will ask you to confirm this permanent action.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setActive("Business profile")}
+                      className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => setDeleteStep(1)}
+                      className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors"
+                    >
+                      Continue
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-center text-xs text-gray-400">
+                  Need help before deleting your account?{" "}
+                  <a href="/support" className="text-emerald-700 hover:underline">
+                    Contact support
+                  </a>
+                </p>
               </div>
             )}
-            {active === "Delete Account" && (
-              <div className="bg-white rounded-xl border border-red-200 p-6">
-                <h2 className="text-lg font-semibold text-red-700 mb-2">
-                  Delete Account
-                </h2>
-                <p className="text-sm text-gray-600 mb-4">
-                  This action is permanent and cannot be undone. All your business
-                  data, transactions, and staff records will be deleted.
+
+            {active === "Delete Account" && deleteStep === 1 && (
+              <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-2xl">
+                <div className="text-center mb-6">
+                  <div className="mx-auto mb-3 w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 text-lg">
+                    ⚠
+                  </div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Are you sure you want to delete your account?
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    This is the final confirmation. Account deletion cannot be undone.
+                  </p>
+                </div>
+
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm font-semibold text-red-700 mb-1">
+                    What happens when you continue
+                  </p>
+                  <ul className="space-y-1 text-sm text-red-600">
+                    <li>• Your Kassa account and login access will be permanently closed.</li>
+                    <li>• Eligible business, customer, staff and product data will be deleted.</li>
+                    <li>• You will be signed out after deletion is completed.</li>
+                  </ul>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+                  <p className="text-sm font-semibold text-amber-800 mb-1">
+                    Financial records may be retained
+                  </p>
+                  <p className="text-sm text-amber-700">
+                    Certain transaction, payout, tax, audit, or compliance records may need to be
+                    retained where required by law or for legitimate business records.
+                  </p>
+                </div>
+
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Type DELETE ACCOUNT to confirm
+                </label>
+                <input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="DELETE ACCOUNT"
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm mb-6 focus:outline-none focus:ring-2 focus:ring-red-400"
+                />
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setDeleteStep(0)}
+                    className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={deleteConfirmText.trim() !== "DELETE ACCOUNT"}
+                    onClick={() => setDeleteStep(2)}
+                    className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Delete Account
+                  </button>
+                </div>
+
+                <p className="text-center text-xs text-gray-400 mt-4">
+                  This action is permanent. There is no undo option.
                 </p>
-                <button className="px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors">
-                  Delete my account
+              </div>
+            )}
+
+            {active === "Delete Account" && deleteStep === 2 && (
+              <div className="bg-white rounded-xl border border-gray-200 p-10 max-w-2xl text-center mx-auto">
+                <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
+                  <Check size={28} className="text-green-600" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-1">Account deleted</h2>
+                <p className="text-sm text-gray-500 mb-6">
+                  Your Kassa account has been permanently deleted.
+                  <br />
+                  You have been signed out.
+                </p>
+
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-left mb-4">
+                  <p className="text-sm font-semibold text-gray-900 mb-1">What this means</p>
+                  <ul className="space-y-1 text-sm text-gray-600">
+                    <li>• Your account and login access are permanently closed.</li>
+                    <li>• Eligible business data has been deleted as described during deletion.</li>
+                    <li>• This action cannot be undone or used to restore the account.</li>
+                  </ul>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-left mb-6">
+                  <p className="text-sm font-semibold text-amber-800 mb-1">
+                    Some financial records may remain
+                  </p>
+                  <p className="text-sm text-amber-700">
+                    Certain transaction, payout, tax, audit, or compliance records may be retained
+                    where required by law or for legitimate business records.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setDeleteStep(0);
+                    setDeleteConfirmText("");
+                    setActive("Business profile");
+                    // TODO: redirect to sign-in / clear auth session
+                  }}
+                  className="w-full py-2.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors mb-4"
+                >
+                  Back to Sign In
                 </button>
+
+                <p className="text-xs text-gray-400">
+                  Need help?{" "}
+                  <a href="/support" className="text-emerald-700 hover:underline">
+                    Contact Kassa Support
+                  </a>
+                </p>
+                <p className="text-xs text-gray-300 mt-1">This account is no longer accessible.</p>
               </div>
             )}
           </div>
@@ -444,14 +960,18 @@ export default function SettingsPage() {
                   ₦5,000<span className="text-sm font-normal text-gray-400">/month</span>
                 </p>
                 <ul className="space-y-2 text-sm text-gray-600 flex-1 mb-5">
-                  {["1 branch", "Up to 500 transactions/month", "Basic daily reporting", "Digital receipts", "Standard support"].map(
-                    (f) => (
-                      <li key={f} className="flex items-start gap-2">
-                        <Check size={15} className="text-emerald-600 mt-0.5 shrink-0" />
-                        {f}
-                      </li>
-                    )
-                  )}
+                  {[
+                    "1 branch",
+                    "Up to 500 transactions/month",
+                    "Basic daily reporting",
+                    "Digital receipts",
+                    "Standard support",
+                  ].map((f) => (
+                    <li key={f} className="flex items-start gap-2">
+                      <Check size={15} className="text-emerald-600 mt-0.5 shrink-0" />
+                      {f}
+                    </li>
+                  ))}
                 </ul>
                 <button className="w-full py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">
                   Downgrade
@@ -469,14 +989,19 @@ export default function SettingsPage() {
                   ₦12,500<span className="text-sm font-normal text-gray-400">/month</span>
                 </p>
                 <ul className="space-y-2 text-sm text-gray-600 flex-1 mb-5">
-                  {["Up to 2 branches", "Unlimited transactions", "Full reports & analytics", "Staff roles & permissions", "Priority support", "WhatsApp payment links"].map(
-                    (f) => (
-                      <li key={f} className="flex items-start gap-2">
-                        <Check size={15} className="text-emerald-600 mt-0.5 shrink-0" />
-                        {f}
-                      </li>
-                    )
-                  )}
+                  {[
+                    "Up to 2 branches",
+                    "Unlimited transactions",
+                    "Full reports & analytics",
+                    "Staff roles & permissions",
+                    "Priority support",
+                    "WhatsApp payment links",
+                  ].map((f) => (
+                    <li key={f} className="flex items-start gap-2">
+                      <Check size={15} className="text-emerald-600 mt-0.5 shrink-0" />
+                      {f}
+                    </li>
+                  ))}
                 </ul>
                 <button className="w-full py-2.5 rounded-lg bg-emerald-50 text-emerald-700 text-sm font-semibold">
                   Current plan
@@ -491,14 +1016,18 @@ export default function SettingsPage() {
                   ₦15,000<span className="text-sm font-normal text-gray-400">/month</span>
                 </p>
                 <ul className="space-y-2 text-sm text-gray-600 flex-1 mb-5">
-                  {["Unlimited branches", "Unlimited transactions", "Advanced analytics", "Auditor & accountant access", "Dedicated account manager"].map(
-                    (f) => (
-                      <li key={f} className="flex items-start gap-2">
-                        <Check size={15} className="text-emerald-600 mt-0.5 shrink-0" />
-                        {f}
-                      </li>
-                    )
-                  )}
+                  {[
+                    "Unlimited branches",
+                    "Unlimited transactions",
+                    "Advanced analytics",
+                    "Auditor & accountant access",
+                    "Dedicated account manager",
+                  ].map((f) => (
+                    <li key={f} className="flex items-start gap-2">
+                      <Check size={15} className="text-emerald-600 mt-0.5 shrink-0" />
+                      {f}
+                    </li>
+                  ))}
                 </ul>
                 <button
                   onClick={() => {
@@ -513,7 +1042,8 @@ export default function SettingsPage() {
             </div>
 
             <p className="text-xs text-gray-400 mt-6">
-              Downgrading may restrict access to features and branches above your new plan&apos;s limit.
+              Downgrading may restrict access to features and branches above your new plan&apos;s
+              limit.
             </p>
           </div>
         </div>

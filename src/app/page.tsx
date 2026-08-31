@@ -27,7 +27,6 @@ const EyeIcon = () => (
 
 export default function SignUpPage() {
   const router = useRouter();
-
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -35,7 +34,6 @@ export default function SignUpPage() {
     // Just move to the first onboarding page.
     router.push("/onboarding");
   };
-
   return (
     <AuthSplitLayout>
       <p className="text-xs font-semibold uppercase tracking-wide text-brand-500">
