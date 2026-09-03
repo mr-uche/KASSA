@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download } from "lucide-react";
+import { Download, Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 
 const rangeTabs = ["Daily", "Weekly", "Monthly", "Custom range"] as const;
@@ -31,9 +31,9 @@ function SummaryCard({
   sub?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
       <p className="text-sm text-gray-500 mb-2">{label}</p>
-      <p className="text-2xl font-semibold text-gray-900">{value}</p>
+      <p className="text-xl sm:text-2xl font-semibold text-gray-900">{value}</p>
       {delta && (
         <p className={`text-xs mt-1 ${deltaPositive ? "text-emerald-600" : "text-red-600"}`}>
           {deltaPositive ? "↑" : "↓"} {delta}
@@ -46,14 +46,14 @@ function SummaryCard({
 
 function ChannelBreakdown({ data }: { data: { name: string; pct: number }[] }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
       <h2 className="text-base font-semibold text-gray-900 mb-1">Sales by channel</h2>
       <p className="text-xs text-gray-400 mb-5">Colors match the trend chart on the left</p>
       <div className="space-y-4">
         {data.map((c) => (
           <div key={c.name}>
             <div className="flex items-center gap-2 mb-1.5">
-              <span className={`w-2.5 h-2.5 rounded-sm ${channelColors[c.name]}`} />
+              <span className={`w-2.5 h-2.5 shrink-0 rounded-sm ${channelColors[c.name]}`} />
               <span className="text-sm text-gray-700 flex-1">{c.name}</span>
               <span className="text-sm text-gray-500">{c.pct}%</span>
             </div>
@@ -80,17 +80,17 @@ function StackedTrendChart({
   const maxTotal = Math.max(...data.map((d) => d.segments.reduce((a, b) => a + b, 0)));
 
   return (
-    <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6">
+    <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
       <h2 className="text-base font-semibold text-gray-900 mb-1">{title}</h2>
       <p className="text-xs text-gray-400 mb-6">
         Colors match the trend chart on the left
       </p>
 
-      <div className="flex items-end justify-between gap-4 h-64">
+      <div className="flex items-end justify-between gap-2 sm:gap-4 h-52 sm:h-64 overflow-x-auto">
         {data.map((d) => {
           const total = d.segments.reduce((a, b) => a + b, 0);
           return (
-            <div key={d.label} className="flex flex-col items-center gap-2 flex-1 h-full">
+            <div key={d.label} className="flex flex-col items-center gap-2 flex-1 h-full min-w-[28px]">
               <div className="w-full max-w-[52px] flex flex-col-reverse justify-start flex-1">
                 {d.segments.map((seg, i) => {
                   const heightPct = (seg / maxTotal) * 100;
@@ -111,10 +111,10 @@ function StackedTrendChart({
         })}
       </div>
 
-      <div className="flex flex-wrap gap-4 mt-6 pt-4 border-t border-gray-100">
+      <div className="flex flex-wrap gap-3 sm:gap-4 mt-6 pt-4 border-t border-gray-100">
         {channelOrder.map((name) => (
           <div key={name} className="flex items-center gap-2">
-            <span className={`w-2.5 h-2.5 rounded-sm ${channelColors[name]}`} />
+            <span className={`w-2.5 h-2.5 shrink-0 rounded-sm ${channelColors[name]}`} />
             <span className="text-xs text-gray-600">{name}</span>
           </div>
         ))}
@@ -131,28 +131,30 @@ function StaffTable({
   rows: { name: string; transactions: number; total: string; failed: number }[];
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
       <h2 className="text-base font-semibold text-gray-900 mb-4">{title}</h2>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
-            <th className="pb-3 font-medium">Staff</th>
-            <th className="pb-3 font-medium">Transactions</th>
-            <th className="pb-3 font-medium">Total sales</th>
-            <th className="pb-3 font-medium">Failed</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.name} className="border-b border-gray-50 last:border-0">
-              <td className="py-3 text-gray-700">{r.name}</td>
-              <td className="py-3 text-gray-700">{r.transactions.toLocaleString()}</td>
-              <td className="py-3 font-medium text-gray-900">{r.total}</td>
-              <td className="py-3 text-red-600">{r.failed}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[460px] text-sm">
+          <thead>
+            <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
+              <th className="pb-3 font-medium whitespace-nowrap pr-4">Staff</th>
+              <th className="pb-3 font-medium whitespace-nowrap pr-4">Transactions</th>
+              <th className="pb-3 font-medium whitespace-nowrap pr-4">Total sales</th>
+              <th className="pb-3 font-medium whitespace-nowrap">Failed</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.name} className="border-b border-gray-50 last:border-0">
+                <td className="py-3 text-gray-700 whitespace-nowrap pr-4">{r.name}</td>
+                <td className="py-3 text-gray-700 whitespace-nowrap pr-4">{r.transactions.toLocaleString()}</td>
+                <td className="py-3 font-medium text-gray-900 whitespace-nowrap pr-4">{r.total}</td>
+                <td className="py-3 text-red-600 whitespace-nowrap">{r.failed}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -222,7 +224,6 @@ const monthlyStaff = [
 ];
 
 // ----- Custom range data -----
-// ----- Custom range data -----
 const customTrend = [18, 22, 15, 28, 24, 32, 27, 36, 30, 40];
 const customChannels = [
   { name: "Bank transfer", pct: 40 },
@@ -250,7 +251,7 @@ function LineChart({ values }: { values: number[] }) {
   const areaPoints = `0,${h} ${points.join(" ")} ${w},${h}`;
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-56">
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-44 sm:h-56">
       <polygon points={areaPoints} fill="#08745F" fillOpacity="0.08" />
       <polyline
         points={points.join(" ")}
@@ -270,24 +271,40 @@ export default function ReportsPage() {
   const [range, setRange] = useState<RangeTab>("Daily");
   const [fromDate, setFromDate] = useState("2026-07-01");
   const [toDate, setToDate] = useState("2026-08-19");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <KassaSidebar />
+    <div className="min-h-screen overflow-x-hidden bg-gray-50">
+      <KassaSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
-      <main className="ml-[198px] p-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-6">
-          Reports & Analytics
-        </h1>
+      <main className="min-h-screen lg:ml-[198px] p-4 sm:p-6 lg:p-8">
+        {/* Mobile header row with menu button */}
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="shrink-0 rounded-md p-1.5 text-gray-600 transition hover:bg-gray-100 lg:hidden"
+            aria-label="Open menu"
+          >
+            <Menu size={22} />
+          </button>
+
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
+            Reports & Analytics
+          </h1>
+        </div>
 
         {/* Range tabs + download */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex bg-white rounded-lg border border-gray-200 p-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+          <div className="flex bg-white rounded-lg border border-gray-200 p-1 overflow-x-auto">
             {rangeTabs.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setRange(tab)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`shrink-0 px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
                   range === tab
                     ? "bg-emerald-800 text-white"
                     : "text-gray-500 hover:text-gray-700"
@@ -298,7 +315,7 @@ export default function ReportsPage() {
             ))}
           </div>
 
-          <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <button className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto">
             <Download size={16} />
             Download Report
           </button>
@@ -307,7 +324,7 @@ export default function ReportsPage() {
         {/* ---------------- DAILY ---------------- */}
         {range === "Daily" && (
           <>
-            <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <SummaryCard label="Total sales (7 days)" value="₦2,840,600" delta="9% vs prior week" />
               <SummaryCard label="Avg transaction value" value="₦8,270" delta="3% vs prior week" />
               <SummaryCard
@@ -319,7 +336,7 @@ export default function ReportsPage() {
               <SummaryCard label="Top branch" value="Main branch" sub="64% of total sales" />
             </div>
 
-            <div className="grid grid-cols-3 gap-6 mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
               <StackedTrendChart data={dailyTrend} title="Sales trend — last 7 days, by channel" />
               <ChannelBreakdown data={dailyChannels} />
             </div>
@@ -331,7 +348,7 @@ export default function ReportsPage() {
         {/* ---------------- WEEKLY ---------------- */}
         {range === "Weekly" && (
           <>
-            <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <SummaryCard label="Total sales (6 weeks)" value="₦16,940,200" delta="14% vs prior 6 weeks" />
               <SummaryCard label="Avg weekly sales" value="₦2,823,366" delta="6% vs prior period" />
               <SummaryCard
@@ -343,7 +360,7 @@ export default function ReportsPage() {
               <SummaryCard label="Best week" value="Week 6" sub="₦3,412,800 in sales" />
             </div>
 
-            <div className="grid grid-cols-3 gap-6 mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
               <StackedTrendChart data={weeklyTrend} title="Sales trend — last 6 weeks, by channel" />
               <ChannelBreakdown data={weeklyChannels} />
             </div>
@@ -355,7 +372,7 @@ export default function ReportsPage() {
         {/* ---------------- MONTHLY ---------------- */}
         {range === "Monthly" && (
           <>
-            <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <SummaryCard label="Total sales (6 months)" value="₦68,420,900" delta="21% vs prior 6 months" />
               <SummaryCard label="Avg monthly sales" value="₦11,403,483" delta="9% vs prior period" />
               <SummaryCard
@@ -367,7 +384,7 @@ export default function ReportsPage() {
               <SummaryCard label="Best month" value="July 2026" sub="₦13,860,400 in sales" />
             </div>
 
-            <div className="grid grid-cols-3 gap-6 mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
               <StackedTrendChart data={monthlyTrend} title="Sales trend — last 6 months, by channel" />
               <ChannelBreakdown data={monthlyChannels} />
             </div>
@@ -376,10 +393,10 @@ export default function ReportsPage() {
           </>
         )}
 
-{/* ------------ CUSTOM RANGE ------------ */}
+        {/* ------------ CUSTOM RANGE ------------ */}
         {range === "Custom range" && (
           <>
-            <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 flex items-end gap-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 flex flex-wrap items-end gap-4">
               <div>
                 <label className="block text-xs text-gray-500 mb-1.5">From</label>
                 <input
@@ -389,7 +406,7 @@ export default function ReportsPage() {
                   className="px-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
                 />
               </div>
-              <span className="text-gray-400 pb-2.5">→</span>
+              <span className="text-gray-400 pb-2.5 hidden sm:inline">→</span>
               <div>
                 <label className="block text-xs text-gray-500 mb-1.5">To</label>
                 <input
@@ -399,7 +416,7 @@ export default function ReportsPage() {
                   className="px-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
                 />
               </div>
-              <div className="flex gap-2 pb-2.5">
+              <div className="flex flex-wrap gap-2 pb-2.5">
                 <button className="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-sm font-medium">
                   Last 30 days
                 </button>
@@ -410,12 +427,12 @@ export default function ReportsPage() {
                   Year to date
                 </button>
               </div>
-              <button className="ml-auto bg-emerald-800 hover:bg-emerald-900 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
+              <button className="w-full sm:w-auto sm:ml-auto bg-emerald-800 hover:bg-emerald-900 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
                 Apply
               </button>
             </div>
 
-            <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <SummaryCard label="Total sales (1 Jul – 19 Aug)" value="₦24,180,500" delta="11% vs same period prior" />
               <SummaryCard label="Transactions" value="2,946" delta="7% vs same period prior" />
               <SummaryCard
@@ -427,8 +444,8 @@ export default function ReportsPage() {
               <SummaryCard label="Days covered" value="50 days" sub="1 Jul – 19 Aug 2026" />
             </div>
 
-            <div className="grid grid-cols-3 gap-6 mb-6">
-              <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+              <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                 <h2 className="text-base font-semibold text-gray-900 mb-6">
                   Sales trend — 1 Jul to 19 Aug 2026
                 </h2>

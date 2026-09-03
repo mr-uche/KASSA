@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Check } from "lucide-react";
+import { X, Check, Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 
 const navItems = [
@@ -70,6 +70,7 @@ export default function SettingsPage() {
   const [upgradeStep, setUpgradeStep] = useState<0 | 1 | 2 | 3>(0);
   const [branchName, setBranchName] = useState("");
   const [branchAddress, setBranchAddress] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0); // 0 = confirm, 1 = final, 2 = deleted
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -117,16 +118,31 @@ export default function SettingsPage() {
   const [exportDateRange, setExportDateRange] = useState("All available data");
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <KassaSidebar />
+    <div className="min-h-screen overflow-x-hidden bg-gray-50">
+      <KassaSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
-      <main className="ml-[198px] p-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Settings</h1>
+      <main className="min-h-screen lg:ml-[198px] p-4 sm:p-6 lg:p-8">
+        {/* Mobile header row with menu button */}
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="shrink-0 rounded-md p-1.5 text-gray-600 transition hover:bg-gray-100 lg:hidden"
+            aria-label="Open menu"
+          >
+            <Menu size={22} />
+          </button>
 
-        <div className="flex gap-6">
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Settings</h1>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Left nav */}
-          <aside className="w-64 shrink-0">
-            <nav className="bg-white rounded-xl border border-gray-200 p-2">
+          <aside className="w-full lg:w-64 shrink-0">
+            <nav className="bg-white rounded-xl border border-gray-200 p-2 flex lg:flex-col gap-1 overflow-x-auto">
               {navItems.map((item) => (
                 <button
                   key={item}
@@ -137,7 +153,7 @@ export default function SettingsPage() {
                       setDeleteConfirmText("");
                     }
                   }}
-                  className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  className={`shrink-0 lg:w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                     active === item
                       ? "bg-emerald-50 text-emerald-800"
                       : item === "Delete Account"
@@ -152,15 +168,15 @@ export default function SettingsPage() {
           </aside>
 
           {/* Content */}
-          <div className="flex-1 space-y-6">
+          <div className="flex-1 min-w-0 space-y-6">
             {active === "Business profile" && (
               <>
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <h2 className="text-lg font-semibold text-gray-900 mb-6">
                     Business profile
                   </h2>
 
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
                         Business name
@@ -201,7 +217,7 @@ export default function SettingsPage() {
                         className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="sm:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
                         Business address
                       </label>
@@ -213,17 +229,17 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <button className="mt-6 bg-emerald-800 hover:bg-emerald-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
+                  <button className="mt-6 w-full sm:w-auto bg-emerald-800 hover:bg-emerald-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
                     Save changes
                   </button>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">
                     Current plan
                   </h2>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                       <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-medium">
                         Growth tier
                       </span>
@@ -233,7 +249,7 @@ export default function SettingsPage() {
                     </div>
                     <button
                       onClick={() => setShowChangePlan(true)}
-                      className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 shrink-0"
                     >
                       Change plan
                     </button>
@@ -247,7 +263,7 @@ export default function SettingsPage() {
 
             {active === "Subscription & Billing" && (
               <>
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <h2 className="text-lg font-semibold text-gray-900 mb-1">
                     Subscription & billing
                   </h2>
@@ -255,7 +271,7 @@ export default function SettingsPage() {
                     Manage your plan, billing cycle, payment method, and invoices.
                   </p>
 
-                  <div className="border border-gray-200 rounded-lg p-5 flex items-center justify-between">
+                  <div className="border border-gray-200 rounded-lg p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                       <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
                         Current plan
@@ -290,11 +306,11 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <h3 className="text-base font-semibold text-gray-900 mb-4">
                     Billing details
                   </h3>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="border border-gray-200 rounded-lg p-4">
                       <p className="text-xs text-gray-500 mb-1">Billing cycle</p>
                       <p className="font-semibold text-gray-900 mb-1">Monthly</p>
@@ -310,13 +326,13 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <h3 className="text-base font-semibold text-gray-900 mb-4">
                     Payment method
                   </h3>
-                  <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                  <div className="border border-gray-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-7 rounded bg-gray-900 flex items-center justify-center text-white text-[10px] font-bold">
+                      <div className="w-10 h-7 rounded bg-gray-900 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                         VISA
                       </div>
                       <div>
@@ -326,13 +342,13 @@ export default function SettingsPage() {
                         <p className="text-xs text-gray-400">Expires 08/28</p>
                       </div>
                     </div>
-                    <button className="text-sm font-medium text-emerald-700 hover:text-emerald-800">
+                    <button className="text-sm font-medium text-emerald-700 hover:text-emerald-800 self-start sm:self-auto">
                       Update
                     </button>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-base font-semibold text-gray-900">
                       Billing history
@@ -341,37 +357,39 @@ export default function SettingsPage() {
                       View all
                     </button>
                   </div>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
-                        <th className="pb-3 font-medium">Date</th>
-                        <th className="pb-3 font-medium">Description</th>
-                        <th className="pb-3 font-medium">Amount</th>
-                        <th className="pb-3 font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {billingHistory.map((row) => (
-                        <tr key={row.date} className="border-b border-gray-50 last:border-0">
-                          <td className="py-3 text-gray-700">{row.date}</td>
-                          <td className="py-3 text-gray-700">{row.description}</td>
-                          <td className="py-3 text-gray-700">{row.amount}</td>
-                          <td className="py-3">
-                            <span className="px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-                              {row.status}
-                            </span>
-                          </td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[480px] text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                          <th className="pb-3 font-medium whitespace-nowrap pr-4">Date</th>
+                          <th className="pb-3 font-medium whitespace-nowrap pr-4">Description</th>
+                          <th className="pb-3 font-medium whitespace-nowrap pr-4">Amount</th>
+                          <th className="pb-3 font-medium whitespace-nowrap">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {billingHistory.map((row) => (
+                          <tr key={row.date} className="border-b border-gray-50 last:border-0">
+                            <td className="py-3 text-gray-700 whitespace-nowrap pr-4">{row.date}</td>
+                            <td className="py-3 text-gray-700 whitespace-nowrap pr-4">{row.description}</td>
+                            <td className="py-3 text-gray-700 whitespace-nowrap pr-4">{row.amount}</td>
+                            <td className="py-3 whitespace-nowrap">
+                              <span className="px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                                {row.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </>
             )}
 
             {active === "Payout Preferences" && (
               <>
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <h2 className="text-lg font-semibold text-gray-900 mb-1">
                     Payout Preferences
                   </h2>
@@ -382,9 +400,9 @@ export default function SettingsPage() {
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                     Payout account
                   </p>
-                  <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                  <div className="border border-gray-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center">
+                      <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
                         <div className="w-4 h-0.5 bg-emerald-700 relative before:content-[''] before:absolute before:-top-1.5 before:w-4 before:h-0.5 before:bg-emerald-700 after:content-[''] after:absolute after:top-1.5 after:w-4 after:h-0.5 after:bg-emerald-700" />
                       </div>
                       <div>
@@ -406,11 +424,11 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
                     Payout schedule
                   </p>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="border border-gray-200 rounded-lg p-4">
                       <p className="text-xs text-gray-500 mb-1.5">Frequency</p>
                       <select className="w-full font-semibold text-gray-900 bg-transparent focus:outline-none">
@@ -426,11 +444,11 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
                     Automatic payouts
                   </p>
-                  <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                  <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-gray-900">Automatic payouts</p>
                       <p className="text-sm text-gray-500">
@@ -447,11 +465,11 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
                     Payout rules
                   </p>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="border border-gray-200 rounded-lg p-4">
                       <p className="text-xs text-gray-500 mb-1">Minimum payout amount</p>
                       <p className="font-semibold text-gray-900">₦10,000</p>
@@ -466,15 +484,15 @@ export default function SettingsPage() {
             )}
 
             {active === "Notifications" && (
-              <div className="grid grid-cols-3 gap-6 items-start">
-                <div className="col-span-2 space-y-6">
-                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                     <h3 className="text-sm font-semibold text-gray-900">Transaction alerts</h3>
                     <p className="text-xs text-gray-500 mb-4">
                       Stay informed about important payment activity.
                     </p>
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-sm font-medium text-gray-900">Successful payments</p>
                           <p className="text-xs text-gray-500">
@@ -486,7 +504,7 @@ export default function SettingsPage() {
                           onChange={() => toggleNotif("successfulPayments")}
                         />
                       </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-medium text-gray-900">
                           Failed or reversed payments
                         </p>
@@ -498,27 +516,27 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                     <h3 className="text-sm font-semibold text-gray-900">Business alerts</h3>
                     <p className="text-xs text-gray-500 mb-4">
                       Receive alerts that help you stay on top of operations.
                     </p>
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-medium text-gray-900">Low stock alerts</p>
                         <ToggleSwitch
                           checked={notif.lowStockAlerts}
                           onChange={() => toggleNotif("lowStockAlerts")}
                         />
                       </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-medium text-gray-900">Payout updates</p>
                         <ToggleSwitch
                           checked={notif.payoutUpdates}
                           onChange={() => toggleNotif("payoutUpdates")}
                         />
                       </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-medium text-gray-900">Staff activity</p>
                         <ToggleSwitch
                           checked={notif.staffActivity}
@@ -528,19 +546,19 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                     <h3 className="text-sm font-semibold text-gray-900 mb-4">
                       Account & system
                     </h3>
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-medium text-gray-900">Security alerts</p>
                         <ToggleSwitch
                           checked={notif.securityAlerts}
                           onChange={() => toggleNotif("securityAlerts")}
                         />
                       </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-medium text-gray-900">
                           Product and feature updates
                         </p>
@@ -552,17 +570,17 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <button className="bg-emerald-800 hover:bg-emerald-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
+                  <button className="w-full sm:w-auto bg-emerald-800 hover:bg-emerald-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
                     Save Changes
                   </button>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <h3 className="text-sm font-semibold text-gray-900 mb-4">Delivery channels</h3>
                   <p className="text-xs text-gray-500 -mt-3 mb-4">Where your notifications are sent.</p>
 
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium text-gray-900">Email</p>
                         <p className="text-xs text-gray-400">admin@kassa.business</p>
@@ -572,7 +590,7 @@ export default function SettingsPage() {
                         onChange={() => toggleNotif("channelEmail")}
                       />
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium text-gray-900">In-app</p>
                         <p className="text-xs text-gray-400">Notifications in Kassa</p>
@@ -582,7 +600,7 @@ export default function SettingsPage() {
                         onChange={() => toggleNotif("channelInApp")}
                       />
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium text-gray-900">SMS</p>
                         <p className="text-xs text-gray-400">For critical alerts only</p>
@@ -607,14 +625,14 @@ export default function SettingsPage() {
 
             {active === "Data Export" && (
               <>
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <h2 className="text-lg font-semibold text-gray-900 mb-1">Data Export</h2>
                   <p className="text-sm text-gray-500 mb-5">
                     Choose the business data you want to download.
                   </p>
 
                   <p className="text-sm font-medium text-gray-900 mb-3">Data to export</p>
-                  <div className="grid grid-cols-3 gap-3 mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
                     {(
                       [
                         { key: "transactions", label: "Transactions" },
@@ -640,7 +658,7 @@ export default function SettingsPage() {
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 mb-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
                         Export format
@@ -680,49 +698,51 @@ export default function SettingsPage() {
                     </p>
                   </div>
 
-                  <button className="bg-emerald-800 hover:bg-emerald-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
+                  <button className="w-full sm:w-auto bg-emerald-800 hover:bg-emerald-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
                     Export data
                   </button>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <h3 className="text-base font-semibold text-gray-900 mb-1">Recent Exports</h3>
                   <p className="text-sm text-gray-500 mb-4">
                     Your most recent data export requests.
                   </p>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
-                        <th className="pb-3 font-medium">Export</th>
-                        <th className="pb-3 font-medium">Data</th>
-                        <th className="pb-3 font-medium">Requested</th>
-                        <th className="pb-3 font-medium">Status</th>
-                        <th className="pb-3 font-medium">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentExports.map((row) => (
-                        <tr key={row.name} className="border-b border-gray-50 last:border-0">
-                          <td className="py-3 text-gray-900 font-medium">{row.name}</td>
-                          <td className="py-3 text-gray-700">{row.data}</td>
-                          <td className="py-3 text-gray-700">{row.requested}</td>
-                          <td className="py-3">
-                            <span className="px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-                              {row.status}
-                            </span>
-                          </td>
-                          <td className="py-3">
-                            <button className="text-sm font-medium text-emerald-700 hover:text-emerald-800">
-                              Download
-                            </button>
-                          </td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[560px] text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                          <th className="pb-3 font-medium whitespace-nowrap pr-4">Export</th>
+                          <th className="pb-3 font-medium whitespace-nowrap pr-4">Data</th>
+                          <th className="pb-3 font-medium whitespace-nowrap pr-4">Requested</th>
+                          <th className="pb-3 font-medium whitespace-nowrap pr-4">Status</th>
+                          <th className="pb-3 font-medium whitespace-nowrap">Action</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {recentExports.map((row) => (
+                          <tr key={row.name} className="border-b border-gray-50 last:border-0">
+                            <td className="py-3 text-gray-900 font-medium whitespace-nowrap pr-4">{row.name}</td>
+                            <td className="py-3 text-gray-700 whitespace-nowrap pr-4">{row.data}</td>
+                            <td className="py-3 text-gray-700 whitespace-nowrap pr-4">{row.requested}</td>
+                            <td className="py-3 whitespace-nowrap pr-4">
+                              <span className="px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                                {row.status}
+                              </span>
+                            </td>
+                            <td className="py-3 whitespace-nowrap">
+                              <button className="text-sm font-medium text-emerald-700 hover:text-emerald-800">
+                                Download
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <h3 className="text-sm font-semibold text-gray-900 mb-1">
                     Your Data, Your Control
                   </h3>
@@ -747,7 +767,7 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <h3 className="text-sm font-semibold text-gray-900 mb-4">
                     What will be deleted
                   </h3>
@@ -780,14 +800,14 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                   <h3 className="text-sm font-semibold text-gray-900 mb-1">
                     Ready to delete your account?
                   </h3>
                   <p className="text-sm text-gray-500 mb-5">
                     The next step will ask you to confirm this permanent action.
                   </p>
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <button
                       onClick={() => setActive("Business profile")}
                       className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -813,7 +833,7 @@ export default function SettingsPage() {
             )}
 
             {active === "Delete Account" && deleteStep === 1 && (
-              <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-2xl">
+              <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-8 max-w-2xl">
                 <div className="text-center mb-6">
                   <div className="mx-auto mb-3 w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 text-lg">
                     ⚠
@@ -857,7 +877,7 @@ export default function SettingsPage() {
                   className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm mb-6 focus:outline-none focus:ring-2 focus:ring-red-400"
                 />
 
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={() => setDeleteStep(0)}
                     className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -880,7 +900,7 @@ export default function SettingsPage() {
             )}
 
             {active === "Delete Account" && deleteStep === 2 && (
-              <div className="bg-white rounded-xl border border-gray-200 p-10 max-w-2xl text-center mx-auto">
+              <div className="bg-white rounded-xl border border-gray-200 p-6 sm:p-10 max-w-2xl text-center mx-auto">
                 <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
                   <Check size={28} className="text-green-600" />
                 </div>
@@ -937,21 +957,21 @@ export default function SettingsPage() {
 
       {/* Change Plan modal */}
       {showChangePlan && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-6">
-          <div className="bg-white rounded-2xl w-full max-w-3xl p-8 relative">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-3 sm:p-6">
+          <div className="bg-white rounded-2xl w-full max-w-3xl p-5 sm:p-8 relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setShowChangePlan(false)}
-              className="absolute top-6 right-6 text-gray-400 hover:text-gray-600"
+              className="absolute top-5 right-5 sm:top-6 sm:right-6 text-gray-400 hover:text-gray-600"
             >
               <X size={20} />
             </button>
 
-            <h2 className="text-xl font-semibold text-gray-900 mb-1">Change your plan</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1 pr-8">Change your plan</h2>
             <p className="text-sm text-gray-500 mb-6">
               Upgrade or downgrade anytime. Changes apply from your next billing date.
             </p>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Starter */}
               <div className="border border-gray-200 rounded-xl p-5 flex flex-col">
                 <h3 className="font-semibold text-gray-900 mb-1">Starter</h3>
@@ -979,8 +999,8 @@ export default function SettingsPage() {
               </div>
 
               {/* Growth - current plan */}
-              <div className="border-2 border-emerald-700 rounded-xl p-5 flex flex-col relative">
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-700 text-white text-[10px] font-semibold px-3 py-1 rounded-full uppercase tracking-wide">
+              <div className="border-2 border-emerald-700 rounded-xl p-5 flex flex-col relative mt-3 sm:mt-0">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-700 text-white text-[10px] font-semibold px-3 py-1 rounded-full uppercase tracking-wide whitespace-nowrap">
                   Your current plan
                 </span>
                 <h3 className="font-semibold text-gray-900 mb-1 mt-2">Growth</h3>
@@ -1051,8 +1071,8 @@ export default function SettingsPage() {
 
       {/* Scale-plan upgrade flow (3 steps) */}
       {upgradeStep > 0 && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-6">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 relative">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-3 sm:p-6">
+          <div className="bg-white rounded-2xl w-full max-w-md p-5 sm:p-6 relative max-h-[90vh] overflow-y-auto">
             {upgradeStep < 3 && (
               <button
                 onClick={() => setUpgradeStep(0)}
@@ -1100,7 +1120,7 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={() => setUpgradeStep(0)}
                     className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -1181,7 +1201,7 @@ export default function SettingsPage() {
                   You can also add this branch anytime from Staff & branches.
                 </p>
 
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={() => setUpgradeStep(3)}
                     className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
