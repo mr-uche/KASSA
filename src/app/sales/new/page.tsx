@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ScanBarcode, Minus, Plus } from "lucide-react";
+import { Search, ScanBarcode, Minus, Plus, Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 
 type Product = {
@@ -34,6 +34,7 @@ export default function NewSalePage() {
     { name: "Vitamin C 1000mg", price: 5800, qty: 1 },
   ]);
   const [paymentMethod, setPaymentMethod] = useState("Transfer");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const filtered = products.filter(
     (p) =>
@@ -75,13 +76,28 @@ export default function NewSalePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <KassaSidebar />
+    <div className="min-h-screen overflow-x-hidden bg-gray-50">
+      <KassaSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
-      <main className="ml-[198px] p-8">
-        <div className="flex items-center justify-between mb-1">
-          <h1 className="text-2xl font-semibold text-gray-900">New sale</h1>
-          <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700">
+      <main className="min-h-screen lg:ml-[198px] p-4 sm:p-6 lg:p-8">
+        {/* Mobile header row with menu button */}
+        <div className="flex items-center justify-between gap-3 mb-1">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="shrink-0 rounded-md p-1.5 text-gray-600 transition hover:bg-gray-100 lg:hidden"
+              aria-label="Open menu"
+            >
+              <Menu size={22} />
+            </button>
+
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 truncate">New sale</h1>
+          </div>
+          <button className="shrink-0 flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700">
             Main branch
           </button>
         </div>
@@ -89,15 +105,15 @@ export default function NewSalePage() {
           Sales / <span className="bg-yellow-100 px-1 rounded">New sale</span>
         </p>
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Add products */}
-          <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6">
+          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-1">Add products</h2>
             <p className="text-sm text-gray-500 mb-4">
               Search or scan products to build the customer&apos;s order.
             </p>
 
-            <div className="flex gap-3 mb-4">
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
               <div className="flex-1 relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
@@ -107,18 +123,18 @@ export default function NewSalePage() {
                   className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
                 />
               </div>
-              <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors">
+              <button className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors shrink-0">
                 <ScanBarcode size={16} />
                 Scan
               </button>
             </div>
 
-            <div className="flex gap-2 mb-5">
+            <div className="-mx-5 sm:mx-0 flex gap-2 mb-5 overflow-x-auto px-5 sm:px-0">
               {filterTabs.map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveFilter(tab)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                     activeFilter === tab
                       ? "bg-emerald-800 text-white"
                       : "border border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -129,7 +145,7 @@ export default function NewSalePage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
               {filtered.map((p) => (
                 <div key={p.sku} className="border border-gray-200 rounded-lg p-3 flex gap-3">
                   <div className={`w-12 h-12 rounded-md ${p.color} shrink-0`} />
@@ -163,7 +179,7 @@ export default function NewSalePage() {
           </div>
 
           {/* Current sale */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 h-fit">
+          <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6 h-fit">
             <h2 className="text-lg font-semibold text-gray-900 mb-1">Current sale</h2>
             <p className="text-sm text-gray-500 mb-5">
               Transaction will be linked to Ifeoma Bassey.
@@ -183,14 +199,14 @@ export default function NewSalePage() {
             </p>
             <div className="space-y-3 mb-4">
               {sale.map((item) => (
-                <div key={item.name} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                <div key={item.name} className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
                     <p className="text-xs text-gray-500">
                       ₦{item.price.toLocaleString()} × {item.qty}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => updateQty(item.name, -1)}
                       className="w-6 h-6 rounded border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50"
@@ -230,7 +246,7 @@ export default function NewSalePage() {
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
               Payment method
             </p>
-            <div className="grid grid-cols-4 gap-2 mb-5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
               {["Transfer", "POS", "Cash", "USSD / Card"].map((method) => (
                 <button
                   key={method}
