@@ -1,6 +1,7 @@
 "use client";
 import {useRouter} from "next/navigation";
 import { useState } from "react";
+import { Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import { Loader2, CheckCircle2, X } from "lucide-react";
 
@@ -15,7 +16,7 @@ export default function AddCustomerPage() {
     address: "",
     notes: "",
   });
-  const [showToast, setShowToast] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -33,20 +34,35 @@ export default function AddCustomerPage() {
 };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <KassaSidebar />
+    <div className="min-h-screen overflow-x-hidden bg-gray-50">
+      <KassaSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
-      <main className="ml-[198px] p-8">
-        <h1 className="text-2xl font-semibold text-emerald-800 mb-1">Add Customer</h1>
-        <p className="text-gray-500 mb-6">
+      <main className="min-h-screen lg:ml-[198px] p-4 sm:p-6 lg:p-8">
+        {/* Mobile header row with menu button */}
+        <div className="flex items-center gap-3 mb-1">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="shrink-0 rounded-md p-1.5 text-gray-600 transition hover:bg-gray-100 lg:hidden"
+            aria-label="Open menu"
+          >
+            <Menu size={22} />
+          </button>
+
+          <h1 className="text-xl sm:text-2xl font-semibold text-emerald-800">Add Customer</h1>
+        </div>
+        <p className="text-gray-500 mb-6 text-sm sm:text-base">
           Create a customer record to keep their information and purchase history organised.
         </p>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-3xl">
+        <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6 max-w-3xl">
           <h2 className="text-lg font-semibold text-gray-900 mb-1">Customer information</h2>
           <p className="text-sm text-gray-500 mb-5">Fields marked with * are required.</p>
 
-          <div className="grid grid-cols-2 gap-x-6 gap-y-5 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 mb-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Full name <span className="text-red-500">*</span>
@@ -94,7 +110,7 @@ export default function AddCustomerPage() {
                 <option>Corporate account</option>
               </select>
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Address
               </label>
@@ -129,6 +145,8 @@ export default function AddCustomerPage() {
               type="button"
               onClick={() => router.push("/customers")}
               className="rounded-lg border border-[#E5E7EB] px-5 py-2.5 text-[13px] font-medium text-[#182033] hover:bg-[#d8d6d6]">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 mt-6">
+            <button className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">
               Cancel
             </button>
             <button  
