@@ -1,10 +1,14 @@
 "use client";
 
+import {useRouter} from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import KassaSidebar from "@/components/KassaSidebar";
+import { Loader2 } from "lucide-react";
 
 export default function AddBranchPage() {
+  const router = useRouter();    
+  const [saving, setSaving] = useState(false);  
   const [form, setForm] = useState({
     name: "",
     code: "",
@@ -14,6 +18,17 @@ export default function AddBranchPage() {
     state: "",
     status: "Active",
   });
+
+  const handleSave = async () => {
+  setSaving(true);
+  await new Promise((resolve) => setTimeout(resolve, 1000)); // remove once real API is wired up
+
+  setSaving(false);
+
+  setTimeout(() => {
+    router.push("/staff-branches?added=branch");
+  }, 1200);
+};
 
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -162,11 +177,15 @@ export default function AddBranchPage() {
                 </p>
               </div>
 
-              <button className="w-full bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium transition-colors mb-3">
-                Add branch
+              <button 
+               onClick={handleSave}
+               disabled={saving}
+               className="w-full flex items-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium transition-colors mb-3 disabled:opacity-70">
+                {saving && <Loader2 size={14} className="animate-spin" />}
+               {saving ? "Adding..." : "Add branch"}
               </button>
               <Link
-                href="/staff"
+                  href="/staff-branches"
                 className="block w-full text-center border border-gray-200 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 mb-3"
               >
                 Cancel

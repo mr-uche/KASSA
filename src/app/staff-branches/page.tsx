@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState,useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Search,
   Filter,
   Plus,
+  Loader2,
+  CheckCircle2,
+  X ,
   MoreHorizontal,
   ChevronDown,
   Menu,
@@ -74,7 +78,7 @@ function StatusBadge({ status }: { status: StaffMember["status"] | Branch["statu
   );
 }
 
-export default function StaffBranchesPage() {
+function StaffBranchesContent() {
   const [activeTab, setActiveTab] = useState<Tab>("Staff");
   const [query, setQuery] = useState("");
   const [showInviteForm, setShowInviteForm] = useState(false);
@@ -109,6 +113,72 @@ export default function StaffBranchesPage() {
 
   const headerButtonLabel =
     activeTab === "Staff" ? "Invite Staff" : activeTab === "Branches" ? "Add Branch" : "Add Role";
+
+ const [showBranchToast, setShowBranchToast] = useState(false);
+ const [showRoleToast, setShowRoleToast] = useState(false);
+ const [showStaffToast, setShowStaffToast] = useState(false);
+
+  
+ const searchParams = useSearchParams();
+ const router = useRouter();
+ const [saving, setSaving] = useState(false); 
+
+ // Branch toast
+ useEffect(() => {
+  const added = searchParams.get("added");
+  if (added === "branch") {
+    setShowBranchToast(true);
+    setActiveTab("Branches");
+    router.replace("/staff-branches");
+  }
+}, [searchParams, router]);
+
+ useEffect(() => {
+  if (!showBranchToast) return;
+  const timer = setTimeout(() => setShowBranchToast(false), 4000);
+  return () => clearTimeout(timer);
+}, [showBranchToast]);
+
+// Role toast
+useEffect(() => {
+  const added = searchParams.get("added");
+  if (added === "role") {
+    setShowRoleToast(true);
+    setActiveTab("Roles & Permissions");
+    router.replace("/staff-branches");
+  }
+}, [searchParams, router]);
+
+useEffect(() => {
+  if (!showRoleToast) return;
+  const timer = setTimeout(() => setShowRoleToast(false), 4000);
+  return () => clearTimeout(timer);
+}, [showRoleToast]);
+
+// Staff toast
+ useEffect(() => {
+  const added = searchParams.get("added");
+  if (added === "staff") {
+    setShowStaffToast(true);
+    router.replace("/staff-branches");
+  }
+}, [searchParams, router]);
+
+useEffect(() => {
+  if (!showStaffToast) return;
+  const timer = setTimeout(() => setShowStaffToast(false), 4000);
+  return () => clearTimeout(timer);
+}, [showStaffToast]);
+
+ const handleSave = async () => {
+  setSaving(true);
+  // TODO: replace with your real API call to send the invite
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  setSaving(false);
+
+  setShowInviteForm(false);
+  setShowStaffToast(true);
+};
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50">
@@ -356,8 +426,12 @@ export default function StaffBranchesPage() {
                     >
                       Cancel
                     </button>
-                    <button className="px-5 py-2.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors">
-                      Send Invite
+                    <button 
+                     onClick={handleSave}
+                      disabled={saving}
+                     className="w-[120px] flex items-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium transition-colors mb-3 disabled:opacity-70">
+                      {saving && <Loader2 size={14} className="animate-spin" />}
+                      {saving ? "Sending..." : "Send Invite"}
                     </button>
                   </div>
                 </div>
@@ -587,6 +661,64 @@ export default function StaffBranchesPage() {
           </>
         )}
       </main>
+     {showBranchToast && (
+  <div className="fixed bottom-6 right-6 flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 shadow-lg">
+    <CheckCircle2 className="text-[#0F4C3A]" size={20} />
+    <div>
+      <p className="text-[13px] font-semibold text-[#182033]">
+        Branch added successfully
+      </p>
+      <p className="text-[12px] text-[#98A1AE]">
+        The branch record has been saved.
+      </p>
+    </div>
+    <button onClick={() => setShowBranchToast(false)}>
+      <X size={14} className="text-[#98A1AE]" />
+    </button>
+  </div>
+)}
+
+{showRoleToast && (
+  <div className="fixed bottom-6 right-6 flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 shadow-lg">
+    <CheckCircle2 className="text-[#0F4C3A]" size={20} />
+    <div>
+      <p className="text-[13px] font-semibold text-[#182033]">
+        Role added successfully
+      </p>
+      <p className="text-[12px] text-[#98A1AE]">
+        The role is now available to assign.
+      </p>
+    </div>
+    <button onClick={() => setShowRoleToast(false)}>
+      <X size={14} className="text-[#98A1AE]" />
+    </button>
+  </div>
+)}
+
+{showStaffToast && (
+  <div className="fixed bottom-6 right-6 flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 shadow-lg">
+    <CheckCircle2 className="text-[#0F4C3A]" size={20} />
+    <div>
+      <p className="text-[13px] font-semibold text-[#182033]">
+        Staff invited successfully
+      </p>
+      <p className="text-[12px] text-[#98A1AE]">
+        An invitation email has been sent.
+      </p>
+    </div>
+    <button onClick={() => setShowStaffToast(false)}>
+      <X size={14} className="text-[#98A1AE]" />
+    </button>
+  </div>
+)}
     </div>
   );
+}
+
+export default function StaffBranchPage() {
+  return (
+    <Suspense fallback={null}>
+      <StaffBranchesContent />
+    </Suspense>
+  )
 }

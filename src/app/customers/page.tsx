@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Search, ChevronDown, Download, MoreHorizontal, Plus, Menu } from "lucide-react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Search, ChevronDown, Download, MoreHorizontal, Plus, CheckCircle2, X } from "lucide-react";
 import Link from "next/link";
 import KassaSidebar from "@/components/KassaSidebar";
 
@@ -20,9 +21,24 @@ const customers: Customer[] = [
   { name: "Grace Umeh", phone: "0806 218 4501", email: "grace.umeh@email.com", purchases: 12, lastPurchase: "Aug 18, 11:52 AM", status: "Active" },
 ];
 
-export default function CustomersPage() {
+function CustomersPageContent() {
   const [query, setQuery] = useState("");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [showToast, setShowToast] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("added") === "true") {
+      setShowToast(true);
+      router.replace("/customers");
+    }
+  }, [searchParams, router]);
+
+  useEffect(() => {
+    if (!showToast) return;
+    const timer = setTimeout(() => setShowToast(false), 4000);
+    return () => clearTimeout(timer);
+  }, [showToast]);
 
   const filtered = customers.filter((c) =>
     `${c.name} ${c.phone} ${c.email}`.toLowerCase().includes(query.toLowerCase())
@@ -169,6 +185,31 @@ export default function CustomersPage() {
           </table>
         </div>
       </main>
+
+      {showToast && (
+        <div className="fixed bottom-6 right-6 flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 shadow-lg">
+          <CheckCircle2 className="text-[#0F4C3A]" size={20} />
+          <div>
+            <p className="text-[13px] font-semibold text-[#182033]">
+              Customer added successfully
+            </p>
+            <p className="text-[12px] text-[#98A1AE]">
+              The customer record has been saved.
+            </p>
+          </div>
+          <button onClick={() => setShowToast(false)}>
+            <X size={14} className="text-[#98A1AE]" />
+          </button>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function CustomersPage() {
+  return (
+    <Suspense fallback={null}>
+      <CustomersPageContent />
+    </Suspense>
   );
 }

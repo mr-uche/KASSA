@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import {useRouter} from "next/navigation";
 import Link from "next/link";
 import KassaSidebar from "@/components/KassaSidebar";
+import { Loader2} from "lucide-react";
 
 const productOptions = [
   { name: "Paracetamol 500mg", currentStock: 8 },
@@ -11,7 +13,8 @@ const productOptions = [
 ];
 
 export default function RestockProductPage() {
-  const [selectedProduct, setSelectedProduct] = useState(productOptions[0].name);
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);  const [selectedProduct, setSelectedProduct] = useState(productOptions[0].name);
   const [quantityToAdd, setQuantityToAdd] = useState("50");
   const [supplierRef, setSupplierRef] = useState("");
   const [note, setNote] = useState("");
@@ -19,6 +22,20 @@ export default function RestockProductPage() {
   const current = productOptions.find((p) => p.name === selectedProduct)?.currentStock ?? 0;
   const added = Number(quantityToAdd) || 0;
   const newStock = current + added;
+
+  const handleSave = async () => {
+  setSaving(true);
+  await new Promise((resolve) => setTimeout(resolve, 1000)); // remove once real API is wired up
+  setSaving(false);
+
+  const params = new URLSearchParams({
+    added: "restock",
+     product: selectedProduct,
+     units: quantityToAdd,     
+  });
+
+  router.push(`/products?${params.toString()}`);
+ };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -129,8 +146,12 @@ export default function RestockProductPage() {
               >
                 Cancel
               </Link>
-              <button className="px-5 py-2.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors">
-                Restock Product
+              <button 
+               onClick={handleSave}
+               disabled={saving}
+               className="px-5 py-2.5 rounded-lg flex items-center justify-center bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors">
+                {saving && <Loader2 className="animate-spin" />}
+                {saving ? "Restocking..." : "Restock Product"}
               </button>
             </div>
           </div>
