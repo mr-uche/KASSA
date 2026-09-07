@@ -1,8 +1,8 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
-import { X, Check, Loader2, CheckCircle2 } from "lucide-react";
+import { Menu, X, Check, Loader2, CheckCircle2 } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 
 const navItems = [
@@ -88,6 +88,7 @@ function SettingsPageContent() {
   };
 
   const router = useRouter();
+  const pathname = usePathname();
   const [saving, setSaving] = useState(false);
   const searchParams = useSearchParams();
   const [showSettingsToast, setShowSettingsToast] = useState(false);
@@ -152,7 +153,9 @@ function SettingsPageContent() {
     <div className="min-h-screen bg-gray-50">
   {/* Desktop sidebar */}
   <div className="hidden md:block">
-    <KassaSidebar />
+    <KassaSidebar isOpen={false} onClose={function (): void {
+          throw new Error("Function not implemented.");
+        } } />
   </div>
 
   {/* Mobile header */}
@@ -160,11 +163,82 @@ function SettingsPageContent() {
     <span className="text-white font-semibold text-lg">Kassa</span>
 
     <button
-      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-     className="text-white text-2xl">
-      ☰
+      type="button"
+      onClick={() => setMobileMenuOpen((prev) => !prev)}
+      aria-label="Open navigation menu"
+      aria-expanded={mobileMenuOpen}
+      className="text-white"
+    >
+      <Menu size={24} />
     </button>
   </div>
+
+  {mobileMenuOpen && (
+    <div className="md:hidden fixed inset-0 z-50">
+      <button
+        type="button"
+        aria-label="Close navigation menu"
+        onClick={() => setMobileMenuOpen(false)}
+        className="absolute inset-0 bg-black/40"
+      />
+
+      <aside className="relative z-10 h-full w-[260px] max-w-[85vw] bg-[#08745F] text-white shadow-xl">
+        <div className="flex h-[72px] items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-[34px] w-[26px] items-center justify-center rounded-r-md bg-white text-[17px] font-bold text-[#08745F]">
+              K
+            </div>
+            <span className="text-[18px] font-semibold">Kassa</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close navigation menu"
+            className="mr-4 rounded-md p-2 text-white/90 hover:bg-[#075C4D]"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <nav className="mt-8 flex flex-col gap-1">
+          {[
+            { name: "Home", href: "/dashboard" },
+            { name: "Transactions", href: "/transactions" },
+            { name: "Reports & Analytics", href: "/reports" },
+            { name: "Products & Inventory", href: "/products" },
+            { name: "Staff & Branches", href: "/staff-branches" },
+            { name: "Settings", href: "/settings" },
+          ].map((item) => {
+            const activeRoute =
+              window.location.pathname === item.href ||
+              (item.href !== "/dashboard" &&
+                window.location.pathname.startsWith(item.href));
+
+            return (
+              <a
+                key={item.name}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`relative flex h-11 items-center px-4 text-sm transition ${
+                  activeRoute
+                    ? "rounded-r-lg bg-[#075C4D] font-semibold"
+                    : "text-white/90 hover:bg-[#075C4D]/60"
+                }`}
+              >
+                <span
+                  className={`mr-[9px] h-[5px] w-[5px] rounded-full ${
+                    activeRoute ? "bg-[#B7E5D5]" : "bg-transparent"
+                  }`}
+                />
+                {item.name}
+              </a>
+            );
+          })}
+        </nav>
+      </aside>
+    </div>
+  )}
 
   <main className="ml-0 md:ml-[198px] p-4 md:p-8">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">Settings</h1>
@@ -392,7 +466,8 @@ function SettingsPageContent() {
                       View all
                     </button>
                   </div>
-                  <table className="w-full text-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[600px] text-sm">
                     <thead>
                       <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
                         <th className="pb-3 font-medium">Date</th>
@@ -415,7 +490,8 @@ function SettingsPageContent() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                    </table>
+                  </div>
                 </div>
               </>
             )}
@@ -1102,8 +1178,8 @@ function SettingsPageContent() {
 
       {/* Scale-plan upgrade flow (3 steps) */}
       {upgradeStep > 0 && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-6">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 relative">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-3 sm:p-6">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 relative">
             {upgradeStep < 3 && (
               <button
                 onClick={() => setUpgradeStep(0)}
@@ -1288,7 +1364,7 @@ function SettingsPageContent() {
         </div>
       )}
       {showSettingsToast && (
-        <div className="fixed bottom-6 right-6 flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 shadow-lg">
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:w-auto flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 shadow-lg z-[60]">
           <CheckCircle2 className="text-[#0F4C3A]" size={20} />
           <div>
             <p className="text-[13px] font-semibold text-[#182033]">

@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   Bell,
   ChevronDown,
+  Menu,
   Search,
 } from "lucide-react";
 
@@ -81,7 +83,7 @@ function StatusBadge({ status }: { status: string }) {
 
   return (
     <span
-      className={`inline-flex rounded-full px-3 py-[5px] text-[11px] font-semibold ${
+      className={`inline-flex whitespace-nowrap rounded-full px-3 py-[5px] text-[11px] font-semibold ${
         styles[status as keyof typeof styles]
       }`}
     >
@@ -100,11 +102,11 @@ function FilterButton({
   return (
     <button
       style={{ width }}
-      className="flex h-[42px] items-center justify-between rounded-[8px] border border-[#D4D9E0] bg-white px-[15px] text-[13px] text-[#3D4656]"
+      className="flex h-[42px] shrink-0 items-center justify-between rounded-[8px] border border-[#D4D9E0] bg-white px-[15px] text-[13px] text-[#3D4656]"
     >
       {children}
 
-      <ChevronDown size={17} className="text-[#70798A]" />
+      <ChevronDown size={17} className="ml-2 shrink-0 text-[#70798A]" />
     </button>
   );
 }
@@ -119,11 +121,11 @@ function SummaryCard({
   valueClass?: string;
 }) {
   return (
-    <div className="h-[73px] flex-1 rounded-[11px] border border-[#DFE3E8] bg-white px-[23px] py-[14px]">
+    <div className="min-h-[73px] rounded-[11px] border border-[#DFE3E8] bg-white px-4 py-[14px] sm:px-[23px]">
       <p className="text-[12px] text-[#70798A]">{title}</p>
 
       <p
-        className={`mt-[3px] text-[22px] font-bold tracking-[-0.3px] ${valueClass}`}
+        className={`mt-[3px] text-[19px] font-bold tracking-[-0.3px] sm:text-[22px] ${valueClass}`}
       >
         {value}
       </p>
@@ -132,18 +134,34 @@ function SummaryCard({
 }
 
 export default function TransactionsPage() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
-    <div className="min-h-screen bg-[#F5F6F8]">
-      <KassaSidebar />
+    <div className="min-h-screen overflow-x-hidden bg-[#F5F6F8]">
+      <KassaSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
-      <main className="ml-[198px] min-h-screen">
+      <main className="min-h-screen lg:ml-[198px]">
         {/* Header */}
-        <header className="flex h-[80px] items-center justify-between border-b border-[#E5E7EB] bg-white px-[32px]">
-          <h1 className="text-[21px] font-bold text-[#182033]">
-            Transactions
-          </h1>
+        <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="shrink-0 rounded-md p-1.5 text-[#374151] transition hover:bg-[#F3F4F6] lg:hidden"
+              aria-label="Open menu"
+            >
+              <Menu size={22} />
+            </button>
 
-          <div className="flex items-center gap-5">
+            <h1 className="truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">
+              Transactions
+            </h1>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-3 sm:gap-5">
             <button className="relative flex h-[36px] w-[36px] items-center justify-center rounded-full bg-[#F8F9FA]">
               <Bell size={17} className="text-[#98A1AE]" />
 
@@ -157,11 +175,11 @@ export default function TransactionsPage() {
         </header>
 
         {/* Page content */}
-        <section className="px-[32px] pb-[40px] pt-[32px]">
+        <section className="px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-10 lg:pt-12">
           {/* Filters */}
-          <div className="flex items-center gap-[15px]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-[15px]">
             {/* Search */}
-            <div className="relative w-[265px]">
+            <div className="relative w-full sm:w-[265px]">
               <Search
                 size={19}
                 className="absolute left-[13px] top-[11px] text-[#9BA4B3]"
@@ -174,29 +192,29 @@ export default function TransactionsPage() {
               />
             </div>
 
-            <FilterButton width="140px">
-              <span>All channels</span>
-            </FilterButton>
+            {/* Filter row: horizontal scroll on mobile instead of wrapping/overflow */}
+            <div className="-mx-4 flex gap-[10px] overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:gap-[15px] sm:overflow-visible sm:px-0">
+              <FilterButton width="140px">
+                <span>All channels</span>
+              </FilterButton>
 
-            <FilterButton width="140px">
-              <span>All statuses</span>
-            </FilterButton>
+              <FilterButton width="140px">
+                <span>All statuses</span>
+              </FilterButton>
 
-            <FilterButton width="160px">
-              <span>Last 7 days</span>
-            </FilterButton>
+              <FilterButton width="160px">
+                <span>Last 7 days</span>
+              </FilterButton>
+            </div>
 
-            <button className="ml-auto h-[42px] rounded-[8px] border border-[#D4D9E0] bg-white px-[17px] text-[13px] font-semibold text-[#394355]">
+            <button className="h-[42px] w-full rounded-[8px] border border-[#D4D9E0] bg-white px-[17px] text-[13px] font-semibold text-[#394355] sm:ml-auto sm:w-auto">
               Export
             </button>
           </div>
 
           {/* Summary */}
-          <div className="mt-[18px] flex gap-[15px]">
-            <SummaryCard
-              title="Total received"
-              value="₦2,840,600"
-            />
+          <div className="mt-[18px] grid grid-cols-2 gap-3 sm:flex sm:gap-[15px]">
+            <SummaryCard title="Total received" value="₦2,840,600" />
 
             <SummaryCard
               title="Successful"
@@ -204,49 +222,41 @@ export default function TransactionsPage() {
               valueClass="text-[#32651C]"
             />
 
-            <SummaryCard
-              title="Pending"
-              value="14"
-              valueClass="text-[#8A4F05]"
-            />
+            <SummaryCard title="Pending" value="14" valueClass="text-[#8A4F05]" />
 
-            <SummaryCard
-              title="Failed"
-              value="9"
-              valueClass="text-[#A42626]"
-            />
+            <SummaryCard title="Failed" value="9" valueClass="text-[#A42626]" />
           </div>
 
           {/* Transactions table */}
-          <div className="mt-[20px] overflow-hidden rounded-[11px] border border-[#E0E3E8] bg-white">
-            <table className="w-full border-collapse">
+          <div className="mt-5 w-full overflow-x-auto rounded-[11px] border border-[#E0E3E8] bg-white">
+            <table className="w-full min-w-[820px] border-collapse">
               <thead>
                 <tr className="h-[47px] border-b border-[#E5E7EB]">
-                  <th className="px-[23px] text-left text-[11px] font-semibold text-[#687386]">
+                  <th className="whitespace-nowrap px-4 text-left text-[11px] font-semibold text-[#687386] sm:px-[23px]">
                     CUSTOMER
                   </th>
 
-                  <th className="px-[23px] text-left text-[11px] font-semibold text-[#687386]">
+                  <th className="whitespace-nowrap px-4 text-left text-[11px] font-semibold text-[#687386] sm:px-[23px]">
                     CASHIER
                   </th>
 
-                  <th className="px-[23px] text-left text-[11px] font-semibold text-[#687386]">
+                  <th className="whitespace-nowrap px-4 text-left text-[11px] font-semibold text-[#687386] sm:px-[23px]">
                     CHANNEL
                   </th>
 
-                  <th className="px-[23px] text-left text-[11px] font-semibold text-[#687386]">
+                  <th className="whitespace-nowrap px-4 text-left text-[11px] font-semibold text-[#687386] sm:px-[23px]">
                     ITEMS
                   </th>
 
-                  <th className="px-[23px] text-left text-[11px] font-semibold text-[#687386]">
+                  <th className="whitespace-nowrap px-4 text-left text-[11px] font-semibold text-[#687386] sm:px-[23px]">
                     AMOUNT
                   </th>
 
-                  <th className="px-[23px] text-left text-[11px] font-semibold text-[#687386]">
+                  <th className="whitespace-nowrap px-4 text-left text-[11px] font-semibold text-[#687386] sm:px-[23px]">
                     STATUS
                   </th>
 
-                  <th className="px-[23px] text-left text-[11px] font-semibold text-[#687386]">
+                  <th className="whitespace-nowrap px-4 text-left text-[11px] font-semibold text-[#687386] sm:px-[23px]">
                     TIME
                   </th>
                 </tr>
@@ -258,7 +268,7 @@ export default function TransactionsPage() {
                     key={transaction.id}
                     className="h-[52px] border-b border-[#EEF0F3] last:border-0"
                   >
-                    <td className="px-[23px] text-[13px]">
+                    <td className="whitespace-nowrap px-4 text-[13px] sm:px-[23px]">
                       <Link
                         href={
                           transaction.status === "Pending"
@@ -271,27 +281,27 @@ export default function TransactionsPage() {
                       </Link>
                     </td>
 
-                    <td className="px-[23px] text-[13px] text-[#536074]">
+                    <td className="whitespace-nowrap px-4 text-[13px] text-[#536074] sm:px-[23px]">
                       {transaction.cashier}
                     </td>
 
-                    <td className="px-[23px] text-[13px] text-[#536074]">
+                    <td className="whitespace-nowrap px-4 text-[13px] text-[#536074] sm:px-[23px]">
                       {transaction.channel}
                     </td>
 
-                    <td className="px-[23px] text-[13px] text-[#536074]">
+                    <td className="whitespace-nowrap px-4 text-[13px] text-[#536074] sm:px-[23px]">
                       {transaction.items}
                     </td>
 
-                    <td className="px-[23px] text-[13px] font-bold text-[#182033]">
+                    <td className="whitespace-nowrap px-4 text-[13px] font-bold text-[#182033] sm:px-[23px]">
                       {transaction.amount}
                     </td>
 
-                    <td className="px-[23px]">
+                    <td className="whitespace-nowrap px-4 sm:px-[23px]">
                       <StatusBadge status={transaction.status} />
                     </td>
 
-                    <td className="px-[23px] text-[13px] text-[#687386]">
+                    <td className="whitespace-nowrap px-4 text-[13px] text-[#687386] sm:px-[23px]">
                       {transaction.time}
                     </td>
                   </tr>
@@ -299,6 +309,10 @@ export default function TransactionsPage() {
               </tbody>
             </table>
           </div>
+
+          <p className="mt-2 text-[11px] text-[#8A93A2] sm:hidden">
+            ← Swipe horizontally to view all transaction details →
+          </p>
         </section>
       </main>
     </div>
