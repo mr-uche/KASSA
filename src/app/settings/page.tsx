@@ -146,18 +146,33 @@ function SettingsPageContent() {
     setExportData((prev) => ({ ...prev, [key]: !prev[key] }));
   const [exportFormat, setExportFormat] = useState("CSV");
   const [exportDateRange, setExportDateRange] = useState("All available data");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <KassaSidebar />
+  {/* Desktop sidebar */}
+  <div className="hidden md:block">
+    <KassaSidebar />
+  </div>
 
-      <main className="ml-[198px] p-8">
+  {/* Mobile header */}
+  <div className="md:hidden sticky top-0 z-40 bg-emerald-800 px-4 py-4 flex items-center justify-between">
+    <span className="text-white font-semibold text-lg">Kassa</span>
+
+    <button
+      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+     className="text-white text-2xl">
+      ☰
+    </button>
+  </div>
+
+  <main className="ml-0 md:ml-[198px] p-4 md:p-8">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">Settings</h1>
 
-        <div className="flex gap-6">
+        <div className="flex flex-col md:flex-row gap-4 md:gap-6">
           {/* Left nav */}
-          <aside className="w-64 shrink-0">
-            <nav className="bg-white rounded-xl border border-gray-200 p-2">
+          <aside className="w-full md:w-64 shrink-0">
+            <nav className="bg-white rounded-xl border border-gray-200 p-2 overflow-x-auto">
               {navItems.map((item) => (
                 <button
                   key={item}
@@ -168,7 +183,7 @@ function SettingsPageContent() {
                       setDeleteConfirmText("");
                     }
                   }}
-                  className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  className={`w-full md:text-left text-left px-3 md:px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     active === item
                       ? "bg-emerald-50 text-emerald-800"
                       : item === "Delete Account"
@@ -186,12 +201,12 @@ function SettingsPageContent() {
           <div className="flex-1 space-y-6">
             {active === "Business profile" && (
               <>
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
                   <h2 className="text-lg font-semibold text-gray-900 mb-6">
                     Business profile
                   </h2>
 
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
                         Business name
@@ -232,7 +247,7 @@ function SettingsPageContent() {
                         className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
                       />
                     </div>
-                    <div className="col-span-2">
+                   <div className="sm:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
                         Business address
                       </label>
@@ -258,8 +273,8 @@ function SettingsPageContent() {
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">
                     Current plan
                   </h2>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                       <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-medium">
                         Growth tier
                       </span>
@@ -291,7 +306,7 @@ function SettingsPageContent() {
                     Manage your plan, billing cycle, payment method, and invoices.
                   </p>
 
-                  <div className="border border-gray-200 rounded-lg p-5 flex items-center justify-between">
+                 <div className="border border-gray-200 rounded-lg p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                       <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
                         Current plan
@@ -330,7 +345,7 @@ function SettingsPageContent() {
                   <h3 className="text-base font-semibold text-gray-900 mb-4">
                     Billing details
                   </h3>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="border border-gray-200 rounded-lg p-4">
                       <p className="text-xs text-gray-500 mb-1">Billing cycle</p>
                       <p className="font-semibold text-gray-900 mb-1">Monthly</p>
@@ -502,8 +517,8 @@ function SettingsPageContent() {
             )}
 
             {active === "Notifications" && (
-              <div className="grid grid-cols-3 gap-6 items-start">
-                <div className="col-span-2 space-y-6">
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                <div className="lg:col-span-2 space-y-6">
                   <div className="bg-white rounded-xl border border-gray-200 p-6">
                     <h3 className="text-sm font-semibold text-gray-900">Transaction alerts</h3>
                     <p className="text-xs text-gray-500 mb-4">
@@ -650,7 +665,7 @@ function SettingsPageContent() {
                   </p>
 
                   <p className="text-sm font-medium text-gray-900 mb-3">Data to export</p>
-                  <div className="grid grid-cols-3 gap-3 mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
                     {(
                       [
                         { key: "transactions", label: "Transactions" },
@@ -676,7 +691,7 @@ function SettingsPageContent() {
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 mb-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
                         Export format
@@ -721,12 +736,12 @@ function SettingsPageContent() {
                   </button>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="bg-white rounded-xl border border-gray-200 p-6 overflow-x-auto">
                   <h3 className="text-base font-semibold text-gray-900 mb-1">Recent Exports</h3>
                   <p className="text-sm text-gray-500 mb-4">
                     Your most recent data export requests.
                   </p>
-                  <table className="w-full text-sm">
+                 <table className="w-full min-w-[600px] text-sm">
                     <thead>
                       <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
                         <th className="pb-3 font-medium">Export</th>
@@ -973,8 +988,8 @@ function SettingsPageContent() {
 
       {/* Change Plan modal */}
       {showChangePlan && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-6">
-          <div className="bg-white rounded-2xl w-full max-w-3xl p-8 relative">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-3 sm:p-6">
+          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-8 relative">
             <button
               onClick={() => setShowChangePlan(false)}
               className="absolute top-6 right-6 text-gray-400 hover:text-gray-600"
@@ -987,7 +1002,7 @@ function SettingsPageContent() {
               Upgrade or downgrade anytime. Changes apply from your next billing date.
             </p>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Starter */}
               <div className="border border-gray-200 rounded-xl p-5 flex flex-col">
                 <h3 className="font-semibold text-gray-900 mb-1">Starter</h3>

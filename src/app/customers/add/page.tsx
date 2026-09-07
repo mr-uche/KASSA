@@ -134,7 +134,7 @@ export default function AddCustomerPage() {
             <button  
               onClick={handleSave}
               disabled={saving}
-              className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-white -700 bg-emerald-800 hover:bg-emerald-900 transition-colors ">
+              className="px-5 py-2.5 rounded-lg flex items-center justify-center gap-3 border border-gray-200 text-sm font-medium text-white bg-emerald-800 hover:bg-emerald-900 transition-colors">
               {saving && <Loader2 size={14} className="animate-spin" />}
               {saving ? "Saving..." : "Save customer"}
             </button>

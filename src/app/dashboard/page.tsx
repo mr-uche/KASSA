@@ -1,5 +1,5 @@
 "use client";
-
+import{useState} from "react";
 import Link from "next/link";                                            
 import {
   Bell,
@@ -64,11 +64,22 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+
 export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#F5F6F8]">
       <KassaSidebar />
 
+       {/* Mobile header */}
+ {/* <div className="md:hidden sticky top-0 z-40 bg-emerald-800 px-4 py-4 flex items-center justify-between">
+    <span className="text-white font-semibold text-lg">Kassa</span>
+
+    <button
+      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+     className="text-white text-2xl">
+      ☰
+    </button>
+  </div>*/}
       {/* Main area */}
       <main className="ml-[198px] min-h-screen">
         {/* Header */}
