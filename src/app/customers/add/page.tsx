@@ -17,6 +17,7 @@ export default function AddCustomerPage() {
     notes: "",
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -140,21 +141,23 @@ export default function AddCustomerPage() {
             />
           </div>
 
-          <div className="flex justify-end gap-3 mt-6">
+          <div className="flex flex-col-reverse gap-3 mt-6 sm:flex-row sm:justify-end">
             <button
-              type="button"
-              onClick={() => router.push("/customers")}
-              className="rounded-lg border border-[#E5E7EB] px-5 py-2.5 text-[13px] font-medium text-[#182033] hover:bg-[#d8d6d6]">
-          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 mt-6">
-            <button className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">
-              Cancel
-            </button>
-            <button  
-              onClick={handleSave}
-              disabled={saving}
-              className="px-5 py-2.5 rounded-lg flex items-center justify-center gap-3 border border-gray-200 text-sm font-medium text-white bg-emerald-800 hover:bg-emerald-900 transition-colors">
-              {saving && <Loader2 size={14} className="animate-spin" />}
-              {saving ? "Saving..." : "Save customer"}
+                type="button"
+                onClick={() => router.push("/customers")}
+                className="w-full sm:w-auto rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full sm:w-auto rounded-lg bg-emerald-800 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-3"
+              >
+                {saving && <Loader2 size={14} className="animate-spin" />}
+                {saving ? "Saving..." : "Save customer"}
             </button>
           </div>
         </div>
