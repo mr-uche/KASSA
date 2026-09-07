@@ -1,11 +1,10 @@
 "use client";
 
-import { useState,useEffect } from "react";
-import { Search, Plus, MoreHorizontal, ChevronDown, X, CheckCircle2} from "lucide-react";
+import { useState, useEffect, Suspense } from "react";
+import { Search, Plus, MoreHorizontal, ChevronDown, X, CheckCircle2 } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-
 
 type Product = {
   name: string;
@@ -66,7 +65,7 @@ function StatusBadge({ status }: { status: Product["status"] | Category["status"
   );
 }
 
-export default function ProductsPage() {
+function ProductsPageContent() {
   const [activeTab, setActiveTab] = useState<Tab>("Catalogue");
   const [query, setQuery] = useState("");
 
@@ -81,29 +80,28 @@ export default function ProductsPage() {
   const headerButtonLabel =
     activeTab === "Catalogue" ? "Add product" : activeTab === "Categories" ? "Add category" : "Restock product";
 
- const [showRestockToast, setShowRestockToast] = useState(false);
- const searchParams = useSearchParams();
- const router = useRouter();
+  const [showRestockToast, setShowRestockToast] = useState(false);
+  const [restockedProduct, setRestockedProduct] = useState("");
+  const [restockedUnits, setRestockedUnits] = useState("");
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
- const [restockedProduct, setRestockedProduct] = useState("");
- const [restockedUnits, setRestockedUnits] = useState("");
+  useEffect(() => {
+    const added = searchParams.get("added");
+    if (added === "restock") {
+      setShowRestockToast(true);
+      setActiveTab("Low Stock");
+      setRestockedProduct(searchParams.get("product") || "");
+      setRestockedUnits(searchParams.get("units") || "");
+      router.replace("/products");
+    }
+  }, [searchParams, router]);
 
- useEffect(() => {
-  const added = searchParams.get("added");
-  if (added === "restock") {
-    setShowRestockToast(true);
-    setActiveTab("Low Stock");
-    setRestockedProduct(searchParams.get("product") || "");
-    setRestockedUnits(searchParams.get("units") || "");
-    router.replace("/products");
-  }
- }, [searchParams, router]);
-
- useEffect(() => {
-  if (!showRestockToast) return;
-  const timer = setTimeout(() => setShowRestockToast(false), 4000);
-  return () => clearTimeout(timer);
-}, [showRestockToast]);
+  useEffect(() => {
+    if (!showRestockToast) return;
+    const timer = setTimeout(() => setShowRestockToast(false), 4000);
+    return () => clearTimeout(timer);
+  }, [showRestockToast]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -139,20 +137,19 @@ export default function ProductsPage() {
             ))}
           </div>
 
-    
-<Link
-  href={
-    activeTab === "Catalogue"
-      ? "/products/add"
-      : activeTab === "Categories"
-      ? "/products/categories/add"
-      : "/products/restock"
-  }
-  className="flex items-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0"
->
-  <Plus size={16} />
-  {headerButtonLabel}
-</Link>
+          <Link
+            href={
+              activeTab === "Catalogue"
+                ? "/products/add"
+                : activeTab === "Categories"
+                ? "/products/categories/add"
+                : "/products/restock"
+            }
+            className="flex items-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0"
+          >
+            <Plus size={16} />
+            {headerButtonLabel}
+          </Link>
         </div>
 
         {/* ---------------- CATALOGUE TAB ---------------- */}
@@ -386,25 +383,31 @@ export default function ProductsPage() {
           </>
         )}
       </main>
+
       {showRestockToast && (
-  <div className="fixed bottom-6 right-6 flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 shadow-lg">
-    <CheckCircle2 className="text-[#0F4C3A]" size={20} />
-    <div>
-      <p className="text-[13px] font-semibold text-[#182033]">
-        Restock Successful
-      </p>
-      <p className="text-[12px] text-[#98A1AE]">
-       {restockedUnits} units added to {restockedProduct}.
-      </p>
-      <p className="text-[13px] text-[#008236]">
-        Stock is now above the low level threshold.
-      </p>
+        <div className="fixed bottom-6 right-6 flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 shadow-lg">
+          <CheckCircle2 className="text-[#0F4C3A]" size={20} />
+          <div>
+            <p className="text-[13px] font-semibold text-[#182033]">
+              Restock successful
+            </p>
+            <p className="text-[12px] text-[#98A1AE]">
+              {restockedUnits} units added to {restockedProduct}. Stock is now above the low level threshold.
+            </p>
+          </div>
+          <button onClick={() => setShowRestockToast(false)}>
+            <X size={14} className="text-[#98A1AE]" />
+          </button>
+        </div>
+      )}
     </div>
-    <button onClick={() => setShowRestockToast(false)}>
-      <X size={14} className="text-[#98A1AE]" />
-    </button>
-  </div>
-)}
-    </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ProductsPageContent />
+    </Suspense>
   );
 }

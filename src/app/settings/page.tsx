@@ -1,7 +1,7 @@
 "use client";
 
-import{useSearchParams , useRouter} from "next/navigation";
-import { useState, useEffect} from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
 import { X, Check, Loader2, CheckCircle2 } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 
@@ -65,7 +65,7 @@ function ToggleSwitch({
   );
 }
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const [active, setActive] = useState<NavItem>("Business profile");
   const [showChangePlan, setShowChangePlan] = useState(false);
   const [upgradeStep, setUpgradeStep] = useState<0 | 1 | 2 | 3>(0);
@@ -86,36 +86,36 @@ export default function SettingsPage() {
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
-  
- const router = useRouter();  
- const [saving, setSaving] = useState(false);
- const searchParams = useSearchParams();
-  const [showSettingsToast, setShowSettingsToast] = useState(false);
-  
- useEffect(() => {
-  const added = searchParams.get("added");
-  if (added === "business-profile") {
-    setShowSettingsToast(true);
-    router.replace("/settings");
-  }
-}, [searchParams, router]);
 
-useEffect(() => {
-  if (!showSettingsToast) return;
-  const timer = setTimeout(() => setShowSettingsToast(false), 4000);
-  return () => clearTimeout(timer);
-}, [showSettingsToast]);
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const searchParams = useSearchParams();
+  const [showSettingsToast, setShowSettingsToast] = useState(false);
+
+  useEffect(() => {
+    const added = searchParams.get("added");
+    if (added === "business-profile") {
+      setShowSettingsToast(true);
+      router.replace("/settings");
+    }
+  }, [searchParams, router]);
+
+  useEffect(() => {
+    if (!showSettingsToast) return;
+    const timer = setTimeout(() => setShowSettingsToast(false), 4000);
+    return () => clearTimeout(timer);
+  }, [showSettingsToast]);
 
   const handleSave = async () => {
-  setSaving(true);
-  await new Promise((resolve) => setTimeout(resolve, 1000)); // remove once real API is wired up
+    setSaving(true);
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // remove once real API is wired up
 
-  setSaving(false);
+    setSaving(false);
 
-  setTimeout(() => {
-    router.push("/settings?added=business-profile");
-  }, 1200);
- };
+    setTimeout(() => {
+      router.push("/settings?added=business-profile");
+    }, 1200);
+  };
 
   // ---- Notifications state ----
   const [notif, setNotif] = useState({
@@ -244,12 +244,13 @@ useEffect(() => {
                     </div>
                   </div>
 
-                  <button 
-                   onClick={handleSave}
-                   disabled={saving}
-                   className="mt-6 flex item-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="mt-6 flex items-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-70"
+                  >
                     {saving && <Loader2 size={14} className="animate-spin" />}
-                      {saving ? "Saving..." : "Save changes"}
+                    {saving ? "Saving..." : "Save changes"}
                   </button>
                 </div>
 
@@ -1276,7 +1277,7 @@ useEffect(() => {
           <CheckCircle2 className="text-[#0F4C3A]" size={20} />
           <div>
             <p className="text-[13px] font-semibold text-[#182033]">
-             Changes saved successfully
+              Changes saved successfully
             </p>
           </div>
           <button onClick={() => setShowSettingsToast(false)}>
@@ -1285,5 +1286,13 @@ useEffect(() => {
         </div>
       )}
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SettingsPageContent />
+    </Suspense>
   );
 }

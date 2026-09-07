@@ -1,6 +1,6 @@
 "use client";
 
-import { useState,useEffect } from "react";
+import { Suspense, useState,useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Search,
@@ -77,7 +77,7 @@ function StatusBadge({ status }: { status: StaffMember["status"] | Branch["statu
   );
 }
 
-export default function StaffBranchesPage() {
+function StaffBranchesContent() {
   const [activeTab, setActiveTab] = useState<Tab>("Staff");
   const [query, setQuery] = useState("");
   const [showInviteForm, setShowInviteForm] = useState(false);
@@ -696,4 +696,12 @@ useEffect(() => {
 )}
     </div>
   );
+}
+
+export default function StaffBranchPage() {
+  return (
+    <Suspense fallback={null}>
+      <StaffBranchesContent />
+    </Suspense>
+  )
 }
