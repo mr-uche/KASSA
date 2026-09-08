@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { Search, Plus, MoreHorizontal, ChevronDown, X, CheckCircle2 } from "lucide-react";
+import { Search, Plus, MoreHorizontal, ChevronDown, X, CheckCircle2, Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";

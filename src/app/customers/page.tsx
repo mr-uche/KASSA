@@ -1,11 +1,11 @@
 "use client";
-
+ 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Search, ChevronDown, Download, MoreHorizontal, Plus, CheckCircle2, X } from "lucide-react";
+import { Search, ChevronDown, Download, MoreHorizontal, Plus, CheckCircle2, X, Menu } from "lucide-react";
 import Link from "next/link";
 import KassaSidebar from "@/components/KassaSidebar";
-
+ 
 type Customer = {
   name: string;
   phone: string;
@@ -14,43 +14,44 @@ type Customer = {
   lastPurchase: string;
   status: "Active" | "Inactive";
 };
-
+ 
 const customers: Customer[] = [
   { name: "Mary Adeyemi", phone: "0803 421 7782", email: "mary.adeyemi@email.com", purchases: 24, lastPurchase: "Today, 9:14 AM", status: "Active" },
   { name: "Chuka Nwosu", phone: "0814 552 1093", email: "chuka.nwosu@email.com", purchases: 17, lastPurchase: "Yesterday, 4:26 PM", status: "Active" },
   { name: "Grace Umeh", phone: "0806 218 4501", email: "grace.umeh@email.com", purchases: 12, lastPurchase: "Aug 18, 11:52 AM", status: "Active" },
 ];
-
+ 
 function CustomersPageContent() {
   const [query, setQuery] = useState("");
   const searchParams = useSearchParams();
   const router = useRouter();
   const [showToast, setShowToast] = useState(false);
-
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+ 
   useEffect(() => {
     if (searchParams.get("added") === "true") {
       setShowToast(true);
       router.replace("/customers");
     }
   }, [searchParams, router]);
-
+ 
   useEffect(() => {
     if (!showToast) return;
     const timer = setTimeout(() => setShowToast(false), 4000);
     return () => clearTimeout(timer);
   }, [showToast]);
-
+ 
   const filtered = customers.filter((c) =>
     `${c.name} ${c.phone} ${c.email}`.toLowerCase().includes(query.toLowerCase())
   );
-
+ 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50">
       <KassaSidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
-
+ 
       <main className="min-h-screen lg:ml-[198px] p-4 sm:p-6 lg:p-8">
         {/* Mobile header row with menu button */}
         <div className="flex items-center gap-3 mb-1">
@@ -62,10 +63,10 @@ function CustomersPageContent() {
           >
             <Menu size={22} />
           </button>
-
+ 
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Customers</h1>
         </div>
-
+ 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 mt-2">
           <div>
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">Manage customers</h2>
@@ -79,7 +80,7 @@ function CustomersPageContent() {
             Add customer
           </Link>
         </div>
-
+ 
         {/* Summary cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
@@ -111,7 +112,7 @@ function CustomersPageContent() {
             </div>
           </div>
         </div>
-
+ 
         {/* Search + filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="flex-1 relative">
@@ -139,7 +140,7 @@ function CustomersPageContent() {
             </button>
           </div>
         </div>
-
+ 
         {/* Customers table */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
           <table className="w-full min-w-[820px] text-sm">
@@ -185,7 +186,7 @@ function CustomersPageContent() {
           </table>
         </div>
       </main>
-
+ 
       {showToast && (
         <div className="fixed bottom-6 right-6 flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 shadow-lg">
           <CheckCircle2 className="text-[#0F4C3A]" size={20} />
@@ -205,7 +206,7 @@ function CustomersPageContent() {
     </div>
   );
 }
-
+ 
 export default function CustomersPage() {
   return (
     <Suspense fallback={null}>
@@ -213,3 +214,4 @@ export default function CustomersPage() {
     </Suspense>
   );
 }
+ 

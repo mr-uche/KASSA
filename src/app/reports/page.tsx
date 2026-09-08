@@ -326,11 +326,10 @@ export default function ReportsPage() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50">
-      <KassaSidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-
+      <KassaSidebar isOpen={false} onClose={function (): void {
+        throw new Error("Function not implemented.");
+      } } />
+ 
       <main className="ml-[198px] p-8">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">Reports &amp; Analytics</h1>
 
