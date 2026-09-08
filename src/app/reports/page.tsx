@@ -1,12 +1,12 @@
 "use client";
-
+ 
 import { useState } from "react";
 import { Download, Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
-
+ 
 const rangeTabs = ["Daily", "Weekly", "Monthly", "Custom range"] as const;
 type RangeTab = (typeof rangeTabs)[number];
-
+ 
 const channelColors: Record<string, string> = {
   "Bank transfer": "bg-emerald-800",
   POS: "bg-emerald-500",
@@ -14,9 +14,9 @@ const channelColors: Record<string, string> = {
   USSD: "bg-emerald-200",
   "Card & wallet": "bg-emerald-100",
 };
-
+ 
 const channelOrder = ["Bank transfer", "POS", "Cash", "USSD", "Card & wallet"];
-
+ 
 function SummaryCard({
   label,
   value,
@@ -43,7 +43,7 @@ function SummaryCard({
     </div>
   );
 }
-
+ 
 function ChannelBreakdown({ data }: { data: { name: string; pct: number }[] }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
@@ -69,7 +69,7 @@ function ChannelBreakdown({ data }: { data: { name: string; pct: number }[] }) {
     </div>
   );
 }
-
+ 
 function StackedTrendChart({
   data,
   title,
@@ -78,14 +78,14 @@ function StackedTrendChart({
   title: string;
 }) {
   const maxTotal = Math.max(...data.map((d) => d.segments.reduce((a, b) => a + b, 0)));
-
+ 
   return (
     <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
       <h2 className="text-base font-semibold text-gray-900 mb-1">{title}</h2>
       <p className="text-xs text-gray-400 mb-6">
         Colors match the trend chart on the left
       </p>
-
+ 
       <div className="flex items-end justify-between gap-2 sm:gap-4 h-52 sm:h-64 overflow-x-auto">
         {data.map((d) => {
           return (
@@ -109,7 +109,7 @@ function StackedTrendChart({
           );
         })}
       </div>
-
+ 
       <div className="flex flex-wrap gap-3 sm:gap-4 mt-6 pt-4 border-t border-gray-100">
         {channelOrder.map((name) => (
           <div key={name} className="flex items-center gap-2">
@@ -121,7 +121,7 @@ function StackedTrendChart({
     </div>
   );
 }
-
+ 
 function StaffTable({
   title,
   rows,
@@ -157,7 +157,7 @@ function StaffTable({
     </div>
   );
 }
-
+ 
 function LineChart({ values }: { values: number[] }) {
   const max = Math.max(...values);
   const min = Math.min(...values);
@@ -170,7 +170,7 @@ function LineChart({ values }: { values: number[] }) {
     return `${x},${y}`;
   });
   const areaPoints = `0,${h} ${points.join(" ")} ${w},${h}`;
-
+ 
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-56">
       <polygon points={areaPoints} fill="#08745F" fillOpacity="0.08" />
@@ -182,7 +182,7 @@ function LineChart({ values }: { values: number[] }) {
     </svg>
   );
 }
-
+ 
 // ----- Daily data -----
 const dailyTrend = [
   { label: "Mon", segments: [26, 17, 11, 6, 2] },
@@ -204,7 +204,7 @@ const dailyStaff = [
   { name: "Ifeoma Bassey", transactions: 88, total: "₦612,400", failed: 2 },
   { name: "Ibrahim Musa", transactions: 58, total: "₦408,200", failed: 1 },
 ];
-
+ 
 // ----- Weekly data -----
 const weeklyTrend = [
   { label: "Wk 1", segments: [16, 10, 7, 4, 1] },
@@ -225,7 +225,7 @@ const weeklyStaff = [
   { name: "Ifeoma Bassey", transactions: 512, total: "₦10,214,600", failed: 6 },
   { name: "Ibrahim Musa", transactions: 338, total: "₦6,725,600", failed: 3 },
 ];
-
+ 
 // ----- Monthly data -----
 const monthlyTrend = [
   { label: "Mar", segments: [17, 11, 7, 4, 2] },
@@ -246,7 +246,7 @@ const monthlyStaff = [
   { name: "Ifeoma Bassey", transactions: 2204, total: "₦41,052,600", failed: 24 },
   { name: "Ibrahim Musa", transactions: 1458, total: "₦27,368,300", failed: 14 },
 ];
-
+ 
 // ----- Custom range: Last 30 days data -----
 const customTrend = [18, 22, 15, 28, 24, 32, 27, 36, 30, 40];
 const customChannels = [
@@ -260,7 +260,7 @@ const customStaff = [
   { name: "Ifeoma Bassey", transactions: 1764, total: "₦14,540,200", failed: 9 },
   { name: "Ibrahim Musa", transactions: 1182, total: "₦9,640,300", failed: 6 },
 ];
-
+ 
 // ----- Custom range: This quarter data -----
 const quarterTrend = [
   { label: "Week 1", segments: [1.1, 0.8, 0.5, 0.3, 0.1] },
@@ -288,7 +288,7 @@ const quarterStaff = [
   { name: "Ifeoma Bassey", transactions: 1764, total: "₦14,540,200", failed: 9 },
   { name: "Ibrahim Musa", transactions: 1182, total: "₦9,640,300", failed: 6 },
 ];
-
+ 
 // ----- Custom range: Year to date data -----
 const ytdTrend = [
   { label: "Jan", segments: [3.2, 2.1, 1.4, 0.6, 0.2] },
@@ -315,7 +315,7 @@ const ytdStaff = [
   { name: "Ifeoma Bassey", transactions: 1764, total: "₦14,540,200", failed: 9 },
   { name: "Ibrahim Musa", transactions: 1182, total: "₦9,640,300", failed: 6 },
 ];
-
+ 
 export default function ReportsPage() {
   const [range, setRange] = useState<RangeTab>("Daily");
   const [fromDate, setFromDate] = useState("2026-07-01");
@@ -323,16 +323,27 @@ export default function ReportsPage() {
   const [quickFilter, setQuickFilter] = useState<"Last 30 days" | "This quarter" | "Year to date">(
     "Last 30 days"
   );
-
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+ 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50">
-      <KassaSidebar isOpen={false} onClose={function (): void {
-        throw new Error("Function not implemented.");
-      } } />
+      <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
  
-      <main className="ml-[198px] p-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Reports &amp; Analytics</h1>
-
+      <main className="lg:ml-[198px] p-4 sm:p-6 lg:p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="shrink-0 rounded-md p-1.5 text-gray-600 transition hover:bg-gray-100 lg:hidden"
+            aria-label="Open menu"
+          >
+            <Menu size={22} />
+          </button>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
+            Reports &amp; Analytics
+          </h1>
+        </div>
+ 
         {/* Range tabs + download */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
           <div className="flex bg-white rounded-lg border border-gray-200 p-1 overflow-x-auto">
@@ -340,7 +351,7 @@ export default function ReportsPage() {
               <button
                 key={tab}
                 onClick={() => setRange(tab)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
                   range === tab ? "bg-emerald-800 text-white" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
@@ -348,13 +359,13 @@ export default function ReportsPage() {
               </button>
             ))}
           </div>
-
+ 
           <button className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto">
             <Download size={16} />
             Download Report
           </button>
         </div>
-
+ 
         {/* ---------------- DAILY ---------------- */}
         {range === "Daily" && (
           <>
@@ -369,16 +380,16 @@ export default function ReportsPage() {
               />
               <SummaryCard label="Top branch" value="Main branch" sub="64% of total sales" />
             </div>
-
+ 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
               <StackedTrendChart data={dailyTrend} title="Sales trend — last 7 days, by channel" />
               <ChannelBreakdown data={dailyChannels} />
             </div>
-
+ 
             <StaffTable title="Sales by staff member — last 7 days" rows={dailyStaff} />
           </>
         )}
-
+ 
         {/* ---------------- WEEKLY ---------------- */}
         {range === "Weekly" && (
           <>
@@ -393,16 +404,16 @@ export default function ReportsPage() {
               />
               <SummaryCard label="Best week" value="Week 6" sub="₦3,412,800 in sales" />
             </div>
-
+ 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
               <StackedTrendChart data={weeklyTrend} title="Sales trend — last 6 weeks, by channel" />
               <ChannelBreakdown data={weeklyChannels} />
             </div>
-
+ 
             <StaffTable title="Sales by staff member — last 6 weeks" rows={weeklyStaff} />
           </>
         )}
-
+ 
         {/* ---------------- MONTHLY ---------------- */}
         {range === "Monthly" && (
           <>
@@ -417,16 +428,16 @@ export default function ReportsPage() {
               />
               <SummaryCard label="Best month" value="July 2026" sub="₦13,860,400 in sales" />
             </div>
-
+ 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
               <StackedTrendChart data={monthlyTrend} title="Sales trend — last 6 months, by channel" />
               <ChannelBreakdown data={monthlyChannels} />
             </div>
-
+ 
             <StaffTable title="Sales by staff member — last 6 months" rows={monthlyStaff} />
           </>
         )}
-
+ 
         {/* ---------------- CUSTOM RANGE ---------------- */}
         {range === "Custom range" && (
           <>
@@ -450,8 +461,8 @@ export default function ReportsPage() {
                   className="px-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
                 />
               </div>
-
-              <div className="flex gap-2 pb-2.5">
+ 
+              <div className="flex flex-wrap gap-2 pb-2.5">
                 <button
                   onClick={() => setQuickFilter("Last 30 days")}
                   className={`px-3 py-1.5 rounded-full text-sm font-medium ${
@@ -483,15 +494,15 @@ export default function ReportsPage() {
                   Year to date
                 </button>
               </div>
-
-              <button className="ml-auto bg-emerald-800 hover:bg-emerald-900 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
+ 
+              <button className="w-full sm:w-auto sm:ml-auto bg-emerald-800 hover:bg-emerald-900 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
                 Apply
               </button>
             </div>
-
+ 
             {quickFilter === "Year to date" && (
               <>
-                <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <SummaryCard label="Total sales (YTD 2026)" value="₦91,240,600" delta="19% vs same period 2025" />
                   <SummaryCard label="Transactions" value="11,528" delta="12% vs same period 2025" />
                   <SummaryCard
@@ -502,19 +513,19 @@ export default function ReportsPage() {
                   />
                   <SummaryCard label="Days covered" value="231 days" sub="1 Jan – 19 Aug 2026" />
                 </div>
-
-                <div className="grid grid-cols-3 gap-6 mb-6">
+ 
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                   <StackedTrendChart data={ytdTrend} title="Sales trend — year to date, by channel" />
                   <ChannelBreakdown data={ytdChannels} />
                 </div>
-
+ 
                 <StaffTable title="Sales by staff member — Year to date 2026" rows={ytdStaff} />
               </>
             )}
-
+ 
             {quickFilter === "This quarter" && (
               <>
-                <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <SummaryCard label="Total sales (Q3 2026)" value="₦35,760,800" delta="16% vs Q2 2026" />
                   <SummaryCard label="Transactions" value="4,312" delta="9% vs Q2 2026" />
                   <SummaryCard
@@ -525,19 +536,19 @@ export default function ReportsPage() {
                   />
                   <SummaryCard label="Days covered" value="92 days" sub="1 Jul – 30 Sep 2026" />
                 </div>
-
-                <div className="grid grid-cols-3 gap-6 mb-6">
+ 
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                   <StackedTrendChart data={quarterTrend} title="Sales trend — this quarter, by channel" />
                   <ChannelBreakdown data={quarterChannels} />
                 </div>
-
+ 
                 <StaffTable title="Sales by staff member — Q3 2026" rows={quarterStaff} />
               </>
             )}
-
+ 
             {quickFilter === "Last 30 days" && (
               <>
-                <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <SummaryCard label="Total sales (1 Jul – 19 Aug)" value="₦24,180,500" delta="11% vs same period prior" />
                   <SummaryCard label="Transactions" value="2,946" delta="7% vs same period prior" />
                   <SummaryCard
@@ -548,9 +559,9 @@ export default function ReportsPage() {
                   />
                   <SummaryCard label="Days covered" value="50 days" sub="1 Jul – 19 Aug 2026" />
                 </div>
-
-                <div className="grid grid-cols-3 gap-6 mb-6">
-                  <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6">
+ 
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                  <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                     <h2 className="text-base font-semibold text-gray-900 mb-6">
                       Sales trend — 1 Jul to 19 Aug 2026
                     </h2>
@@ -564,7 +575,7 @@ export default function ReportsPage() {
                   </div>
                   <ChannelBreakdown data={customChannels} />
                 </div>
-
+ 
                 <StaffTable title="Sales by staff member — 1 Jul to 19 Aug 2026" rows={customStaff} />
               </>
             )}
@@ -574,3 +585,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+ 
