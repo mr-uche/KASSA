@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { Search, Plus, MoreHorizontal, ChevronDown, X, CheckCircle2 } from "lucide-react";
+import { Search, Plus, MoreHorizontal, ChevronDown, X, CheckCircle2, Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -66,9 +66,38 @@ function StatusBadge({ status }: { status: Product["status"] | Category["status"
 }
 
 function ProductsPageContent() {
-  const [activeTab, setActiveTab] = useState<Tab>("Catalogue");
   const [query, setQuery] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Derive initial state from the URL once, at mount — not via setState in an effect.
+  const [activeTab, setActiveTab] = useState<Tab>(() =>
+    searchParams.get("added") === "restock" ? "Low Stock" : "Catalogue"
+  );
+  const [showRestockToast, setShowRestockToast] = useState(
+    () => searchParams.get("added") === "restock"
+  );
+  const [restockedProduct, setRestockedProduct] = useState(
+    () => searchParams.get("product") || ""
+  );
+  const [restockedUnits, setRestockedUnits] = useState(
+    () => searchParams.get("units") || ""
+  );
+
+  // This effect only touches the external system (the URL) — no setState cascade.
+  useEffect(() => {
+    if (searchParams.get("added") === "restock") {
+      router.replace("/products");
+    }
+  }, [searchParams, router]);
+
+  useEffect(() => {
+    if (!showRestockToast) return;
+    const timer = setTimeout(() => setShowRestockToast(false), 4000);
+    return () => clearTimeout(timer);
+  }, [showRestockToast]);
 
   const filtered = products.filter((p) =>
     `${p.name} ${p.sku} ${p.category}`.toLowerCase().includes(query.toLowerCase())
@@ -80,29 +109,6 @@ function ProductsPageContent() {
 
   const headerButtonLabel =
     activeTab === "Catalogue" ? "Add product" : activeTab === "Categories" ? "Add category" : "Restock product";
-
-  const [showRestockToast, setShowRestockToast] = useState(false);
-  const [restockedProduct, setRestockedProduct] = useState("");
-  const [restockedUnits, setRestockedUnits] = useState("");
-  const searchParams = useSearchParams();
-  const router = useRouter();
-
-  useEffect(() => {
-    const added = searchParams.get("added");
-    if (added === "restock") {
-      setShowRestockToast(true);
-      setActiveTab("Low Stock");
-      setRestockedProduct(searchParams.get("product") || "");
-      setRestockedUnits(searchParams.get("units") || "");
-      router.replace("/products");
-    }
-  }, [searchParams, router]);
-
-  useEffect(() => {
-    if (!showRestockToast) return;
-    const timer = setTimeout(() => setShowRestockToast(false), 4000);
-    return () => clearTimeout(timer);
-  }, [showRestockToast]);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50">

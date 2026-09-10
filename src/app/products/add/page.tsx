@@ -1,9 +1,9 @@
 "use client";
-
+ 
 import { useState } from "react";
 import { Loader2, Upload, CheckCircle2, X } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
-
+ 
 export default function AddProductPage() {
   const [form, setForm] = useState({
     name: "",
@@ -19,34 +19,41 @@ export default function AddProductPage() {
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-
+ 
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
-
+ 
   const handleSave = async () => {
-  setSaving(true);
-  // TODO: replace with your real API call
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  setSaving(false);
-  setSaved(true);
-};
+    setSaving(true);
+    // TODO: replace with your real API call
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setSaving(false);
+    setSaved(true);
+  };
+ 
   return (
     <div className="min-h-screen bg-gray-50">
-      <KassaSidebar />
-
-      <main className="ml-[198px] p-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Add Product</h1>
-        <p className="text-gray-500 mb-6">Add a new product to your catalogue.</p>
-
-        <div className="grid grid-cols-3 gap-6">
+      <KassaSidebar isOpen={false} onClose={function (): void {
+        throw new Error("Function not implemented.");
+      } } />
+ 
+      <main className="md:ml-[198px] p-4 md:p-8">
+        <h1 className="text-xl md:text-2xl font-semibold text-gray-900 mb-1">
+          Add Product
+        </h1>
+        <p className="text-sm md:text-base text-gray-500 mb-6">
+          Add a new product to your catalogue.
+        </p>
+ 
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Form */}
-          <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+          <div className="md:col-span-2 bg-white rounded-xl border border-gray-200 p-4 md:p-6 space-y-6">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-5">
+              <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-5">
                 Product information
               </h2>
-
+ 
               <div className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -59,8 +66,8 @@ export default function AddProductPage() {
                     className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
                   />
                 </div>
-
-                <div className="grid grid-cols-2 gap-5">
+ 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       Product code / SKU <span className="text-red-500">*</span>
@@ -88,8 +95,8 @@ export default function AddProductPage() {
                     </select>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-5">
+ 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       Brand
@@ -113,7 +120,7 @@ export default function AddProductPage() {
                     />
                   </div>
                 </div>
-
+ 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Description
@@ -128,14 +135,14 @@ export default function AddProductPage() {
                 </div>
               </div>
             </div>
-
+ 
             <div className="border-t border-gray-100 pt-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-5">
-                Pricing & stock
+              <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-5">
+                Pricing &amp; stock
               </h2>
-
+ 
               <div className="space-y-5">
-                <div className="grid grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       Selling price <span className="text-red-500">*</span>
@@ -169,8 +176,8 @@ export default function AddProductPage() {
                     </div>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-5">
+ 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       Current stock <span className="text-red-500">*</span>
@@ -196,9 +203,9 @@ export default function AddProductPage() {
                 </div>
               </div>
             </div>
-
+ 
             <div className="border-t border-gray-100 pt-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-4">
                 Product image
               </h2>
               <label className="flex flex-col items-center justify-center gap-1 border-2 border-dashed border-gray-200 rounded-lg py-10 cursor-pointer hover:border-emerald-400 transition-colors">
@@ -211,19 +218,18 @@ export default function AddProductPage() {
               </label>
             </div>
           </div>
-
+ 
           {/* Save panel */}
-                   {/* Save panel */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 h-fit">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 h-fit">
             {!saved ? (
               <>
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-1">
                   Save product
                 </h2>
                 <p className="text-sm text-gray-500 mb-5">
                   Required fields are marked with *
                 </p>
-
+ 
                 <button
                   type="button"
                   onClick={handleSave}
@@ -253,7 +259,7 @@ export default function AddProductPage() {
                 </button>
               </div>
             )}
-
+ 
             <h3 className="text-sm font-semibold text-gray-900 mb-2">
               What happens next?
             </h3>

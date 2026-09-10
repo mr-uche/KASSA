@@ -15,15 +15,17 @@ export default function SecurePaymentPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Existing sidebar */}
-      <KassaSidebar />
+      <KassaSidebar isOpen={false} onClose={function (): void {
+        throw new Error("Function not implemented.");
+      } } />
 
       {/* Background Settings page */}
-      <main className="ml-[198px] p-8">
+      <main className="ml-0 md:ml-[198px] p-4 md:p-8">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">
           Settings
         </h1>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-xl border border-gray-200 h-48" />
           <div className="bg-white rounded-xl border border-gray-200 h-48" />
           <div className="bg-white rounded-xl border border-gray-200 h-48" />
@@ -35,7 +37,7 @@ export default function SecurePaymentPage() {
       {/* Dark overlay */}
       <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
         {/* Payment modal */}
-        <div className="w-[330px] bg-white rounded-xl shadow-xl px-4 py-4">
+        <div className="w-[calc(100%-32px)] max-w-[330px] bg-white rounded-xl shadow-xl px-4 py-4">
 
           {/* Step indicator */}
           <p className="text-[7px] font-semibold text-emerald-700 mb-3">
