@@ -191,7 +191,7 @@ export default function AddBranchPage() {
                   their assigned role and permissions.
                 </p>
               </div>
- 
+
               <button
                 onClick={handleSave}
                 disabled={saving}
@@ -216,4 +216,3 @@ export default function AddBranchPage() {
     </div>
   );
 }
- 

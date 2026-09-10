@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
 import { Menu, X, Check, Loader2, CheckCircle2 } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
@@ -37,6 +37,15 @@ const recentExports = [
     requested: "20 Aug 2026",
     status: "Ready",
   },
+];
+
+const mobileNavItems = [
+  { name: "Home", href: "/dashboard" },
+  { name: "Transactions", href: "/transactions" },
+  { name: "Reports & Analytics", href: "/reports" },
+  { name: "Products & Inventory", href: "/products" },
+  { name: "Staff & Branches", href: "/staff-branches" },
+  { name: "Settings", href: "/settings" },
 ];
 
 function ToggleSwitch({
@@ -89,25 +98,16 @@ function SettingsPageContent() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const router = useRouter();
   const pathname = usePathname();
   const [saving, setSaving] = useState(false);
-  const searchParams = useSearchParams();
   const [showSettingsToast, setShowSettingsToast] = useState(false);
-
-  useEffect(() => {
-    const added = searchParams.get("added");
-
-    if (added === "business-profile") {
-      setShowSettingsToast(true);
-      router.replace("/settings");
-    }
-  }, [searchParams, router]);
 
   useEffect(() => {
     if (!showSettingsToast) return;
 
-    const timer = setTimeout(() => setShowSettingsToast(false), 4000);
+    const timer = setTimeout(() => {
+      setShowSettingsToast(false);
+    }, 4000);
 
     return () => clearTimeout(timer);
   }, [showSettingsToast]);
@@ -115,13 +115,10 @@ function SettingsPageContent() {
   const handleSave = async () => {
     setSaving(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // remove once real API is wired up
 
     setSaving(false);
-
-    setTimeout(() => {
-      router.push("/settings?added=business-profile");
-    }, 1200);
+    setShowSettingsToast(true);
   };
 
   // ---- Notifications state ----
@@ -162,12 +159,7 @@ function SettingsPageContent() {
     <div className="min-h-screen bg-gray-50">
       {/* Desktop sidebar */}
       <div className="hidden md:block">
-        <KassaSidebar
-          isOpen={false}
-          onClose={function (): void {
-            throw new Error("Function not implemented.");
-          }}
-        />
+        <KassaSidebar isOpen={false} onClose={() => {}} />
       </div>
 
       {/* Mobile header */}
@@ -200,7 +192,6 @@ function SettingsPageContent() {
                 <div className="flex h-[34px] w-[26px] items-center justify-center rounded-r-md bg-white text-[17px] font-bold text-[#08745F]">
                   K
                 </div>
-
                 <span className="text-[18px] font-semibold">Kassa</span>
               </div>
 
@@ -215,51 +206,41 @@ function SettingsPageContent() {
             </div>
 
             <nav className="mt-8 flex flex-col gap-1">
-              {[
-                { name: "Home", href: "/dashboard" },
-                { name: "Transactions", href: "/transactions" },
-                { name: "Reports & Analytics", href: "/reports" },
-                { name: "Products & Inventory", href: "/products" },
-                { name: "Staff & Branches", href: "/staff-branches" },
-                { name: "Settings", href: "/settings" },
-              ].map((item) => {
+              {mobileNavItems.map((item) => {
                 const activeRoute =
-                  window.location.pathname === item.href ||
-                  (item.href !== "/dashboard" &&
-                    window.location.pathname.startsWith(item.href));
+                  pathname === item.href ||
+                  (item.href !== "/dashboard" && pathname?.startsWith(item.href));
 
-                return (
-                  <a
-                    key={item.name}
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`relative flex h-11 items-center px-4 text-sm transition ${
-                      activeRoute
-                        ? "rounded-r-lg bg-[#075C4D] font-semibold"
-                        : "text-white/90 hover:bg-[#075C4D]/60"
-                    }`}
-                  >
-                    <span
-                      className={`mr-[9px] h-[5px] w-[5px] rounded-full ${
-                        activeRoute
+                    return (
+                      <a
+                        key={item.name}
+                        href={item.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`relative flex h-11 items-center px-4 text-sm transition ${
+                          activeRoute
+                            ? "rounded-r-lg bg-[#075C4D] font-semibold"
+                            : "text-white/90 hover:bg-[#075C4D]/60"
+                        }`}
+                      >
+                        <span
+                          className={`mr-[9px] h-[5px] w-[5px] rounded-full ${
+                            activeRoute
                           ? "bg-[#B7E5D5]"
                           : "bg-transparent"
-                      }`}
-                    />
-
+                          }`}
+                        />
+    
                     {item.name}
-                  </a>
-                );
-              })}
-            </nav>
-          </aside>
-        </div>
-      )}
+                      </a>
+                    );
+                  })}
+                </nav>
+              </aside>
+            </div>
+          )}
 
       <main className="ml-0 md:ml-[198px] p-4 md:p-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-6">
-          Settings
-        </h1>
+        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Settings</h1>
 
         <div className="flex flex-col md:flex-row gap-4 md:gap-6">
           {/* Left nav */}
@@ -355,8 +336,7 @@ function SettingsPageContent() {
                         className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
                       />
                     </div>
-
-                    <div className="sm:col-span-2">
+                   <div className="sm:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
                         Business address
                       </label>
@@ -542,41 +522,28 @@ function SettingsPageContent() {
 
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[600px] text-sm">
-                      <thead>
-                        <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
-                          <th className="pb-3 font-medium">Date</th>
-                          <th className="pb-3 font-medium">Description</th>
-                          <th className="pb-3 font-medium">Amount</th>
-                          <th className="pb-3 font-medium">Status</th>
+                    <thead>
+                      <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                        <th className="pb-3 font-medium">Date</th>
+                        <th className="pb-3 font-medium">Description</th>
+                        <th className="pb-3 font-medium">Amount</th>
+                        <th className="pb-3 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {billingHistory.map((row) => (
+                        <tr key={row.date} className="border-b border-gray-50 last:border-0">
+                          <td className="py-3 text-gray-700">{row.date}</td>
+                          <td className="py-3 text-gray-700">{row.description}</td>
+                          <td className="py-3 text-gray-700">{row.amount}</td>
+                          <td className="py-3">
+                            <span className="px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                              {row.status}
+                            </span>
+                          </td>
                         </tr>
-                      </thead>
-
-                      <tbody>
-                        {billingHistory.map((row) => (
-                          <tr
-                            key={row.date}
-                            className="border-b border-gray-50 last:border-0"
-                          >
-                            <td className="py-3 text-gray-700">
-                              {row.date}
-                            </td>
-
-                            <td className="py-3 text-gray-700">
-                              {row.description}
-                            </td>
-
-                            <td className="py-3 text-gray-700">
-                              {row.amount}
-                            </td>
-
-                            <td className="py-3">
-                              <span className="px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-                                {row.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
+                      ))}
+                    </tbody>
                     </table>
                   </div>
                 </div>
@@ -1023,7 +990,6 @@ function SettingsPageContent() {
                   <p className="text-sm text-gray-500 mb-4">
                     Your most recent data export requests.
                   </p>
-
                   <table className="w-full min-w-[600px] text-sm">
                     <thead>
                       <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">

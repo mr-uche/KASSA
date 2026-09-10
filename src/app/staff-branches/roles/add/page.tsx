@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import KassaSidebar from "@/components/KassaSidebar";
-import { Loader2 } from "lucide-react";
 
 const permissionOptions = [
   "View dashboard",
@@ -16,14 +14,7 @@ const permissionOptions = [
 ];
 
 export default function AddRolePage() {
-  const router = useRouter();
-  const [saving, setSaving] = useState(false);
-
-  const [form, setForm] = useState({
-    name: "",
-    description: "",
-  });
-
+  const [form, setForm] = useState({ name: "", description: "" });
   const [permissions, setPermissions] = useState<Record<string, boolean>>({
     "View dashboard": true,
     "Manage sales & transactions": true,
@@ -44,21 +35,14 @@ export default function AddRolePage() {
     }));
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    setSaving(false);
-
-    setTimeout(() => {
-      router.push("/staff-branches?added=role");
-    }, 1200);
-  };
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <KassaSidebar />
+      <KassaSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
       <main className="ml-0 md:ml-[198px] p-4 sm:p-6 lg:p-8">
         {/* Page heading */}
@@ -190,17 +174,8 @@ export default function AddRolePage() {
                 </ul>
               </div>
 
-              {/* Add role button */}
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="w-full flex items-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium transition-colors mb-3 disabled:opacity-70"
-              >
-                {saving && (
-                  <Loader2 size={14} className="animate-spin" />
-                )}
-
-                {saving ? "Adding..." : "Add role"}
+              <button className="w-full bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium transition-colors mb-3">
+                Add role
               </button>
 
               {/* Cancel */}

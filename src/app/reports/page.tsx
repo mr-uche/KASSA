@@ -567,32 +567,32 @@ const ytdStaff = [
 
 export default function ReportsPage() {
   const [range, setRange] = useState<RangeTab>("Daily");
-
-  const [fromDate, setFromDate] =
-    useState("2026-07-01");
-
-  const [toDate, setToDate] =
-    useState("2026-08-19");
-
-  const [quickFilter, setQuickFilter] =
-    useState<
-      "Last 30 days" | "This quarter" | "Year to date"
-    >("Last 30 days");
+  const [fromDate, setFromDate] = useState("2026-07-01");
+  const [toDate, setToDate] = useState("2026-08-19");
+  const [quickFilter, setQuickFilter] = useState<"Last 30 days" | "This quarter" | "Year to date">(
+    "Last 30 days"
+  );
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50">
       <KassaSidebar
-        isOpen={false}
-        onClose={function (): void {
-          throw new Error("Function not implemented.");
-        }}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
 
-      {/* Responsive main content */}
-      <main className="ml-0 md:ml-[198px] p-4 sm:p-6 lg:p-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-6">
-          Reports &amp; Analytics
-        </h1>
+      <main className="lg:ml-[198px] p-4 sm:p-6 lg:p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="shrink-0 rounded-md p-1.5 text-gray-700 transition hover:bg-gray-100 lg:hidden"
+            aria-label="Open menu"
+          >
+            <Menu size={22} />
+          </button>
+          <h1 className="text-2xl font-semibold text-gray-900">Reports &amp; Analytics</h1>
+        </div>
 
         {/* Range tabs + download */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
