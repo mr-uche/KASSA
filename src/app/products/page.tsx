@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { Search, Plus, MoreHorizontal, ChevronDown, X, CheckCircle2, Menu } from "lucide-react";
+import {
+  Search,
+  Plus,
+  MoreHorizontal,
+  ChevronDown,
+  X,
+  CheckCircle2,
+  Menu,
+} from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -16,9 +24,30 @@ type Product = {
 };
 
 const products: Product[] = [
-  { name: "Amoxicillin 500mg", sku: "MED-00142", category: "Medicine", price: "₦4,000", stock: 42, status: "In stock" },
-  { name: "Vitamin C 1000mg", sku: "SUP-00231", category: "Supplements", price: "₦6,500", stock: 18, status: "In stock" },
-  { name: "Paracetamol 500mg", sku: "MED-00098", category: "Medicine", price: "₦1,200", stock: 4, status: "Low stock" },
+  {
+    name: "Amoxicillin 500mg",
+    sku: "MED-00142",
+    category: "Medicine",
+    price: "₦4,000",
+    stock: 42,
+    status: "In stock",
+  },
+  {
+    name: "Vitamin C 1000mg",
+    sku: "SUP-00231",
+    category: "Supplements",
+    price: "₦6,500",
+    stock: 18,
+    status: "In stock",
+  },
+  {
+    name: "Paracetamol 500mg",
+    sku: "MED-00098",
+    category: "Medicine",
+    price: "₦1,200",
+    stock: 4,
+    status: "Low stock",
+  },
 ];
 
 type Category = {
@@ -29,8 +58,18 @@ type Category = {
 };
 
 const categories: Category[] = [
-  { name: "Medicines", products: 64, stockValue: "₦486,500", status: "Active" },
-  { name: "Vitamins & supplements", products: 31, stockValue: "₦218,700", status: "Active" },
+  {
+    name: "Medicines",
+    products: 64,
+    stockValue: "₦486,500",
+    status: "Active",
+  },
+  {
+    name: "Vitamins & supplements",
+    products: 31,
+    stockValue: "₦218,700",
+    status: "Active",
+  },
 ];
 
 type LowStockProduct = {
@@ -43,14 +82,35 @@ type LowStockProduct = {
 };
 
 const lowStockProducts: LowStockProduct[] = [
-  { name: "Amoxicillin 500mg", sku: "AMX-500", category: "Medicine", currentStock: 8, reorderLevel: 20, status: "Low stock" },
-  { name: "Vitamin C 1000mg", sku: "VIT-1000", category: "Supplements", currentStock: 5, reorderLevel: 15, status: "Low stock" },
+  {
+    name: "Amoxicillin 500mg",
+    sku: "AMX-500",
+    category: "Medicine",
+    currentStock: 8,
+    reorderLevel: 20,
+    status: "Low stock",
+  },
+  {
+    name: "Vitamin C 1000mg",
+    sku: "VIT-1000",
+    category: "Supplements",
+    currentStock: 5,
+    reorderLevel: 15,
+    status: "Low stock",
+  },
 ];
 
 const tabs = ["Catalogue", "Categories", "Low Stock"] as const;
 type Tab = (typeof tabs)[number];
 
-function StatusBadge({ status }: { status: Product["status"] | Category["status"] | LowStockProduct["status"] }) {
+function StatusBadge({
+  status,
+}: {
+  status:
+    | Product["status"]
+    | Category["status"]
+    | LowStockProduct["status"];
+}) {
   const styles: Record<string, string> = {
     "In stock": "bg-green-100 text-green-700",
     "Low stock": "bg-amber-100 text-amber-700",
@@ -58,8 +118,11 @@ function StatusBadge({ status }: { status: Product["status"] | Category["status"
     Active: "bg-green-100 text-green-700",
     Inactive: "bg-gray-100 text-gray-500",
   };
+
   return (
-    <span className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${styles[status]}`}>
+    <span
+      className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${styles[status]}`}
+    >
       {status}
     </span>
   );
@@ -72,21 +135,22 @@ function ProductsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Derive initial state from the URL once, at mount — not via setState in an effect.
   const [activeTab, setActiveTab] = useState<Tab>(() =>
     searchParams.get("added") === "restock" ? "Low Stock" : "Catalogue"
   );
+
   const [showRestockToast, setShowRestockToast] = useState(
     () => searchParams.get("added") === "restock"
   );
+
   const [restockedProduct, setRestockedProduct] = useState(
     () => searchParams.get("product") || ""
   );
+
   const [restockedUnits, setRestockedUnits] = useState(
     () => searchParams.get("units") || ""
   );
 
-  // This effect only touches the external system (the URL) — no setState cascade.
   useEffect(() => {
     if (searchParams.get("added") === "restock") {
       router.replace("/products");
@@ -95,20 +159,36 @@ function ProductsPageContent() {
 
   useEffect(() => {
     if (!showRestockToast) return;
-    const timer = setTimeout(() => setShowRestockToast(false), 4000);
+
+    const timer = setTimeout(() => {
+      setShowRestockToast(false);
+    }, 4000);
+
     return () => clearTimeout(timer);
   }, [showRestockToast]);
 
   const filtered = products.filter((p) =>
-    `${p.name} ${p.sku} ${p.category}`.toLowerCase().includes(query.toLowerCase())
+    `${p.name} ${p.sku} ${p.category}`
+      .toLowerCase()
+      .includes(query.toLowerCase())
   );
 
   const totalProducts = products.length;
-  const numCategories = new Set(products.map((p) => p.category)).size;
-  const lowStock = products.filter((p) => p.status === "Low stock").length;
+
+  const numCategories = new Set(
+    products.map((p) => p.category)
+  ).size;
+
+  const lowStock = products.filter(
+    (p) => p.status === "Low stock"
+  ).length;
 
   const headerButtonLabel =
-    activeTab === "Catalogue" ? "Add product" : activeTab === "Categories" ? "Add category" : "Restock product";
+    activeTab === "Catalogue"
+      ? "Add product"
+      : activeTab === "Categories"
+      ? "Add category"
+      : "Restock product";
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50">
@@ -118,7 +198,7 @@ function ProductsPageContent() {
       />
 
       <main className="min-h-screen lg:ml-[198px] p-4 sm:p-6 lg:p-8">
-        {/* Mobile header row with menu button */}
+        {/* Mobile header row */}
         <div className="flex items-center gap-3 mb-1">
           <button
             type="button"
@@ -133,14 +213,16 @@ function ProductsPageContent() {
             Products & Inventory
           </h1>
         </div>
+
         <p className="text-gray-500 mb-6 text-sm sm:text-base">
           {activeTab === "Low Stock"
             ? "Monitor products, categories and stock levels"
             : "Manage your catalogue, categories and stock levels."}
         </p>
 
-        {/* Tabs + action */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center mb-6">
+        {/* Tabs + Action Button */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center mb-6">
+          {/* Tabs */}
           <div className="flex flex-1 bg-white rounded-lg border border-gray-200 p-1 overflow-x-auto">
             {tabs.map((tab) => (
               <button
@@ -157,48 +239,79 @@ function ProductsPageContent() {
             ))}
           </div>
 
-          <Link
-            href={
-              activeTab === "Catalogue"
-                ? "/products/add"
-                : activeTab === "Categories"
-                ? "/products/categories/add"
-                : "/products/restock"
-            }
-            className="flex items-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0"
-          >
-            <Plus size={16} />
-            {headerButtonLabel}
-          </Link>
+          {/* Action Button */}
+          <div className="flex justify-center sm:justify-end">
+            <Link
+              href={
+                activeTab === "Catalogue"
+                  ? "/products/add"
+                  : activeTab === "Categories"
+                  ? "/products/categories/add"
+                  : "/products/restock"
+              }
+              className="inline-flex items-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Plus size={16} />
+              {headerButtonLabel}
+            </Link>
+          </div>
         </div>
 
-        {/* ---------------- CATALOGUE TAB ---------------- */}
+        {/* ================= CATALOGUE TAB ================= */}
         {activeTab === "Catalogue" && (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
               <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                <p className="text-sm text-gray-500 mb-2">Total products</p>
+                <p className="text-sm text-gray-500 mb-2">
+                  Total products
+                </p>
+
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <p className="text-xl sm:text-2xl font-semibold text-gray-900">{totalProducts}</p>
-                  <span className="text-xs text-emerald-600">+12 this month</span>
+                  <p className="text-xl sm:text-2xl font-semibold text-gray-900">
+                    {totalProducts}
+                  </p>
+
+                  <span className="text-xs text-emerald-600">
+                    +12 this month
+                  </span>
                 </div>
               </div>
+
               <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                <p className="text-sm text-gray-500 mb-2">Categories</p>
-                <p className="text-xl sm:text-2xl font-semibold text-gray-900">{numCategories}</p>
+                <p className="text-sm text-gray-500 mb-2">
+                  Categories
+                </p>
+
+                <p className="text-xl sm:text-2xl font-semibold text-gray-900">
+                  {numCategories}
+                </p>
               </div>
+
               <div className="col-span-2 sm:col-span-1 bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                <p className="text-sm text-gray-500 mb-2">Low stock items</p>
+                <p className="text-sm text-gray-500 mb-2">
+                  Low stock items
+                </p>
+
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <p className="text-xl sm:text-2xl font-semibold text-gray-900">{lowStock}</p>
-                  <span className="text-xs text-red-600">Needs attention</span>
+                  <p className="text-xl sm:text-2xl font-semibold text-gray-900">
+                    {lowStock}
+                  </p>
+
+                  <span className="text-xs text-red-600">
+                    Needs attention
+                  </span>
                 </div>
               </div>
             </div>
 
+            {/* Search + Filters */}
             <div className="flex flex-col sm:flex-row gap-3 mb-4">
               <div className="flex-1 relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -206,47 +319,92 @@ function ProductsPageContent() {
                   className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
                 />
               </div>
+
               <div className="-mx-4 flex gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
                 <button className="flex shrink-0 items-center gap-1 px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">
-                  All categories <ChevronDown size={14} />
+                  All categories
+                  <ChevronDown size={14} />
                 </button>
+
                 <button className="flex shrink-0 items-center gap-1 px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">
-                  All stock <ChevronDown size={14} />
+                  All stock
+                  <ChevronDown size={14} />
                 </button>
+
                 <button className="flex shrink-0 items-center gap-1 px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">
-                  Sort <ChevronDown size={14} />
+                  Sort
+                  <ChevronDown size={14} />
                 </button>
+
                 <span className="flex shrink-0 items-center px-2 text-sm text-gray-400 whitespace-nowrap">
                   {filtered.length} products
                 </span>
               </div>
             </div>
 
+            {/* Catalogue Table */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase tracking-wide">
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Product</th>
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Category</th>
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Price</th>
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Stock</th>
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Status</th>
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Action</th>
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Product
+                    </th>
+
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Category
+                    </th>
+
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Price
+                    </th>
+
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Stock
+                    </th>
+
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Status
+                    </th>
+
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Action
+                    </th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {filtered.map((p) => (
-                    <tr key={p.sku} className="border-b border-gray-50 last:border-0">
+                    <tr
+                      key={p.sku}
+                      className="border-b border-gray-50 last:border-0"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <p className="font-medium text-gray-900">{p.name}</p>
-                        <p className="text-gray-500 text-xs">SKU: {p.sku}</p>
+                        <p className="font-medium text-gray-900">
+                          {p.name}
+                        </p>
+
+                        <p className="text-gray-500 text-xs">
+                          SKU: {p.sku}
+                        </p>
                       </td>
-                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">{p.category}</td>
-                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">{p.price}</td>
-                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">{p.stock}</td>
+
+                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">
+                        {p.category}
+                      </td>
+
+                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">
+                        {p.price}
+                      </td>
+
+                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">
+                        {p.stock}
+                      </td>
+
                       <td className="px-6 py-4 whitespace-nowrap">
                         <StatusBadge status={p.status} />
                       </td>
+
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button className="text-gray-400 hover:text-gray-600">
                           <MoreHorizontal size={18} />
@@ -254,9 +412,13 @@ function ProductsPageContent() {
                       </td>
                     </tr>
                   ))}
+
                   {filtered.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                      <td
+                        colSpan={6}
+                        className="px-6 py-8 text-center text-gray-400"
+                      >
                         No products found.
                       </td>
                     </tr>
@@ -267,36 +429,67 @@ function ProductsPageContent() {
           </>
         )}
 
-        {/* ---------------- CATEGORIES TAB ---------------- */}
+        {/* ================= CATEGORIES TAB ================= */}
         {activeTab === "Categories" && (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
               <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                <p className="text-sm text-gray-500 mb-2">Total categories</p>
+                <p className="text-sm text-gray-500 mb-2">
+                  Total categories
+                </p>
+
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <p className="text-xl sm:text-2xl font-semibold text-gray-900">12</p>
-                  <span className="text-xs text-gray-400">active categories</span>
+                  <p className="text-xl sm:text-2xl font-semibold text-gray-900">
+                    12
+                  </p>
+
+                  <span className="text-xs text-gray-400">
+                    active categories
+                  </span>
                 </div>
               </div>
+
               <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                <p className="text-sm text-gray-500 mb-2">Products assigned</p>
+                <p className="text-sm text-gray-500 mb-2">
+                  Products assigned
+                </p>
+
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <p className="text-xl sm:text-2xl font-semibold text-gray-900">186</p>
-                  <span className="text-xs text-gray-400">across categories</span>
+                  <p className="text-xl sm:text-2xl font-semibold text-gray-900">
+                    186
+                  </p>
+
+                  <span className="text-xs text-gray-400">
+                    across categories
+                  </span>
                 </div>
               </div>
+
               <div className="col-span-2 sm:col-span-1 bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                <p className="text-sm text-gray-500 mb-2">Uncategorised</p>
+                <p className="text-sm text-gray-500 mb-2">
+                  Uncategorised
+                </p>
+
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <p className="text-xl sm:text-2xl font-semibold text-gray-900">7</p>
-                  <span className="text-xs text-amber-600">products need a category</span>
+                  <p className="text-xl sm:text-2xl font-semibold text-gray-900">
+                    7
+                  </p>
+
+                  <span className="text-xs text-amber-600">
+                    products need a category
+                  </span>
                 </div>
               </div>
             </div>
 
+            {/* Category Search */}
             <div className="mb-4">
               <div className="flex-1 relative max-w-full">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+
                 <input
                   placeholder="Search categories..."
                   className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
@@ -304,26 +497,55 @@ function ProductsPageContent() {
               </div>
             </div>
 
+            {/* Categories Table */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
               <table className="w-full min-w-[560px] text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase tracking-wide">
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Category</th>
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Products</th>
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Stock value</th>
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Status</th>
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Action</th>
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Category
+                    </th>
+
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Products
+                    </th>
+
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Stock value
+                    </th>
+
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Status
+                    </th>
+
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Action
+                    </th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {categories.map((c) => (
-                    <tr key={c.name} className="border-b border-gray-50 last:border-0">
-                      <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{c.name}</td>
-                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">{c.products}</td>
-                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">{c.stockValue}</td>
+                    <tr
+                      key={c.name}
+                      className="border-b border-gray-50 last:border-0"
+                    >
+                      <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                        {c.name}
+                      </td>
+
+                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">
+                        {c.products}
+                      </td>
+
+                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">
+                        {c.stockValue}
+                      </td>
+
                       <td className="px-6 py-4 whitespace-nowrap">
                         <StatusBadge status={c.status} />
                       </td>
+
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button className="text-sm font-medium text-emerald-700 hover:text-emerald-800">
                           View ›
@@ -337,65 +559,123 @@ function ProductsPageContent() {
           </>
         )}
 
-        {/* ---------------- LOW STOCK TAB ---------------- */}
+        {/* ================= LOW STOCK TAB ================= */}
         {activeTab === "Low Stock" && (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
               <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                <p className="text-sm text-gray-500 mb-2">Low-stock products</p>
-                <p className="text-xl sm:text-2xl font-semibold text-amber-600">12</p>
+                <p className="text-sm text-gray-500 mb-2">
+                  Low-stock products
+                </p>
+
+                <p className="text-xl sm:text-2xl font-semibold text-amber-600">
+                  12
+                </p>
               </div>
+
               <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                <p className="text-sm text-gray-500 mb-2">Out of stock</p>
-                <p className="text-xl sm:text-2xl font-semibold text-red-600">3</p>
+                <p className="text-sm text-gray-500 mb-2">
+                  Out of stock
+                </p>
+
+                <p className="text-xl sm:text-2xl font-semibold text-red-600">
+                  3
+                </p>
               </div>
+
               <div className="col-span-2 sm:col-span-1 bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                <p className="text-sm text-gray-500 mb-2">Needs attention</p>
+                <p className="text-sm text-gray-500 mb-2">
+                  Needs attention
+                </p>
+
                 <p className="text-sm sm:text-base font-semibold text-gray-900 mt-1.5">
                   Restock before next sales cycle
                 </p>
               </div>
             </div>
 
+            {/* Low Stock Search + Filters */}
             <div className="flex flex-col sm:flex-row gap-3 mb-4">
               <div className="flex-1 relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+
                 <input
                   placeholder="Search low-stock products..."
                   className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
                 />
               </div>
+
               <div className="-mx-4 flex gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
                 <button className="flex shrink-0 items-center gap-1 px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">
-                  All categories <ChevronDown size={14} />
+                  All categories
+                  <ChevronDown size={14} />
                 </button>
+
                 <button className="flex shrink-0 items-center gap-1 px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">
-                  Stock status <ChevronDown size={14} />
+                  Stock status
+                  <ChevronDown size={14} />
                 </button>
               </div>
             </div>
 
+            {/* Low Stock Table */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
               <table className="w-full min-w-[620px] text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase tracking-wide">
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Product</th>
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Category</th>
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Current stock</th>
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Reorder level</th>
-                    <th className="px-6 py-4 font-medium whitespace-nowrap">Status</th>
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Product
+                    </th>
+
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Category
+                    </th>
+
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Current stock
+                    </th>
+
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Reorder level
+                    </th>
+
+                    <th className="px-6 py-4 font-medium whitespace-nowrap">
+                      Status
+                    </th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {lowStockProducts.map((p) => (
-                    <tr key={p.sku} className="border-b border-gray-50 last:border-0">
+                    <tr
+                      key={p.sku}
+                      className="border-b border-gray-50 last:border-0"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <p className="font-medium text-gray-900">{p.name}</p>
-                        <p className="text-gray-500 text-xs">SKU {p.sku}</p>
+                        <p className="font-medium text-gray-900">
+                          {p.name}
+                        </p>
+
+                        <p className="text-gray-500 text-xs">
+                          SKU {p.sku}
+                        </p>
                       </td>
-                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">{p.category}</td>
-                      <td className="px-6 py-4 font-medium text-amber-600 whitespace-nowrap">{p.currentStock} units</td>
-                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">{p.reorderLevel} units</td>
+
+                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">
+                        {p.category}
+                      </td>
+
+                      <td className="px-6 py-4 font-medium text-amber-600 whitespace-nowrap">
+                        {p.currentStock} units
+                      </td>
+
+                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">
+                        {p.reorderLevel} units
+                      </td>
+
                       <td className="px-6 py-4 whitespace-nowrap">
                         <StatusBadge status={p.status} />
                       </td>
@@ -408,18 +688,29 @@ function ProductsPageContent() {
         )}
       </main>
 
+      {/* Restock Toast */}
       {showRestockToast && (
-        <div className="fixed bottom-6 right-6 flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 shadow-lg">
-          <CheckCircle2 className="text-[#0F4C3A]" size={20} />
-          <div>
+        <div className="fixed bottom-6 right-6 left-6 sm:left-auto sm:max-w-md flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 shadow-lg z-50">
+          <CheckCircle2
+            className="text-[#0F4C3A] shrink-0"
+            size={20}
+          />
+
+          <div className="min-w-0">
             <p className="text-[13px] font-semibold text-[#182033]">
               Restock successful
             </p>
+
             <p className="text-[12px] text-[#98A1AE]">
-              {restockedUnits} units added to {restockedProduct}. Stock is now above the low level threshold.
+              {restockedUnits} units added to {restockedProduct}. Stock is
+              now above the low level threshold.
             </p>
           </div>
-          <button onClick={() => setShowRestockToast(false)}>
+
+          <button
+            onClick={() => setShowRestockToast(false)}
+            className="shrink-0"
+          >
             <X size={14} className="text-[#98A1AE]" />
           </button>
         </div>
