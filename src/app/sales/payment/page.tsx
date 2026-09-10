@@ -22,9 +22,7 @@ export default function ProcessingPaymentPage() {
     }, 500);
     return () => clearInterval(interval);
   }, []);
-
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
+  
   return (
     <div className="min-h-screen bg-gray-50">
       <KassaSidebar
