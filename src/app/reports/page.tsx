@@ -15,7 +15,13 @@ const channelColors: Record<string, string> = {
   "Card & wallet": "bg-emerald-100",
 };
 
-const channelOrder = ["Bank transfer", "POS", "Cash", "USSD", "Card & wallet"];
+const channelOrder = [
+  "Bank transfer",
+  "POS",
+  "Cash",
+  "USSD",
+  "Card & wallet",
+];
 
 function SummaryCard({
   label,
@@ -33,30 +39,57 @@ function SummaryCard({
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
       <p className="text-sm text-gray-500 mb-2">{label}</p>
-      <p className="text-xl sm:text-2xl font-semibold text-gray-900">{value}</p>
+      <p className="text-xl sm:text-2xl font-semibold text-gray-900">
+        {value}
+      </p>
+
       {delta && (
-        <p className={`text-xs mt-1 ${deltaPositive ? "text-emerald-600" : "text-red-600"}`}>
+        <p
+          className={`text-xs mt-1 ${
+            deltaPositive ? "text-emerald-600" : "text-red-600"
+          }`}
+        >
           {deltaPositive ? "↑" : "↓"} {delta}
         </p>
       )}
+
       {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
     </div>
   );
 }
 
-function ChannelBreakdown({ data }: { data: { name: string; pct: number }[] }) {
+function ChannelBreakdown({
+  data,
+}: {
+  data: { name: string; pct: number }[];
+}) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-      <h2 className="text-base font-semibold text-gray-900 mb-1">Sales by channel</h2>
-      <p className="text-xs text-gray-400 mb-5">Colors match the trend chart on the left</p>
+      <h2 className="text-base font-semibold text-gray-900 mb-1">
+        Sales by channel
+      </h2>
+
+      <p className="text-xs text-gray-400 mb-5">
+        Colors match the trend chart on the left
+      </p>
+
       <div className="space-y-4">
         {data.map((c) => (
           <div key={c.name}>
             <div className="flex items-center gap-2 mb-1.5">
-              <span className={`w-2.5 h-2.5 shrink-0 rounded-sm ${channelColors[c.name]}`} />
-              <span className="text-sm text-gray-700 flex-1">{c.name}</span>
+              <span
+                className={`w-2.5 h-2.5 shrink-0 rounded-sm ${
+                  channelColors[c.name]
+                }`}
+              />
+
+              <span className="text-sm text-gray-700 flex-1">
+                {c.name}
+              </span>
+
               <span className="text-sm text-gray-500">{c.pct}%</span>
             </div>
+
             <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
               <div
                 className={`h-full rounded-full ${channelColors[c.name]}`}
@@ -77,11 +110,18 @@ function StackedTrendChart({
   data: { label: string; segments: number[] }[];
   title: string;
 }) {
-  const maxTotal = Math.max(...data.map((d) => d.segments.reduce((a, b) => a + b, 0)));
+  const maxTotal = Math.max(
+    ...data.map((d) =>
+      d.segments.reduce((a, b) => a + b, 0)
+    )
+  );
 
   return (
     <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-      <h2 className="text-base font-semibold text-gray-900 mb-1">{title}</h2>
+      <h2 className="text-base font-semibold text-gray-900 mb-1">
+        {title}
+      </h2>
+
       <p className="text-xs text-gray-400 mb-6">
         Colors match the trend chart on the left
       </p>
@@ -89,22 +129,33 @@ function StackedTrendChart({
       <div className="flex items-end justify-between gap-2 sm:gap-4 h-52 sm:h-64 overflow-x-auto">
         {data.map((d) => {
           return (
-            <div key={d.label} className="flex flex-col items-center gap-2 flex-1 h-full min-w-[28px]">
+            <div
+              key={d.label}
+              className="flex flex-col items-center gap-2 flex-1 h-full min-w-[28px]"
+            >
               <div className="w-full max-w-[52px] flex flex-col-reverse justify-start flex-1">
                 {d.segments.map((seg, i) => {
                   const heightPct = (seg / maxTotal) * 100;
+
                   return (
                     <div
                       key={i}
-                      className={`w-full ${channelColors[channelOrder[i]]} ${
-                        i === d.segments.length - 1 ? "rounded-t-md" : ""
+                      className={`w-full ${
+                        channelColors[channelOrder[i]]
+                      } ${
+                        i === d.segments.length - 1
+                          ? "rounded-t-md"
+                          : ""
                       }`}
                       style={{ height: `${heightPct}%` }}
                     />
                   );
                 })}
               </div>
-              <span className="text-xs text-gray-500">{d.label}</span>
+
+              <span className="text-xs text-gray-500">
+                {d.label}
+              </span>
             </div>
           );
         })}
@@ -113,8 +164,15 @@ function StackedTrendChart({
       <div className="flex flex-wrap gap-3 sm:gap-4 mt-6 pt-4 border-t border-gray-100">
         {channelOrder.map((name) => (
           <div key={name} className="flex items-center gap-2">
-            <span className={`w-2.5 h-2.5 shrink-0 rounded-sm ${channelColors[name]}`} />
-            <span className="text-xs text-gray-600">{name}</span>
+            <span
+              className={`w-2.5 h-2.5 shrink-0 rounded-sm ${
+                channelColors[name]
+              }`}
+            />
+
+            <span className="text-xs text-gray-600">
+              {name}
+            </span>
           </div>
         ))}
       </div>
@@ -127,28 +185,62 @@ function StaffTable({
   rows,
 }: {
   title: string;
-  rows: { name: string; transactions: number; total: string; failed: number }[];
+  rows: {
+    name: string;
+    transactions: number;
+    total: string;
+    failed: number;
+  }[];
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-      <h2 className="text-base font-semibold text-gray-900 mb-4">{title}</h2>
+      <h2 className="text-base font-semibold text-gray-900 mb-4">
+        {title}
+      </h2>
+
       <div className="overflow-x-auto">
         <table className="w-full min-w-[460px] text-sm">
           <thead>
             <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
-              <th className="pb-3 font-medium whitespace-nowrap pr-4">Staff</th>
-              <th className="pb-3 font-medium whitespace-nowrap pr-4">Transactions</th>
-              <th className="pb-3 font-medium whitespace-nowrap pr-4">Total sales</th>
-              <th className="pb-3 font-medium whitespace-nowrap">Failed</th>
+              <th className="pb-3 font-medium whitespace-nowrap pr-4">
+                Staff
+              </th>
+
+              <th className="pb-3 font-medium whitespace-nowrap pr-4">
+                Transactions
+              </th>
+
+              <th className="pb-3 font-medium whitespace-nowrap pr-4">
+                Total sales
+              </th>
+
+              <th className="pb-3 font-medium whitespace-nowrap">
+                Failed
+              </th>
             </tr>
           </thead>
+
           <tbody>
             {rows.map((r) => (
-              <tr key={r.name} className="border-b border-gray-50 last:border-0">
-                <td className="py-3 text-gray-700 whitespace-nowrap pr-4">{r.name}</td>
-                <td className="py-3 text-gray-700 whitespace-nowrap pr-4">{r.transactions.toLocaleString()}</td>
-                <td className="py-3 font-medium text-gray-900 whitespace-nowrap pr-4">{r.total}</td>
-                <td className="py-3 text-red-600 whitespace-nowrap">{r.failed}</td>
+              <tr
+                key={r.name}
+                className="border-b border-gray-50 last:border-0"
+              >
+                <td className="py-3 text-gray-700 whitespace-nowrap pr-4">
+                  {r.name}
+                </td>
+
+                <td className="py-3 text-gray-700 whitespace-nowrap pr-4">
+                  {r.transactions.toLocaleString()}
+                </td>
+
+                <td className="py-3 font-medium text-gray-900 whitespace-nowrap pr-4">
+                  {r.total}
+                </td>
+
+                <td className="py-3 text-red-600 whitespace-nowrap">
+                  {r.failed}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -164,26 +256,56 @@ function LineChart({ values }: { values: number[] }) {
   const w = 600;
   const h = 220;
   const range = max - min || 1;
+
   const points = values.map((v, i) => {
     const x = (i / (values.length - 1)) * w;
-    const y = h - ((v - min) / range) * (h - 20) - 10;
+    const y =
+      h - ((v - min) / range) * (h - 20) - 10;
+
     return `${x},${y}`;
   });
+
   const areaPoints = `0,${h} ${points.join(" ")} ${w},${h}`;
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-56">
-      <polygon points={areaPoints} fill="#08745F" fillOpacity="0.08" />
-      <polyline points={points.join(" ")} fill="none" stroke="#08745F" strokeWidth={2.5} />
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      className="w-full h-56"
+    >
+      <polygon
+        points={areaPoints}
+        fill="#08745F"
+        fillOpacity="0.08"
+      />
+
+      <polyline
+        points={points.join(" ")}
+        fill="none"
+        stroke="#08745F"
+        strokeWidth={2.5}
+      />
+
       {values.map((v, i) => {
-        const [x, y] = points[i].split(",").map(Number);
-        return <circle key={i} cx={x} cy={y} r={4} fill="#08745F" />;
+        const [x, y] = points[i]
+          .split(",")
+          .map(Number);
+
+        return (
+          <circle
+            key={i}
+            cx={x}
+            cy={y}
+            r={4}
+            fill="#08745F"
+          />
+        );
       })}
     </svg>
   );
 }
 
 // ----- Daily data -----
+
 const dailyTrend = [
   { label: "Mon", segments: [26, 17, 11, 6, 2] },
   { label: "Tue", segments: [33, 21, 14, 7, 3] },
@@ -193,6 +315,7 @@ const dailyTrend = [
   { label: "Sat", segments: [40, 26, 17, 9, 4] },
   { label: "Sun", segments: [42, 27, 18, 9, 4] },
 ];
+
 const dailyChannels = [
   { name: "Bank transfer", pct: 42 },
   { name: "POS", pct: 27 },
@@ -200,12 +323,24 @@ const dailyChannels = [
   { name: "USSD", pct: 9 },
   { name: "Card & wallet", pct: 4 },
 ];
+
 const dailyStaff = [
-  { name: "Ifeoma Bassey", transactions: 88, total: "₦612,400", failed: 2 },
-  { name: "Ibrahim Musa", transactions: 58, total: "₦408,200", failed: 1 },
+  {
+    name: "Ifeoma Bassey",
+    transactions: 88,
+    total: "₦612,400",
+    failed: 2,
+  },
+  {
+    name: "Ibrahim Musa",
+    transactions: 58,
+    total: "₦408,200",
+    failed: 1,
+  },
 ];
 
 // ----- Weekly data -----
+
 const weeklyTrend = [
   { label: "Wk 1", segments: [16, 10, 7, 4, 1] },
   { label: "Wk 2", segments: [24, 14, 9, 5, 2] },
@@ -214,6 +349,7 @@ const weeklyTrend = [
   { label: "Wk 5", segments: [21, 13, 8, 5, 2] },
   { label: "Wk 6", segments: [28, 18, 12, 7, 2] },
 ];
+
 const weeklyChannels = [
   { name: "Bank transfer", pct: 41 },
   { name: "POS", pct: 29 },
@@ -221,12 +357,24 @@ const weeklyChannels = [
   { name: "USSD", pct: 10 },
   { name: "Card & wallet", pct: 3 },
 ];
+
 const weeklyStaff = [
-  { name: "Ifeoma Bassey", transactions: 512, total: "₦10,214,600", failed: 6 },
-  { name: "Ibrahim Musa", transactions: 338, total: "₦6,725,600", failed: 3 },
+  {
+    name: "Ifeoma Bassey",
+    transactions: 512,
+    total: "₦10,214,600",
+    failed: 6,
+  },
+  {
+    name: "Ibrahim Musa",
+    transactions: 338,
+    total: "₦6,725,600",
+    failed: 3,
+  },
 ];
 
 // ----- Monthly data -----
+
 const monthlyTrend = [
   { label: "Mar", segments: [17, 11, 7, 4, 2] },
   { label: "Apr", segments: [22, 14, 9, 5, 2] },
@@ -235,6 +383,7 @@ const monthlyTrend = [
   { label: "Jul", segments: [40, 26, 17, 9, 4] },
   { label: "Aug", segments: [35, 23, 15, 8, 3] },
 ];
+
 const monthlyChannels = [
   { name: "Bank transfer", pct: 39 },
   { name: "POS", pct: 30 },
@@ -242,13 +391,37 @@ const monthlyChannels = [
   { name: "USSD", pct: 12 },
   { name: "Card & wallet", pct: 4 },
 ];
+
 const monthlyStaff = [
-  { name: "Ifeoma Bassey", transactions: 2204, total: "₦41,052,600", failed: 24 },
-  { name: "Ibrahim Musa", transactions: 1458, total: "₦27,368,300", failed: 14 },
+  {
+    name: "Ifeoma Bassey",
+    transactions: 2204,
+    total: "₦41,052,600",
+    failed: 24,
+  },
+  {
+    name: "Ibrahim Musa",
+    transactions: 1458,
+    total: "₦27,368,300",
+    failed: 14,
+  },
 ];
 
 // ----- Custom range: Last 30 days data -----
-const customTrend = [18, 22, 15, 28, 24, 32, 27, 36, 30, 40];
+
+const customTrend = [
+  18,
+  22,
+  15,
+  28,
+  24,
+  32,
+  27,
+  36,
+  30,
+  40,
+];
+
 const customChannels = [
   { name: "Bank transfer", pct: 40 },
   { name: "POS", pct: 28 },
@@ -256,27 +429,79 @@ const customChannels = [
   { name: "USSD", pct: 10 },
   { name: "Card & wallet", pct: 4 },
 ];
+
 const customStaff = [
-  { name: "Ifeoma Bassey", transactions: 1764, total: "₦14,540,200", failed: 9 },
-  { name: "Ibrahim Musa", transactions: 1182, total: "₦9,640,300", failed: 6 },
+  {
+    name: "Ifeoma Bassey",
+    transactions: 1764,
+    total: "₦14,540,200",
+    failed: 9,
+  },
+  {
+    name: "Ibrahim Musa",
+    transactions: 1182,
+    total: "₦9,640,300",
+    failed: 6,
+  },
 ];
 
 // ----- Custom range: This quarter data -----
+
 const quarterTrend = [
-  { label: "Week 1", segments: [1.1, 0.8, 0.5, 0.3, 0.1] },
-  { label: "Week 2", segments: [1.3, 0.9, 0.6, 0.3, 0.1] },
-  { label: "Week 3", segments: [1.2, 0.8, 0.5, 0.3, 0.1] },
-  { label: "Week 4", segments: [1.5, 1.0, 0.7, 0.4, 0.2] },
-  { label: "Week 5", segments: [1.6, 1.1, 0.7, 0.4, 0.2] },
-  { label: "Week 6", segments: [1.8, 1.2, 0.8, 0.4, 0.2] },
-  { label: "Week 7", segments: [1.9, 1.3, 0.8, 0.5, 0.2] },
-  { label: "Week 8", segments: [2.1, 1.4, 0.9, 0.5, 0.2] },
-  { label: "Week 9", segments: [2.3, 1.6, 1.0, 0.5, 0.2] },
-  { label: "Week 10", segments: [2.5, 1.7, 1.1, 0.6, 0.2] },
-  { label: "Week 11", segments: [2.7, 1.8, 1.2, 0.6, 0.3] },
-  { label: "Week 12", segments: [2.9, 2.0, 1.3, 0.7, 0.3] },
-  { label: "Week 13", segments: [3.1, 2.1, 1.4, 0.7, 0.3] },
+  {
+    label: "Week 1",
+    segments: [1.1, 0.8, 0.5, 0.3, 0.1],
+  },
+  {
+    label: "Week 2",
+    segments: [1.3, 0.9, 0.6, 0.3, 0.1],
+  },
+  {
+    label: "Week 3",
+    segments: [1.2, 0.8, 0.5, 0.3, 0.1],
+  },
+  {
+    label: "Week 4",
+    segments: [1.5, 1.0, 0.7, 0.4, 0.2],
+  },
+  {
+    label: "Week 5",
+    segments: [1.6, 1.1, 0.7, 0.4, 0.2],
+  },
+  {
+    label: "Week 6",
+    segments: [1.8, 1.2, 0.8, 0.4, 0.2],
+  },
+  {
+    label: "Week 7",
+    segments: [1.9, 1.3, 0.8, 0.5, 0.2],
+  },
+  {
+    label: "Week 8",
+    segments: [2.1, 1.4, 0.9, 0.5, 0.2],
+  },
+  {
+    label: "Week 9",
+    segments: [2.3, 1.6, 1.0, 0.5, 0.2],
+  },
+  {
+    label: "Week 10",
+    segments: [2.5, 1.7, 1.1, 0.6, 0.2],
+  },
+  {
+    label: "Week 11",
+    segments: [2.7, 1.8, 1.2, 0.6, 0.3],
+  },
+  {
+    label: "Week 12",
+    segments: [2.9, 2.0, 1.3, 0.7, 0.3],
+  },
+  {
+    label: "Week 13",
+    segments: [3.1, 2.1, 1.4, 0.7, 0.3],
+  },
 ];
+
 const quarterChannels = [
   { name: "Bank transfer", pct: 40 },
   { name: "POS", pct: 28 },
@@ -284,12 +509,24 @@ const quarterChannels = [
   { name: "USSD", pct: 10 },
   { name: "Card & wallet", pct: 4 },
 ];
+
 const quarterStaff = [
-  { name: "Ifeoma Bassey", transactions: 1764, total: "₦14,540,200", failed: 9 },
-  { name: "Ibrahim Musa", transactions: 1182, total: "₦9,640,300", failed: 6 },
+  {
+    name: "Ifeoma Bassey",
+    transactions: 1764,
+    total: "₦14,540,200",
+    failed: 9,
+  },
+  {
+    name: "Ibrahim Musa",
+    transactions: 1182,
+    total: "₦9,640,300",
+    failed: 6,
+  },
 ];
 
 // ----- Custom range: Year to date data -----
+
 const ytdTrend = [
   { label: "Jan", segments: [3.2, 2.1, 1.4, 0.6, 0.2] },
   { label: "Feb", segments: [3.6, 2.3, 1.5, 0.6, 0.2] },
@@ -304,6 +541,7 @@ const ytdTrend = [
   { label: "Nov", segments: [7.0, 3.9, 2.2, 1.1, 0.5] },
   { label: "Dec", segments: [7.5, 4.1, 2.3, 1.1, 0.5] },
 ];
+
 const ytdChannels = [
   { name: "Bank transfer", pct: 40 },
   { name: "POS", pct: 28 },
@@ -311,9 +549,20 @@ const ytdChannels = [
   { name: "USSD", pct: 10 },
   { name: "Card & wallet", pct: 4 },
 ];
+
 const ytdStaff = [
-  { name: "Ifeoma Bassey", transactions: 1764, total: "₦14,540,200", failed: 9 },
-  { name: "Ibrahim Musa", transactions: 1182, total: "₦9,640,300", failed: 6 },
+  {
+    name: "Ifeoma Bassey",
+    transactions: 1764,
+    total: "₦14,540,200",
+    failed: 9,
+  },
+  {
+    name: "Ibrahim Musa",
+    transactions: 1182,
+    total: "₦9,640,300",
+    failed: 6,
+  },
 ];
 
 export default function ReportsPage() {
@@ -347,13 +596,15 @@ export default function ReportsPage() {
 
         {/* Range tabs + download */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-          <div className="flex bg-white rounded-lg border border-gray-200 p-1 overflow-x-auto">
+          <div className="flex bg-white rounded-lg border border-gray-200 p-1 overflow-x-auto max-w-full">
             {rangeTabs.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setRange(tab)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  range === tab ? "bg-emerald-800 text-white" : "text-gray-500 hover:text-gray-700"
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+                  range === tab
+                    ? "bg-emerald-800 text-white"
+                    : "text-gray-500 hover:text-gray-700"
                 }`}
               >
                 {tab}
@@ -368,205 +619,379 @@ export default function ReportsPage() {
         </div>
 
         {/* ---------------- DAILY ---------------- */}
+
         {range === "Daily" && (
           <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <SummaryCard label="Total sales (7 days)" value="₦2,840,600" delta="9% vs prior week" />
-              <SummaryCard label="Avg transaction value" value="₦8,270" delta="3% vs prior week" />
+              <SummaryCard
+                label="Total sales (7 days)"
+                value="₦2,840,600"
+                delta="9% vs prior week"
+              />
+
+              <SummaryCard
+                label="Avg transaction value"
+                value="₦8,270"
+                delta="3% vs prior week"
+              />
+
               <SummaryCard
                 label="Failed payment rate"
                 value="2.1%"
                 delta="0.4pt vs prior week"
                 deltaPositive={false}
               />
-              <SummaryCard label="Top branch" value="Main branch" sub="64% of total sales" />
+
+              <SummaryCard
+                label="Top branch"
+                value="Main branch"
+                sub="64% of total sales"
+              />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              <StackedTrendChart data={dailyTrend} title="Sales trend — last 7 days, by channel" />
+              <StackedTrendChart
+                data={dailyTrend}
+                title="Sales trend — last 7 days, by channel"
+              />
+
               <ChannelBreakdown data={dailyChannels} />
             </div>
 
-            <StaffTable title="Sales by staff member — last 7 days" rows={dailyStaff} />
+            <StaffTable
+              title="Sales by staff member — last 7 days"
+              rows={dailyStaff}
+            />
           </>
         )}
 
         {/* ---------------- WEEKLY ---------------- */}
+
         {range === "Weekly" && (
           <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <SummaryCard label="Total sales (6 weeks)" value="₦16,940,200" delta="14% vs prior 6 weeks" />
-              <SummaryCard label="Avg weekly sales" value="₦2,823,366" delta="6% vs prior period" />
+              <SummaryCard
+                label="Total sales (6 weeks)"
+                value="₦16,940,200"
+                delta="14% vs prior 6 weeks"
+              />
+
+              <SummaryCard
+                label="Avg weekly sales"
+                value="₦2,823,366"
+                delta="6% vs prior period"
+              />
+
               <SummaryCard
                 label="Failed payment rate"
                 value="1.8%"
                 delta="0.3pt vs prior period"
                 deltaPositive={false}
               />
-              <SummaryCard label="Best week" value="Week 6" sub="₦3,412,800 in sales" />
+
+              <SummaryCard
+                label="Best week"
+                value="Week 6"
+                sub="₦3,412,800 in sales"
+              />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              <StackedTrendChart data={weeklyTrend} title="Sales trend — last 6 weeks, by channel" />
+              <StackedTrendChart
+                data={weeklyTrend}
+                title="Sales trend — last 6 weeks, by channel"
+              />
+
               <ChannelBreakdown data={weeklyChannels} />
             </div>
 
-            <StaffTable title="Sales by staff member — last 6 weeks" rows={weeklyStaff} />
+            <StaffTable
+              title="Sales by staff member — last 6 weeks"
+              rows={weeklyStaff}
+            />
           </>
         )}
 
         {/* ---------------- MONTHLY ---------------- */}
+
         {range === "Monthly" && (
           <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <SummaryCard label="Total sales (6 months)" value="₦68,420,900" delta="21% vs prior 6 months" />
-              <SummaryCard label="Avg monthly sales" value="₦11,403,483" delta="9% vs prior period" />
+              <SummaryCard
+                label="Total sales (6 months)"
+                value="₦68,420,900"
+                delta="21% vs prior 6 months"
+              />
+
+              <SummaryCard
+                label="Avg monthly sales"
+                value="₦11,403,483"
+                delta="9% vs prior period"
+              />
+
               <SummaryCard
                 label="Failed payment rate"
                 value="1.6%"
                 delta="0.5pt vs prior period"
                 deltaPositive={false}
               />
-              <SummaryCard label="Best month" value="July 2026" sub="₦13,860,400 in sales" />
+
+              <SummaryCard
+                label="Best month"
+                value="July 2026"
+                sub="₦13,860,400 in sales"
+              />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              <StackedTrendChart data={monthlyTrend} title="Sales trend — last 6 months, by channel" />
+              <StackedTrendChart
+                data={monthlyTrend}
+                title="Sales trend — last 6 months, by channel"
+              />
+
               <ChannelBreakdown data={monthlyChannels} />
             </div>
 
-            <StaffTable title="Sales by staff member — last 6 months" rows={monthlyStaff} />
+            <StaffTable
+              title="Sales by staff member — last 6 months"
+              rows={monthlyStaff}
+            />
           </>
         )}
 
         {/* ---------------- CUSTOM RANGE ---------------- */}
+
         {range === "Custom range" && (
           <>
-            <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 flex flex-wrap items-end gap-4">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">From</label>
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className="px-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
-                />
-              </div>
-              <span className="text-gray-400 pb-2.5 hidden sm:inline">→</span>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1.5">To</label>
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  className="px-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
-                />
+            {/* Responsive custom range controls */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 mb-6">
+              
+              {/* Dates */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_auto_1fr] gap-4 items-end">
+                
+                <div className="w-full">
+                  <label className="block text-xs text-gray-500 mb-1.5">
+                    From
+                  </label>
+
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) =>
+                      setFromDate(e.target.value)
+                    }
+                    className="w-full px-3 sm:px-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                  />
+                </div>
+
+                <span className="hidden lg:block text-gray-400 pb-2.5">
+                  →
+                </span>
+
+                <div className="w-full">
+                  <label className="block text-xs text-gray-500 mb-1.5">
+                    To
+                  </label>
+
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) =>
+                      setToDate(e.target.value)
+                    }
+                    className="w-full px-3 sm:px-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                  />
+                </div>
               </div>
 
-              <div className="flex gap-2 pb-2.5">
-                <button
-                  onClick={() => setQuickFilter("Last 30 days")}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-                    quickFilter === "Last 30 days"
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  Last 30 days
-                </button>
-                <button
-                  onClick={() => setQuickFilter("This quarter")}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-                    quickFilter === "This quarter"
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  This quarter
-                </button>
-                <button
-                  onClick={() => setQuickFilter("Year to date")}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-                    quickFilter === "Year to date"
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  Year to date
+              {/* Quick filters + Apply */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-4">
+                
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() =>
+                      setQuickFilter("Last 30 days")
+                    }
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                      quickFilter === "Last 30 days"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    Last 30 days
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      setQuickFilter("This quarter")
+                    }
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                      quickFilter === "This quarter"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    This quarter
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      setQuickFilter("Year to date")
+                    }
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                      quickFilter === "Year to date"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    Year to date
+                  </button>
+                </div>
+
+                <button className="w-full sm:w-auto sm:ml-auto bg-emerald-800 hover:bg-emerald-900 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
+                  Apply
                 </button>
               </div>
-
-              <button className="ml-auto bg-emerald-800 hover:bg-emerald-900 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
-                Apply
-              </button>
             </div>
+
+            {/* Year to date */}
 
             {quickFilter === "Year to date" && (
               <>
-                <div className="grid grid-cols-4 gap-4 mb-6">
-                  <SummaryCard label="Total sales (YTD 2026)" value="₦91,240,600" delta="19% vs same period 2025" />
-                  <SummaryCard label="Transactions" value="11,528" delta="12% vs same period 2025" />
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <SummaryCard
+                    label="Total sales (YTD 2026)"
+                    value="₦91,240,600"
+                    delta="19% vs same period 2025"
+                  />
+
+                  <SummaryCard
+                    label="Transactions"
+                    value="11,528"
+                    delta="12% vs same period 2025"
+                  />
+
                   <SummaryCard
                     label="Failed payment rate"
                     value="1.8%"
                     delta="0.6pt vs same period 2025"
                     deltaPositive={false}
                   />
-                  <SummaryCard label="Days covered" value="231 days" sub="1 Jan – 19 Aug 2026" />
+
+                  <SummaryCard
+                    label="Days covered"
+                    value="231 days"
+                    sub="1 Jan – 19 Aug 2026"
+                  />
                 </div>
 
-                <div className="grid grid-cols-3 gap-6 mb-6">
-                  <StackedTrendChart data={ytdTrend} title="Sales trend — year to date, by channel" />
-                  <ChannelBreakdown data={ytdChannels} />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                  <StackedTrendChart
+                    data={ytdTrend}
+                    title="Sales trend — year to date, by channel"
+                  />
+
+                  <ChannelBreakdown
+                    data={ytdChannels}
+                  />
                 </div>
 
-                <StaffTable title="Sales by staff member — Year to date 2026" rows={ytdStaff} />
+                <StaffTable
+                  title="Sales by staff member — Year to date 2026"
+                  rows={ytdStaff}
+                />
               </>
             )}
 
+            {/* This quarter */}
+
             {quickFilter === "This quarter" && (
               <>
-                <div className="grid grid-cols-4 gap-4 mb-6">
-                  <SummaryCard label="Total sales (Q3 2026)" value="₦35,760,800" delta="16% vs Q2 2026" />
-                  <SummaryCard label="Transactions" value="4,312" delta="9% vs Q2 2026" />
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <SummaryCard
+                    label="Total sales (Q3 2026)"
+                    value="₦35,760,800"
+                    delta="16% vs Q2 2026"
+                  />
+
+                  <SummaryCard
+                    label="Transactions"
+                    value="4,312"
+                    delta="9% vs Q2 2026"
+                  />
+
                   <SummaryCard
                     label="Failed payment rate"
                     value="1.6%"
                     delta="0.3pt vs Q2 2026"
                     deltaPositive={false}
                   />
-                  <SummaryCard label="Days covered" value="92 days" sub="1 Jul – 30 Sep 2026" />
+
+                  <SummaryCard
+                    label="Days covered"
+                    value="92 days"
+                    sub="1 Jul – 30 Sep 2026"
+                  />
                 </div>
 
-                <div className="grid grid-cols-3 gap-6 mb-6">
-                  <StackedTrendChart data={quarterTrend} title="Sales trend — this quarter, by channel" />
-                  <ChannelBreakdown data={quarterChannels} />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                  <StackedTrendChart
+                    data={quarterTrend}
+                    title="Sales trend — this quarter, by channel"
+                  />
+
+                  <ChannelBreakdown
+                    data={quarterChannels}
+                  />
                 </div>
 
-                <StaffTable title="Sales by staff member — Q3 2026" rows={quarterStaff} />
+                <StaffTable
+                  title="Sales by staff member — Q3 2026"
+                  rows={quarterStaff}
+                />
               </>
             )}
 
+            {/* Last 30 days */}
+
             {quickFilter === "Last 30 days" && (
               <>
-                <div className="grid grid-cols-4 gap-4 mb-6">
-                  <SummaryCard label="Total sales (1 Jul – 19 Aug)" value="₦24,180,500" delta="11% vs same period prior" />
-                  <SummaryCard label="Transactions" value="2,946" delta="7% vs same period prior" />
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <SummaryCard
+                    label="Total sales (1 Jul – 19 Aug)"
+                    value="₦24,180,500"
+                    delta="11% vs same period prior"
+                  />
+
+                  <SummaryCard
+                    label="Transactions"
+                    value="2,946"
+                    delta="7% vs same period prior"
+                  />
+
                   <SummaryCard
                     label="Failed payment rate"
                     value="1.7%"
                     delta="0.4pt vs same period prior"
                     deltaPositive={false}
                   />
-                  <SummaryCard label="Days covered" value="50 days" sub="1 Jul – 19 Aug 2026" />
+
+                  <SummaryCard
+                    label="Days covered"
+                    value="50 days"
+                    sub="1 Jul – 19 Aug 2026"
+                  />
                 </div>
 
-                <div className="grid grid-cols-3 gap-6 mb-6">
-                  <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                  
+                  <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                     <h2 className="text-base font-semibold text-gray-900 mb-6">
                       Sales trend — 1 Jul to 19 Aug 2026
                     </h2>
+
                     <LineChart values={customTrend} />
+
                     <div className="flex justify-between mt-2 text-xs text-gray-400">
                       <span>Jul 1</span>
                       <span>Jul 20</span>
@@ -574,10 +999,16 @@ export default function ReportsPage() {
                       <span>Aug 19</span>
                     </div>
                   </div>
-                  <ChannelBreakdown data={customChannels} />
+
+                  <ChannelBreakdown
+                    data={customChannels}
+                  />
                 </div>
 
-                <StaffTable title="Sales by staff member — 1 Jul to 19 Aug 2026" rows={customStaff} />
+                <StaffTable
+                  title="Sales by staff member — 1 Jul to 19 Aug 2026"
+                  rows={customStaff}
+                />
               </>
             )}
           </>
