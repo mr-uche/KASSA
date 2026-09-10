@@ -88,7 +88,6 @@ function StackedTrendChart({
 
       <div className="flex items-end justify-between gap-2 sm:gap-4 h-52 sm:h-64 overflow-x-auto">
         {data.map((d) => {
-          const total = d.segments.reduce((a, b) => a + b, 0);
           return (
             <div key={d.label} className="flex flex-col items-center gap-2 flex-1 h-full min-w-[28px]">
               <div className="w-full max-w-[52px] flex flex-col-reverse justify-start flex-1">
@@ -159,6 +158,31 @@ function StaffTable({
   );
 }
 
+function LineChart({ values }: { values: number[] }) {
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const w = 600;
+  const h = 220;
+  const range = max - min || 1;
+  const points = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * w;
+    const y = h - ((v - min) / range) * (h - 20) - 10;
+    return `${x},${y}`;
+  });
+  const areaPoints = `0,${h} ${points.join(" ")} ${w},${h}`;
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-56">
+      <polygon points={areaPoints} fill="#08745F" fillOpacity="0.08" />
+      <polyline points={points.join(" ")} fill="none" stroke="#08745F" strokeWidth={2.5} />
+      {values.map((v, i) => {
+        const [x, y] = points[i].split(",").map(Number);
+        return <circle key={i} cx={x} cy={y} r={4} fill="#08745F" />;
+      })}
+    </svg>
+  );
+}
+
 // ----- Daily data -----
 const dailyTrend = [
   { label: "Mon", segments: [26, 17, 11, 6, 2] },
@@ -223,7 +247,7 @@ const monthlyStaff = [
   { name: "Ibrahim Musa", transactions: 1458, total: "₦27,368,300", failed: 14 },
 ];
 
-// ----- Custom range data -----
+// ----- Custom range: Last 30 days data -----
 const customTrend = [18, 22, 15, 28, 24, 32, 27, 36, 30, 40];
 const customChannels = [
   { name: "Bank transfer", pct: 40 },
@@ -237,65 +261,77 @@ const customStaff = [
   { name: "Ibrahim Musa", transactions: 1182, total: "₦9,640,300", failed: 6 },
 ];
 
-function LineChart({ values }: { values: number[] }) {
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const w = 600;
-  const h = 220;
-  const range = max - min || 1;
-  const points = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * w;
-    const y = h - ((v - min) / range) * (h - 20) - 10;
-    return `${x},${y}`;
-  });
-  const areaPoints = `0,${h} ${points.join(" ")} ${w},${h}`;
+// ----- Custom range: This quarter data -----
+const quarterTrend = [
+  { label: "Week 1", segments: [1.1, 0.8, 0.5, 0.3, 0.1] },
+  { label: "Week 2", segments: [1.3, 0.9, 0.6, 0.3, 0.1] },
+  { label: "Week 3", segments: [1.2, 0.8, 0.5, 0.3, 0.1] },
+  { label: "Week 4", segments: [1.5, 1.0, 0.7, 0.4, 0.2] },
+  { label: "Week 5", segments: [1.6, 1.1, 0.7, 0.4, 0.2] },
+  { label: "Week 6", segments: [1.8, 1.2, 0.8, 0.4, 0.2] },
+  { label: "Week 7", segments: [1.9, 1.3, 0.8, 0.5, 0.2] },
+  { label: "Week 8", segments: [2.1, 1.4, 0.9, 0.5, 0.2] },
+  { label: "Week 9", segments: [2.3, 1.6, 1.0, 0.5, 0.2] },
+  { label: "Week 10", segments: [2.5, 1.7, 1.1, 0.6, 0.2] },
+  { label: "Week 11", segments: [2.7, 1.8, 1.2, 0.6, 0.3] },
+  { label: "Week 12", segments: [2.9, 2.0, 1.3, 0.7, 0.3] },
+  { label: "Week 13", segments: [3.1, 2.1, 1.4, 0.7, 0.3] },
+];
+const quarterChannels = [
+  { name: "Bank transfer", pct: 40 },
+  { name: "POS", pct: 28 },
+  { name: "Cash", pct: 18 },
+  { name: "USSD", pct: 10 },
+  { name: "Card & wallet", pct: 4 },
+];
+const quarterStaff = [
+  { name: "Ifeoma Bassey", transactions: 1764, total: "₦14,540,200", failed: 9 },
+  { name: "Ibrahim Musa", transactions: 1182, total: "₦9,640,300", failed: 6 },
+];
 
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-44 sm:h-56">
-      <polygon points={areaPoints} fill="#08745F" fillOpacity="0.08" />
-      <polyline
-        points={points.join(" ")}
-        fill="none"
-        stroke="#08745F"
-        strokeWidth={2.5}
-      />
-      {values.map((v, i) => {
-        const [x, y] = points[i].split(",").map(Number);
-        return <circle key={i} cx={x} cy={y} r={4} fill="#08745F" />;
-      })}
-    </svg>
-  );
-}
+// ----- Custom range: Year to date data -----
+const ytdTrend = [
+  { label: "Jan", segments: [3.2, 2.1, 1.4, 0.6, 0.2] },
+  { label: "Feb", segments: [3.6, 2.3, 1.5, 0.6, 0.2] },
+  { label: "Mar", segments: [4.0, 2.5, 1.5, 0.7, 0.3] },
+  { label: "Apr", segments: [4.3, 2.6, 1.6, 0.7, 0.3] },
+  { label: "May", segments: [4.7, 2.8, 1.7, 0.8, 0.3] },
+  { label: "Jun", segments: [5.0, 3.0, 1.7, 0.8, 0.3] },
+  { label: "Jul", segments: [5.4, 3.1, 1.8, 0.9, 0.4] },
+  { label: "Aug", segments: [5.8, 3.3, 1.9, 0.9, 0.4] },
+  { label: "Sep", segments: [6.2, 3.5, 2.0, 1.0, 0.4] },
+  { label: "Oct", segments: [6.6, 3.7, 2.1, 1.0, 0.4] },
+  { label: "Nov", segments: [7.0, 3.9, 2.2, 1.1, 0.5] },
+  { label: "Dec", segments: [7.5, 4.1, 2.3, 1.1, 0.5] },
+];
+const ytdChannels = [
+  { name: "Bank transfer", pct: 40 },
+  { name: "POS", pct: 28 },
+  { name: "Cash", pct: 18 },
+  { name: "USSD", pct: 10 },
+  { name: "Card & wallet", pct: 4 },
+];
+const ytdStaff = [
+  { name: "Ifeoma Bassey", transactions: 1764, total: "₦14,540,200", failed: 9 },
+  { name: "Ibrahim Musa", transactions: 1182, total: "₦9,640,300", failed: 6 },
+];
 
 export default function ReportsPage() {
   const [range, setRange] = useState<RangeTab>("Daily");
   const [fromDate, setFromDate] = useState("2026-07-01");
   const [toDate, setToDate] = useState("2026-08-19");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [quickFilter, setQuickFilter] = useState<"Last 30 days" | "This quarter" | "Year to date">(
+    "Last 30 days"
+  );
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50">
-      <KassaSidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-
-      <main className="min-h-screen lg:ml-[198px] p-4 sm:p-6 lg:p-8">
-        {/* Mobile header row with menu button */}
-        <div className="flex items-center gap-3 mb-6">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="shrink-0 rounded-md p-1.5 text-gray-600 transition hover:bg-gray-100 lg:hidden"
-            aria-label="Open menu"
-          >
-            <Menu size={22} />
-          </button>
-
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
-            Reports & Analytics
-          </h1>
-        </div>
+      <KassaSidebar isOpen={false} onClose={function (): void {
+        throw new Error("Function not implemented.");
+      } } />
+ 
+      <main className="ml-[198px] p-8">
+        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Reports &amp; Analytics</h1>
 
         {/* Range tabs + download */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
@@ -304,10 +340,8 @@ export default function ReportsPage() {
               <button
                 key={tab}
                 onClick={() => setRange(tab)}
-                className={`shrink-0 px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-                  range === tab
-                    ? "bg-emerald-800 text-white"
-                    : "text-gray-500 hover:text-gray-700"
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  range === tab ? "bg-emerald-800 text-white" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
                 {tab}
@@ -393,7 +427,7 @@ export default function ReportsPage() {
           </>
         )}
 
-        {/* ------------ CUSTOM RANGE ------------ */}
+        {/* ---------------- CUSTOM RANGE ---------------- */}
         {range === "Custom range" && (
           <>
             <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 flex flex-wrap items-end gap-4">
@@ -416,51 +450,124 @@ export default function ReportsPage() {
                   className="px-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
                 />
               </div>
-              <div className="flex flex-wrap gap-2 pb-2.5">
-                <button className="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-sm font-medium">
+
+              <div className="flex gap-2 pb-2.5">
+                <button
+                  onClick={() => setQuickFilter("Last 30 days")}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                    quickFilter === "Last 30 days"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
                   Last 30 days
                 </button>
-                <button className="px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50">
+                <button
+                  onClick={() => setQuickFilter("This quarter")}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                    quickFilter === "This quarter"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
                   This quarter
                 </button>
-                <button className="px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50">
+                <button
+                  onClick={() => setQuickFilter("Year to date")}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                    quickFilter === "Year to date"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
                   Year to date
                 </button>
               </div>
-              <button className="w-full sm:w-auto sm:ml-auto bg-emerald-800 hover:bg-emerald-900 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
+
+              <button className="ml-auto bg-emerald-800 hover:bg-emerald-900 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
                 Apply
               </button>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <SummaryCard label="Total sales (1 Jul – 19 Aug)" value="₦24,180,500" delta="11% vs same period prior" />
-              <SummaryCard label="Transactions" value="2,946" delta="7% vs same period prior" />
-              <SummaryCard
-                label="Failed payment rate"
-                value="1.7%"
-                delta="0.4pt vs same period prior"
-                deltaPositive={false}
-              />
-              <SummaryCard label="Days covered" value="50 days" sub="1 Jul – 19 Aug 2026" />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-                <h2 className="text-base font-semibold text-gray-900 mb-6">
-                  Sales trend — 1 Jul to 19 Aug 2026
-                </h2>
-                <LineChart values={customTrend} />
-                <div className="flex justify-between mt-2 text-xs text-gray-400">
-                  <span>Jul 1</span>
-                  <span>Jul 20</span>
-                  <span>Aug 8</span>
-                  <span>Aug 19</span>
+            {quickFilter === "Year to date" && (
+              <>
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <SummaryCard label="Total sales (YTD 2026)" value="₦91,240,600" delta="19% vs same period 2025" />
+                  <SummaryCard label="Transactions" value="11,528" delta="12% vs same period 2025" />
+                  <SummaryCard
+                    label="Failed payment rate"
+                    value="1.8%"
+                    delta="0.6pt vs same period 2025"
+                    deltaPositive={false}
+                  />
+                  <SummaryCard label="Days covered" value="231 days" sub="1 Jan – 19 Aug 2026" />
                 </div>
-              </div>
-              <ChannelBreakdown data={customChannels} />
-            </div>
 
-            <StaffTable title="Sales by staff member — 1 Jul to 19 Aug 2026" rows={customStaff} />
+                <div className="grid grid-cols-3 gap-6 mb-6">
+                  <StackedTrendChart data={ytdTrend} title="Sales trend — year to date, by channel" />
+                  <ChannelBreakdown data={ytdChannels} />
+                </div>
+
+                <StaffTable title="Sales by staff member — Year to date 2026" rows={ytdStaff} />
+              </>
+            )}
+
+            {quickFilter === "This quarter" && (
+              <>
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <SummaryCard label="Total sales (Q3 2026)" value="₦35,760,800" delta="16% vs Q2 2026" />
+                  <SummaryCard label="Transactions" value="4,312" delta="9% vs Q2 2026" />
+                  <SummaryCard
+                    label="Failed payment rate"
+                    value="1.6%"
+                    delta="0.3pt vs Q2 2026"
+                    deltaPositive={false}
+                  />
+                  <SummaryCard label="Days covered" value="92 days" sub="1 Jul – 30 Sep 2026" />
+                </div>
+
+                <div className="grid grid-cols-3 gap-6 mb-6">
+                  <StackedTrendChart data={quarterTrend} title="Sales trend — this quarter, by channel" />
+                  <ChannelBreakdown data={quarterChannels} />
+                </div>
+
+                <StaffTable title="Sales by staff member — Q3 2026" rows={quarterStaff} />
+              </>
+            )}
+
+            {quickFilter === "Last 30 days" && (
+              <>
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <SummaryCard label="Total sales (1 Jul – 19 Aug)" value="₦24,180,500" delta="11% vs same period prior" />
+                  <SummaryCard label="Transactions" value="2,946" delta="7% vs same period prior" />
+                  <SummaryCard
+                    label="Failed payment rate"
+                    value="1.7%"
+                    delta="0.4pt vs same period prior"
+                    deltaPositive={false}
+                  />
+                  <SummaryCard label="Days covered" value="50 days" sub="1 Jul – 19 Aug 2026" />
+                </div>
+
+                <div className="grid grid-cols-3 gap-6 mb-6">
+                  <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6">
+                    <h2 className="text-base font-semibold text-gray-900 mb-6">
+                      Sales trend — 1 Jul to 19 Aug 2026
+                    </h2>
+                    <LineChart values={customTrend} />
+                    <div className="flex justify-between mt-2 text-xs text-gray-400">
+                      <span>Jul 1</span>
+                      <span>Jul 20</span>
+                      <span>Aug 8</span>
+                      <span>Aug 19</span>
+                    </div>
+                  </div>
+                  <ChannelBreakdown data={customChannels} />
+                </div>
+
+                <StaffTable title="Sales by staff member — 1 Jul to 19 Aug 2026" rows={customStaff} />
+              </>
+            )}
           </>
         )}
       </main>

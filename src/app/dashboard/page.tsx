@@ -66,6 +66,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+
 export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -128,7 +129,7 @@ export default function DashboardPage() {
         {/* Content */}
         <section className="w-full px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-10 lg:pt-12">
           {/* Stats */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
             <StatCard
               title="Total sales today"
               value="₦482,600"
@@ -165,11 +166,11 @@ export default function DashboardPage() {
               Quick actions
             </h2>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap">
+           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
               {/* New sale */}
               <Link
                 href="/sales/new"
-                className="flex h-[72px] w-full flex-col items-center justify-center rounded-[9px] bg-[#08745F] text-white shadow-sm transition hover:bg-[#075F50] sm:w-auto sm:min-w-[164px]"
+                className="flex h-[72px] w-full flex-col items-center justify-center rounded-[9px] bg-[#08745F] text-white shadow-sm transition hover:bg-[#075F50]"
               >
                 <div className="flex items-center gap-2 text-[14px] font-semibold">
                   <Plus size={17} />

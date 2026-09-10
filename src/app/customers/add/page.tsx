@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Menu, Loader2 } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
+import { Loader2, CheckCircle2, X } from "lucide-react";
 
 export default function AddCustomerPage() {
   const router = useRouter();
@@ -17,10 +18,22 @@ export default function AddCustomerPage() {
     notes: "",
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
+  const handleSave = async () => {
+  setSaving(true);
+  await new Promise((resolve) => setTimeout(resolve, 1000)); // remove once real API is wired up
+
+  setSaving(false);
+  setShowToast(true);
+
+  setTimeout(() => {
+    router.push("/customers?added=true");
+  }, 1200);
+};
 
   const handleSave = async () => {
     setSaving(true);

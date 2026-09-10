@@ -1,49 +1,69 @@
 "use client";
-
+ 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import KassaSidebar from "@/components/KassaSidebar";
-
+import { Loader2 } from "lucide-react";
+ 
 const productOptions = [
   { name: "Paracetamol 500mg", currentStock: 8 },
   { name: "Amoxicillin 500mg", currentStock: 8 },
   { name: "Vitamin C 1000mg", currentStock: 5 },
 ];
-
+ 
 export default function RestockProductPage() {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(productOptions[0].name);
   const [quantityToAdd, setQuantityToAdd] = useState("50");
   const [supplierRef, setSupplierRef] = useState("");
   const [note, setNote] = useState("");
-
+ 
   const current = productOptions.find((p) => p.name === selectedProduct)?.currentStock ?? 0;
   const added = Number(quantityToAdd) || 0;
   const newStock = current + added;
-
+ 
+  const handleSave = async () => {
+    setSaving(true);
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // remove once real API is wired up
+    setSaving(false);
+ 
+    const params = new URLSearchParams({
+      added: "restock",
+      product: selectedProduct,
+      units: quantityToAdd,
+    });
+ 
+    router.push(`/products?${params.toString()}`);
+  };
+ 
   return (
     <div className="min-h-screen bg-gray-50">
-      <KassaSidebar />
-
-      <main className="ml-[198px] p-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">
-          Products & Inventory
+      <KassaSidebar isOpen={false} onClose={function (): void {
+        throw new Error("Function not implemented.");
+      } } />
+ 
+      <main className="md:ml-[198px] p-4 md:p-8">
+        <h1 className="text-xl md:text-2xl font-semibold text-gray-900 mb-1">
+          Products &amp; Inventory
         </h1>
-        <p className="text-sm text-gray-400 mb-4">
-          Products & Inventory / Low Stock / Restock
+        <p className="text-xs md:text-sm text-gray-400 mb-4">
+          Products &amp; Inventory / Low Stock / Restock
         </p>
-        <p className="text-gray-500 mb-6">
+        <p className="text-sm md:text-base text-gray-500 mb-6">
           Update inventory quantities for products that are running low.
         </p>
-
-        <div className="grid grid-cols-3 gap-6">
-          <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+ 
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-2 bg-white rounded-xl border border-gray-200 p-4 md:p-6">
+            <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-1">
               Restock inventory
             </h2>
             <p className="text-sm text-gray-500 mb-5">
               Select an existing product and enter the quantity received.
             </p>
-
+ 
             <div className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -61,8 +81,8 @@ export default function RestockProductPage() {
                   ))}
                 </select>
               </div>
-
-              <div className="grid grid-cols-2 gap-5">
+ 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Current stock
@@ -84,8 +104,8 @@ export default function RestockProductPage() {
                   />
                 </div>
               </div>
-
-              <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 flex items-center justify-between">
+ 
+              <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Stock after restock</p>
                   <p className="text-2xl font-semibold text-emerald-700">
@@ -96,7 +116,7 @@ export default function RestockProductPage() {
                   {current} current + {added} added
                 </p>
               </div>
-
+ 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Supplier / reference
@@ -108,7 +128,7 @@ export default function RestockProductPage() {
                   className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
                 />
               </div>
-
+ 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Note
@@ -121,24 +141,31 @@ export default function RestockProductPage() {
                 />
               </div>
             </div>
-
-            <div className="flex justify-end gap-3 mt-6 pt-2">
+ 
+            <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6 pt-2">
               <Link
                 href="/products"
-                className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="text-center px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </Link>
-              <button className="px-5 py-2.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors">
-                Restock Product
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors disabled:opacity-70"
+              >
+                {saving && <Loader2 size={14} className="animate-spin" />}
+                {saving ? "Restocking..." : "Restock Product"}
               </button>
             </div>
           </div>
-
+ 
           <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Restock summary</h3>
-
+            <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
+              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">
+                Restock summary
+              </h3>
+ 
               <div className="space-y-4 border-t border-gray-100 pt-4">
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Product</p>
@@ -158,9 +185,9 @@ export default function RestockProductPage() {
                 </div>
               </div>
             </div>
-
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h3 className="text-base font-semibold text-gray-900 mb-3">
+ 
+            <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
+              <h3 className="text-sm md:text-base font-semibold text-gray-900 mb-3">
                 What happens next
               </h3>
               <ul className="space-y-2 text-sm text-gray-600">
@@ -170,8 +197,8 @@ export default function RestockProductPage() {
                 <li>• Product remains in your catalogue</li>
               </ul>
             </div>
-
-            <div className="bg-amber-50 border border-amber-100 rounded-xl p-5">
+ 
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 md:p-5">
               <p className="text-sm font-semibold text-amber-800 mb-1">Inventory tip</p>
               <p className="text-sm text-amber-700">
                 Restocking updates the existing product quantity. It does not create a new product.
@@ -183,3 +210,4 @@ export default function RestockProductPage() {
     </div>
   );
 }
+ 
