@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Check } from "lucide-react";
+import { Check, Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 
 const steps = ["Sale", "Payment", "Receipt"] as const;
@@ -14,6 +14,7 @@ const saleStatusItems = [
 
 export default function ProcessingPaymentPage() {
   const [dots, setDots] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -23,17 +24,27 @@ export default function ProcessingPaymentPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <KassaSidebar />
+    <div className="min-h-screen overflow-x-hidden bg-gray-50">
+      <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className="ml-[198px] p-8">
-        <div className="flex items-center justify-between mb-1">
-          <h1 className="text-2xl font-semibold text-gray-900">Processing Payment</h1>
-          <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700">
+      <main className="lg:ml-[198px] p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-1">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="shrink-0 rounded-md p-1.5 text-gray-600 transition hover:bg-gray-100 lg:hidden"
+              aria-label="Open menu"
+            >
+              <Menu size={22} />
+            </button>
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Processing Payment</h1>
+          </div>
+          <button className="self-start sm:self-auto flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700">
             Main branch
           </button>
         </div>
-        <p className="text-gray-500 mb-8">
+        <p className="text-sm sm:text-base text-gray-500 mb-8">
           We&apos;re verifying your payment. Please don&apos;t close this screen.
         </p>
 
@@ -76,9 +87,9 @@ export default function ProcessingPaymentPage() {
           })}
         </div>
 
-        <div className="grid grid-cols-3 gap-6 max-w-4xl">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-4xl">
           {/* Processing card */}
-          <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-10 flex flex-col items-center text-center">
+          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 sm:p-10 flex flex-col items-center text-center">
             <div className="w-16 h-16 rounded-full border-4 border-gray-100 border-t-amber-500 animate-spin mb-6" />
 
             <h2 className="text-lg font-semibold text-gray-900 mb-1">
@@ -89,10 +100,10 @@ export default function ProcessingPaymentPage() {
             </p>
 
             <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Amount</p>
-            <p className="text-3xl font-bold text-gray-900 mb-5">₦24,500.00</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-5">₦24,500.00</p>
 
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-50 border border-emerald-100 mb-6">
-              <span className="w-5 h-5 rounded-full bg-emerald-700 text-white text-[10px] font-bold flex items-center justify-center">
+              <span className="w-5 h-5 shrink-0 rounded-full bg-emerald-700 text-white text-[10px] font-bold flex items-center justify-center">
                 N
               </span>
               <div className="text-left">
