@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 
 export default function AddBranchPage() {
@@ -19,12 +20,27 @@ export default function AddBranchPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <KassaSidebar />
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-      <main className="ml-[198px] p-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Staff & Branches</h1>
+  return (
+    <div className="min-h-screen overflow-x-hidden bg-gray-50">
+      <KassaSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+
+      <main className="lg:ml-[198px] p-4 sm:p-6 lg:p-8">
+        <div className="flex items-center gap-3 mb-1">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="shrink-0 rounded-md p-1.5 text-gray-700 transition hover:bg-gray-100 lg:hidden"
+            aria-label="Open menu"
+          >
+            <Menu size={22} />
+          </button>
+          <h1 className="text-2xl font-semibold text-gray-900">Staff & Branches</h1>
+        </div>
         <p className="text-gray-500 mb-6">
           Manage your team, branches, roles and access.
         </p>
@@ -34,8 +50,8 @@ export default function AddBranchPage() {
           Create a new business location and assign staff to it.
         </p>
 
-        <div className="grid grid-cols-3 gap-6">
-          <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
               Branch information
             </h3>
@@ -56,7 +72,7 @@ export default function AddBranchPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Branch code <span className="text-red-500">*</span>
@@ -93,7 +109,7 @@ export default function AddBranchPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     City <span className="text-red-500">*</span>

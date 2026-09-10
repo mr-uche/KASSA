@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Upload } from "lucide-react";
+import { Loader2, Upload, CheckCircle2, X } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 
 export default function AddProductPage() {
@@ -17,11 +17,20 @@ export default function AddProductPage() {
     currentStock: "",
     lowStockThreshold: "",
   });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleSave = async () => {
+  setSaving(true);
+  // TODO: replace with your real API call
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  setSaving(false);
+  setSaved(true);
+};
   return (
     <div className="min-h-screen bg-gray-50">
       <KassaSidebar />
@@ -204,20 +213,46 @@ export default function AddProductPage() {
           </div>
 
           {/* Save panel */}
+                   {/* Save panel */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 h-fit">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">
-              Save product
-            </h2>
-            <p className="text-sm text-gray-500 mb-5">
-              Required fields are marked with *
-            </p>
+            {!saved ? (
+              <>
+                <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                  Save product
+                </h2>
+                <p className="text-sm text-gray-500 mb-5">
+                  Required fields are marked with *
+                </p>
 
-            <button className="w-full bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium transition-colors mb-3">
-              Save Product
-            </button>
-            <button className="w-full border border-emerald-700 text-emerald-700 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-50 transition-colors mb-6">
-              Cancel
-            </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="w-full flex items-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium transition-colors mb-3 disabled:opacity-70"
+                >
+                  {saving && <Loader2 size={14} className="animate-spin" />}
+                  {saving ? "Saving..." : "Save Product"}
+                </button>
+                <button className="w-full border border-emerald-700 text-emerald-700 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-50 transition-colors mb-6">
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <div className="flex items-start gap-3 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 mb-6">
+                <CheckCircle2 className="mt-0.5 flex-shrink-0 text-emerald-700" size={18} />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    Product added successfully
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Now available in your catalogue.
+                  </p>
+                </div>
+                <button onClick={() => setSaved(false)}>
+                  <X size={14} className="text-gray-400" />
+                </button>
+              </div>
+            )}
 
             <h3 className="text-sm font-semibold text-gray-900 mb-2">
               What happens next?

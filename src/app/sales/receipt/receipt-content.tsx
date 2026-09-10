@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Wifi, MessageSquare, Mail, Download, Printer } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
@@ -27,9 +28,14 @@ export default function ReceiptContent() {
 
   const subtotal = receiptItems.reduce((sum, i) => sum + i.amount, 0);
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <KassaSidebar />
+      <KassaSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
       <main className="ml-[198px] p-8">
         <div className="flex items-center justify-between mb-1">

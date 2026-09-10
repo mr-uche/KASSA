@@ -32,9 +32,14 @@ export default function AddRolePage() {
     setPermissions((prev) => ({ ...prev, [perm]: !prev[perm] }));
   };
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <KassaSidebar />
+      <KassaSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
       <main className="ml-[198px] p-8">
         <h1 className="text-2xl font-semibold text-gray-900 mb-1">Staff & Branches</h1>
