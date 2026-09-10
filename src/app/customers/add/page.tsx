@@ -1,13 +1,14 @@
 "use client";
-import {useRouter} from "next/navigation";
+
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Menu } from "lucide-react";
+import { Menu, Loader2 } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import { Loader2, CheckCircle2, X } from "lucide-react";
 
 export default function AddCustomerPage() {
-    const router = useRouter();    
-  const [saving, setSaving] = useState(false);  
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     fullName: "",
     phone: "",
@@ -33,6 +34,13 @@ export default function AddCustomerPage() {
     router.push("/customers?added=true");
   }, 1200);
 };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // remove once real API is wired up
+    setSaving(false);
+    router.push("/customers?added=true");
+  };
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50">
@@ -141,23 +149,22 @@ export default function AddCustomerPage() {
             />
           </div>
 
-          <div className="flex flex-col-reverse gap-3 mt-6 sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 mt-6">
             <button
-                type="button"
-                onClick={() => router.push("/customers")}
-                className="w-full sm:w-auto rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="w-full sm:w-auto rounded-lg bg-emerald-800 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-3"
-              >
-                {saving && <Loader2 size={14} className="animate-spin" />}
-                {saving ? "Saving..." : "Save customer"}
+              type="button"
+              onClick={() => router.push("/customers")}
+              className="px-5 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="px-5 py-2.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
+            >
+              {saving && <Loader2 size={14} className="animate-spin" />}
+              {saving ? "Saving..." : "Save Customer"}
             </button>
           </div>
         </div>
