@@ -55,7 +55,7 @@ export default function AddCustomerPage() {
 
       <main className="ml-[198px] p-8">
         <h1 className="text-2xl font-semibold text-gray-900 mb-1">
-          Add Product
+          Add Customer
         </h1>
 
         <p className="text-gray-500 mb-6">
