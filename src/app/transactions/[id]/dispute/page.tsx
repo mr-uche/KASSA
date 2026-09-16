@@ -195,7 +195,7 @@ export default function DisputeTransactionPage() {
               <div>
                 <p className="text-xs text-gray-500 mb-1">Review</p>
                 <p className="text-sm text-gray-700">
-                  Hefa support will review your submission.
+                  kassa support will review your submission.
                 </p>
               </div>
             </div>

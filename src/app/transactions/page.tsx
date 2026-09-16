@@ -66,7 +66,7 @@ const transactions = [
     id: "TXN-2026-000146",
     customer: "Tunde Bakare",
     cashier: "Ifeoma Bassey",
-    channel: "Hefa Wallet",
+    channel: "kassa Wallet",
     items: "2 items",
     amount: "₦6,900",
     status: "Success",

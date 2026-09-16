@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
 import { Menu, X, Check, Loader2, CheckCircle2 } from "lucide-react";
@@ -13,18 +14,19 @@ const navItems = [
   "Data Export",
   "Delete Account",
 ] as const;
+
 type NavItem = (typeof navItems)[number];
 
 const billingHistory = [
   {
     date: "Aug 21, 2026",
-    description: "Hefa Business — Monthly",
+    description: "kassa Business — Monthly",
     amount: "₦25,000",
     status: "Paid",
   },
   {
     date: "Jul 21, 2026",
-    description: "Hefa Business — Monthly",
+    description: "kassa Business — Monthly",
     amount: "₦25,000",
     status: "Paid",
   },
@@ -115,13 +117,12 @@ function SettingsPageContent() {
   const handleSave = async () => {
     setSaving(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 1000)); // remove once real API is wired up
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     setSaving(false);
     setShowSettingsToast(true);
   };
 
-  // ---- Notifications state ----
   const [notif, setNotif] = useState({
     successfulPayments: true,
     failedPayments: true,
@@ -138,7 +139,6 @@ function SettingsPageContent() {
   const toggleNotif = (key: keyof typeof notif) =>
     setNotif((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  // ---- Data export state ----
   const [exportData, setExportData] = useState({
     transactions: true,
     productsInventory: true,
@@ -152,17 +152,94 @@ function SettingsPageContent() {
     setExportData((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const [exportFormat, setExportFormat] = useState("CSV");
-  const [exportDateRange, setExportDateRange] = useState("All available data");
+  const [exportDateRange, setExportDateRange] =
+    useState("All available data");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  if (active === "Delete Account" && deleteStep === 2) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-10 max-w-2xl w-full text-center">
+          <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
+            <Check size={28} className="text-green-600" />
+          </div>
+
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">
+            Account deleted
+          </h2>
+
+          <p className="text-sm text-gray-500 mb-6">
+            Your Kassa account has been permanently deleted.
+            <br />
+            You have been signed out.
+          </p>
+
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-left mb-4">
+            <p className="text-sm font-semibold text-gray-900 mb-1">
+              What this means
+            </p>
+
+            <ul className="space-y-1 text-sm text-gray-600">
+              <li>
+                • Your account and login access are permanently closed.
+              </li>
+              <li>
+                • Eligible business data has been deleted as described during
+                deletion.
+              </li>
+              <li>
+                • This action cannot be undone or used to restore the account.
+              </li>
+            </ul>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-left mb-6">
+            <p className="text-sm font-semibold text-amber-800 mb-1">
+              Some financial records may remain
+            </p>
+
+            <p className="text-sm text-amber-700">
+              Certain transaction, payout, tax, audit, or compliance records
+              may be retained where required by law or for legitimate business
+              records.
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              setDeleteStep(0);
+              setDeleteConfirmText("");
+              setActive("Business profile");
+            }}
+            className="w-full py-2.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors mb-4"
+          >
+            Back to Sign In
+          </button>
+
+          <p className="text-xs text-gray-400">
+            Need help?{" "}
+            <a
+              href="/support"
+              className="text-emerald-700 hover:underline"
+            >
+              Contact Kassa Support
+            </a>
+          </p>
+
+          <p className="text-xs text-gray-300 mt-1">
+            This account is no longer accessible.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Desktop sidebar */}
       <div className="hidden md:block">
         <KassaSidebar isOpen={false} onClose={() => {}} />
       </div>
 
-      {/* Mobile header */}
       <div className="md:hidden sticky top-0 z-40 bg-emerald-800 px-4 py-4 flex items-center justify-between">
         <span className="text-white font-semibold text-lg">Kassa</span>
 
@@ -192,6 +269,7 @@ function SettingsPageContent() {
                 <div className="flex h-[34px] w-[26px] items-center justify-center rounded-r-md bg-white text-[17px] font-bold text-[#08745F]">
                   K
                 </div>
+
                 <span className="text-[18px] font-semibold">Kassa</span>
               </div>
 
@@ -209,41 +287,43 @@ function SettingsPageContent() {
               {mobileNavItems.map((item) => {
                 const activeRoute =
                   pathname === item.href ||
-                  (item.href !== "/dashboard" && pathname?.startsWith(item.href));
+                  (item.href !== "/dashboard" &&
+                    pathname?.startsWith(item.href));
 
-                    return (
-                      <a
-                        key={item.name}
-                        href={item.href}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={`relative flex h-11 items-center px-4 text-sm transition ${
-                          activeRoute
-                            ? "rounded-r-lg bg-[#075C4D] font-semibold"
-                            : "text-white/90 hover:bg-[#075C4D]/60"
-                        }`}
-                      >
-                        <span
-                          className={`mr-[9px] h-[5px] w-[5px] rounded-full ${
-                            activeRoute
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`relative flex h-11 items-center px-4 text-sm transition ${
+                      activeRoute
+                        ? "rounded-r-lg bg-[#075C4D] font-semibold"
+                        : "text-white/90 hover:bg-[#075C4D]/60"
+                    }`}
+                  >
+                    <span
+                      className={`mr-[9px] h-[5px] w-[5px] rounded-full ${
+                        activeRoute
                           ? "bg-[#B7E5D5]"
                           : "bg-transparent"
-                          }`}
-                        />
-    
+                      }`}
+                    />
+
                     {item.name}
-                      </a>
-                    );
-                  })}
-                </nav>
-              </aside>
-            </div>
-          )}
+                  </Link>
+                );
+              })}
+            </nav>
+          </aside>
+        </div>
+      )}
 
       <main className="ml-0 md:ml-[198px] p-4 md:p-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Settings</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 mb-6">
+          Settings
+        </h1>
 
         <div className="flex flex-col md:flex-row gap-4 md:gap-6">
-          {/* Left nav */}
           <aside className="w-full md:w-64 shrink-0">
             <nav className="bg-white rounded-xl border border-gray-200 p-2 overflow-x-auto">
               {navItems.map((item) => (
@@ -271,7 +351,6 @@ function SettingsPageContent() {
             </nav>
           </aside>
 
-          {/* Content */}
           <div className="flex-1 space-y-6">
             {active === "Business profile" && (
               <>
@@ -336,7 +415,8 @@ function SettingsPageContent() {
                         className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
                       />
                     </div>
-                   <div className="sm:col-span-2">
+
+                    <div className="sm:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
                         Business address
                       </label>
@@ -522,28 +602,41 @@ function SettingsPageContent() {
 
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[600px] text-sm">
-                    <thead>
-                      <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
-                        <th className="pb-3 font-medium">Date</th>
-                        <th className="pb-3 font-medium">Description</th>
-                        <th className="pb-3 font-medium">Amount</th>
-                        <th className="pb-3 font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {billingHistory.map((row) => (
-                        <tr key={row.date} className="border-b border-gray-50 last:border-0">
-                          <td className="py-3 text-gray-700">{row.date}</td>
-                          <td className="py-3 text-gray-700">{row.description}</td>
-                          <td className="py-3 text-gray-700">{row.amount}</td>
-                          <td className="py-3">
-                            <span className="px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-                              {row.status}
-                            </span>
-                          </td>
+                      <thead>
+                        <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                          <th className="pb-3 font-medium">Date</th>
+                          <th className="pb-3 font-medium">Description</th>
+                          <th className="pb-3 font-medium">Amount</th>
+                          <th className="pb-3 font-medium">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
+                      </thead>
+
+                      <tbody>
+                        {billingHistory.map((row) => (
+                          <tr
+                            key={row.date}
+                            className="border-b border-gray-50 last:border-0"
+                          >
+                            <td className="py-3 text-gray-700">
+                              {row.date}
+                            </td>
+
+                            <td className="py-3 text-gray-700">
+                              {row.description}
+                            </td>
+
+                            <td className="py-3 text-gray-700">
+                              {row.amount}
+                            </td>
+
+                            <td className="py-3">
+                              <span className="px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                                {row.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
                     </table>
                   </div>
                 </div>
@@ -912,11 +1005,14 @@ function SettingsPageContent() {
                           key: "reportsAnalytics",
                           label: "Reports & Analytics",
                         },
-                      ] as const
+                      ] as {
+                        key: keyof typeof exportData;
+                        label: string;
+                      }[]
                     ).map(({ key, label }) => (
                       <label
                         key={key}
-                        className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 cursor-pointer"
+                        className="flex items-center gap-3 border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-50"
                       >
                         <input
                           type="checkbox"
@@ -990,6 +1086,7 @@ function SettingsPageContent() {
                   <p className="text-sm text-gray-500 mb-4">
                     Your most recent data export requests.
                   </p>
+
                   <table className="w-full min-w-[600px] text-sm">
                     <thead>
                       <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
@@ -1228,86 +1325,10 @@ function SettingsPageContent() {
                 </p>
               </div>
             )}
-
-            {active === "Delete Account" && deleteStep === 2 && (
-              <div className="bg-white rounded-xl border border-gray-200 p-10 max-w-2xl text-center mx-auto">
-                <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
-                  <Check size={28} className="text-green-600" />
-                </div>
-
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                  Account deleted
-                </h2>
-
-                <p className="text-sm text-gray-500 mb-6">
-                  Your Kassa account has been permanently deleted.
-                  <br />
-                  You have been signed out.
-                </p>
-
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-left mb-4">
-                  <p className="text-sm font-semibold text-gray-900 mb-1">
-                    What this means
-                  </p>
-
-                  <ul className="space-y-1 text-sm text-gray-600">
-                    <li>
-                      • Your account and login access are permanently closed.
-                    </li>
-                    <li>
-                      • Eligible business data has been deleted as described
-                      during deletion.
-                    </li>
-                    <li>
-                      • This action cannot be undone or used to restore the
-                      account.
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-left mb-6">
-                  <p className="text-sm font-semibold text-amber-800 mb-1">
-                    Some financial records may remain
-                  </p>
-
-                  <p className="text-sm text-amber-700">
-                    Certain transaction, payout, tax, audit, or compliance
-                    records may be retained where required by law or for
-                    legitimate business records.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setDeleteStep(0);
-                    setDeleteConfirmText("");
-                    setActive("Business profile");
-                  }}
-                  className="w-full py-2.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors mb-4"
-                >
-                  Back to Sign In
-                </button>
-
-                <p className="text-xs text-gray-400">
-                  Need help?{" "}
-                  <a
-                    href="/support"
-                    className="text-emerald-700 hover:underline"
-                  >
-                    Contact Kassa Support
-                  </a>
-                </p>
-
-                <p className="text-xs text-gray-300 mt-1">
-                  This account is no longer accessible.
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </main>
 
-      {/* Change Plan modal */}
       {showChangePlan && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-3 sm:p-6">
           <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-8 relative">
@@ -1328,7 +1349,6 @@ function SettingsPageContent() {
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Starter */}
               <div className="border border-gray-200 rounded-xl p-5 flex flex-col">
                 <h3 className="font-semibold text-gray-900 mb-1">
                   Starter
@@ -1377,7 +1397,6 @@ function SettingsPageContent() {
                 </button>
               </div>
 
-              {/* Growth - current plan */}
               <div className="border-2 border-emerald-700 rounded-xl p-5 flex flex-col relative">
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-700 text-white text-[10px] font-semibold px-3 py-1 rounded-full uppercase tracking-wide">
                   Your current plan
@@ -1425,7 +1444,6 @@ function SettingsPageContent() {
                 </button>
               </div>
 
-              {/* Scale */}
               <div className="border border-gray-200 rounded-xl p-5 flex flex-col">
                 <h3 className="font-semibold text-gray-900 mb-1">
                   Scale
@@ -1483,7 +1501,6 @@ function SettingsPageContent() {
         </div>
       )}
 
-      {/* Scale-plan upgrade flow (3 steps) */}
       {upgradeStep > 0 && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-3 sm:p-6">
           <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 relative">
@@ -1500,7 +1517,6 @@ function SettingsPageContent() {
               Step {upgradeStep} of 3
             </p>
 
-            {/* STEP 1 */}
             {upgradeStep === 1 && (
               <>
                 <div className="flex flex-col items-center text-center mb-5">
@@ -1574,7 +1590,6 @@ function SettingsPageContent() {
               </>
             )}
 
-            {/* STEP 2 */}
             {upgradeStep === 2 && (
               <>
                 <div className="flex flex-col items-center text-center mb-5">
@@ -1677,7 +1692,6 @@ function SettingsPageContent() {
               </>
             )}
 
-            {/* STEP 3 */}
             {upgradeStep === 3 && (
               <div className="flex flex-col items-center text-center py-2">
                 <div className="w-12 h-12 rounded-full border-4 border-gray-100 border-t-emerald-600 animate-spin mb-5" />
@@ -1695,7 +1709,7 @@ function SettingsPageContent() {
                 </span>
 
                 <p className="text-xs text-gray-400 mb-6 max-w-xs">
-                  You&apos;ll briefly leave Hefa to confirm this payment with
+                  You&apos;ll briefly leave kassa to confirm this payment with
                   your bank or card provider, then return here automatically.
                 </p>
 
@@ -1717,7 +1731,6 @@ function SettingsPageContent() {
         </div>
       )}
 
-      {/* Starter-plan downgrade flow (2 steps) */}
       {downgradeStep > 0 && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-3 sm:p-6">
           <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 relative">
@@ -1734,7 +1747,6 @@ function SettingsPageContent() {
               Step {downgradeStep} of 2
             </p>
 
-            {/* STEP 1: Confirm downgrade */}
             {downgradeStep === 1 && (
               <>
                 <div className="flex flex-col items-center text-center mb-5">
@@ -1827,7 +1839,6 @@ function SettingsPageContent() {
               </>
             )}
 
-            {/* STEP 2: Downgrade scheduled */}
             {downgradeStep === 2 && (
               <div className="flex flex-col items-center text-center py-2">
                 <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mb-5">

@@ -76,7 +76,7 @@ export default function RestockProductPage() {
         </div>
 
         <p className="text-xs sm:text-sm text-gray-400 mb-4">
-          Products &amp; Inventory / Low Stock / Restock
+          Products &amp; Inventory
         </p>
 
         <p className="text-sm sm:text-base text-gray-500 mb-6">
