@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Plus } from "lucide-react";
 
+import Logo from "@/components/logo";
+
 type StaffMember = { fullName: string; role: string; phone: string };
 type Branch = { name: string; address: string; phone: string };
 type PayoutSchedule = "instant" | "daily" | "weekly";
@@ -85,12 +87,7 @@ export default function OnboardingPage() {
       <div className="max-w-2xl mx-auto pt-10 px-4">
         {/* Top bar */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-2">
-            <span className="w-6 h-6 rounded bg-emerald-700 text-white text-xs font-bold flex items-center justify-center">
-              K
-            </span>
-            <span className="font-semibold text-gray-900">Kassa</span>
-          </div>
+          <Logo />
           <button className="text-sm text-gray-500 hover:text-gray-700">
             Save and exit
           </button>

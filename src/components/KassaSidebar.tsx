@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 
+import Logo from "@/components/logo";
+
 const menuItems = [
   { name: "Home", href: "/dashboard" },
   { name: "Transactions", href: "/transactions" },
@@ -39,13 +41,8 @@ export default function KassaSidebar({
         } lg:translate-x-0`}
       >
         {/* Logo + mobile close button */}
-        <div className="flex h-[72px] items-center justify-between gap-3 px-0 pr-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-[34px] w-[26px] items-center justify-center rounded-r-md bg-white text-[17px] font-bold text-[#08745F]">
-              K
-            </div>
-            <span className="text-[18px] font-semibold">Kassa</span>
-          </div>
+        <div className="flex h-[72px] items-center justify-between gap-3 px-4">
+          <Logo variant="light" width={90} height={24} />
 
           <button
             type="button"

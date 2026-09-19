@@ -1,5 +1,5 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+import Logo from "@/components/logo";
 
 type AuthSplitLayoutProps = {
   children: ReactNode;
@@ -11,12 +11,7 @@ export default function AuthSplitLayout({ children }: AuthSplitLayoutProps) {
       {/* Marketing panel */}
       <div className="hidden lg:flex lg:flex-col lg:justify-between bg-brand-500 px-12 py-20 text-white">
         <div>
-          <Link href="/" className="inline-flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-white text-sm font-bold text-brand-500">
-              K
-            </span>
-            <span className="text-base font-semibold">Kassa</span>
-          </Link>
+          <Logo variant="light" />
 
           <h1 className="mt-10 text-3xl font-bold leading-tight">
             Banks and Fintechs move money.{" "}
@@ -57,17 +52,7 @@ export default function AuthSplitLayout({ children }: AuthSplitLayoutProps) {
       <div className="flex items-center justify-center bg-surface-muted px-6 py-12 sm:px-10">
         <div className="w-full max-w-md">
           {/* Mobile-only logo */}
-          <Link
-            href="/"
-            className="mb-8 inline-flex items-center gap-2 lg:hidden"
-          >
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-500 text-sm font-bold text-white">
-              K
-            </span>
-            <span className="text-base font-semibold text-text-primary">
-              Kassa
-            </span>
-          </Link>
+          <Logo className="mb-8 inline-flex lg:hidden" />
 
           {children}
         </div>

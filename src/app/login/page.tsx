@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Logo from "@/components/logo";
 
 const bullets = [
   "One reconciled view of every sale, every channel",
@@ -24,11 +25,8 @@ export default function LoginPage() {
       {/* Left panel */}
       <div className="relative flex flex-col justify-between bg-[#08745F] text-white px-10 py-12 lg:px-14 lg:py-16">
         <div>
-          <div className="flex items-center gap-2 mb-16">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-white/15 text-sm font-semibold">
-              K
-            </span>
-            <span className="text-base font-semibold">Kassa</span>
+          <div className="mb-16">
+            <Logo variant="light" />
           </div>
 
           <h1 className="text-3xl lg:text-4xl font-semibold leading-tight max-w-sm">
@@ -133,7 +131,7 @@ export default function LoginPage() {
               <label className="flex items-center gap-2 text-gray-600">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 rounded border-gray-300 text-[##08745F] focus:ring-[#08745F]/30"
+                  className="h-4 w-4 rounded border-gray-300 text-[#08745F] focus:ring-[#08745F]/30"
                 />
                 Remember me
               </label>
