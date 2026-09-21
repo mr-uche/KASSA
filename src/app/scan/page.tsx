@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Zap, Keyboard, Camera, Minus, Plus, CheckCircle2, Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import Link from "next/link";
@@ -26,6 +27,7 @@ const scannedProduct = {
 };
 
 export default function ScanProductPage() {
+  const router = useRouter();
   const [quantity, setQuantity] = useState(1);
   const [sale, setSale] = useState<SaleItem[]>(initialSale);
   const [added, setAdded] = useState(false);
@@ -37,6 +39,7 @@ export default function ScanProductPage() {
       { name: scannedProduct.name, qty: quantity, price: scannedProduct.price, justAdded: true },
     ]);
     setAdded(true);
+    router.push("/sales/new");
   };
 
   const total = sale.reduce((sum, item) => sum + item.price, 0);
@@ -110,7 +113,7 @@ export default function ScanProductPage() {
               <button className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 shrink-0">
                 <Zap size={18} />
               </button>
-                 
+
               <Link href={"/scan/product-code"}
                 className="flex flex-col items-center gap-1 text-white">
                 <span className="w-11 h-11 rounded-full bg-emerald-700 flex items-center justify-center">
@@ -209,7 +212,10 @@ export default function ScanProductPage() {
                 </span>
               </div>
 
-              <button className="w-full bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium mb-2 transition-colors">
+              <button
+                onClick={handleAddToSale}
+                className="w-full bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium mb-2 transition-colors"
+              >
                 Proceed to payment
               </button>
               <button className="w-full text-center text-emerald-700 text-sm font-medium py-1">
