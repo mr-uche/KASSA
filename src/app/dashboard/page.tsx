@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Bell,
+  Check,
   ChevronDown,
   Menu,
   Plus,
@@ -12,6 +13,8 @@ import {
 } from "lucide-react";
 
 import KassaSidebar from "@/components/KassaSidebar";
+
+const branches = ["All branches", "Main Branch", "Branch 2"];
 
 const transactions = [
   {
@@ -69,6 +72,30 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [branchOpen, setBranchOpen] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState(branches[0]);
+  const branchRef = useRef<HTMLDivElement>(null);
+
+  // Close the dropdown when clicking outside it or pressing Escape
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (branchRef.current && !branchRef.current.contains(e.target as Node)) {
+        setBranchOpen(false);
+      }
+    }
+
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setBranchOpen(false);
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#F5F6F8]">
@@ -100,13 +127,57 @@ export default function DashboardPage() {
           {/* Header actions */}
           <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:gap-5">
             {/* Branch selector */}
-            <button
-              className="hidden h-[34px] w-[130px] items-center justify-between rounded-[9px] border border-[#D8DCE3] bg-white px-3 text-[12px] text-[#374151] sm:flex sm:w-[150px] sm:text-[13px] lg:w-[162px]"
-              type="button"
+            <div
+              ref={branchRef}
+              className="relative hidden w-[130px] sm:block sm:w-[150px] lg:w-[162px]"
             >
-              <span>All branches</span>
-              <ChevronDown size={16} className="text-[#687386]" />
-            </button>
+              <button
+                type="button"
+                onClick={() => setBranchOpen((open) => !open)}
+                aria-haspopup="listbox"
+                aria-expanded={branchOpen}
+                className="flex h-[34px] w-full items-center justify-between rounded-[9px] border border-[#D8DCE3] bg-white px-3 text-[12px] text-[#374151] transition hover:bg-[#F8FAFA] sm:text-[13px]"
+              >
+                <span className="truncate">{selectedBranch}</span>
+                <ChevronDown
+                  size={16}
+                  className={`shrink-0 text-[#687386] transition-transform ${
+                    branchOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {branchOpen && (
+                <ul
+                  role="listbox"
+                  className="absolute right-0 top-full z-30 mt-2 w-full min-w-[162px] overflow-hidden rounded-[9px] border border-[#E0E3E8] bg-white py-1 shadow-lg"
+                >
+                  {branches.map((branch) => {
+                    const active = branch === selectedBranch;
+
+                    return (
+                      <li key={branch} role="option" aria-selected={active}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedBranch(branch);
+                            setBranchOpen(false);
+                          }}
+                          className={`flex w-full items-center justify-between px-3 py-2 text-left text-[13px] transition hover:bg-[#F3F6F5] ${
+                            active
+                              ? "font-semibold text-[#08745F]"
+                              : "text-[#374151]"
+                          }`}
+                        >
+                          <span className="truncate">{branch}</span>
+                          {active && <Check size={15} className="shrink-0" />}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
 
             {/* Notification */}
             <button

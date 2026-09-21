@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/logo";
 
@@ -25,8 +26,21 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen grid lg:h-screen lg:overflow-hidden lg:grid-cols-[5fr_6fr]">
       {/* Left panel */}
-      <div className="relative flex flex-col bg-[#08745F] text-white px-10 pt-8 pb-8 lg:px-14 lg:pt-8 lg:pb-8">
-        <div className="mx-auto flex min-h-0 w-full max-w-sm flex-1 flex-col justify-between">
+      <div className="relative flex flex-col overflow-hidden text-white px-10 pt-8 pb-8 lg:px-14 lg:pt-8 lg:pb-8">
+        {/* Background image */}
+        <Image
+          src="/images/Kassa's Login.png"
+          alt=""
+          fill
+          priority
+          sizes="(min-width: 1024px) 45vw, 100vw"
+          className="object-cover"
+        />
+        {/* Green overlay */}
+        <div className="absolute inset-0 bg-[#08745F]/85" />
+
+        {/* Content */}
+        <div className="relative z-10 mx-auto flex min-h-0 w-full max-w-sm flex-1 flex-col justify-between">
           <div>
             <div className="mb-10">
               <Logo variant="light" />
@@ -40,27 +54,27 @@ export default function LoginPage() {
               one clear picture.
             </h1>
 
-            <p className="mt-4 max-w-sm text-sm text-white/60 leading-relaxed">
+            <p className="mt-4 max-w-sm text-sm text-white/70 leading-relaxed">
               Log in to see today&apos;s sales across every branch, channel, and
               staff member — in real time.
             </p>
 
             <ul className="mt-6 space-y-2.5">
               {bullets.map((item) => (
-                <li key={item} className="flex items-start gap-2.5 text-sm text-white/80">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/50" />
+                <li key={item} className="flex items-start gap-2.5 text-sm text-white/85">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/60" />
                   {item}
                 </li>
               ))}
             </ul>
           </div>
 
-          <blockquote className="mt-8 max-w-sm rounded-lg border border-white/15 bg-white/5 p-5">
+          <blockquote className="mt-8 max-w-sm rounded-lg border border-white/20 bg-white/10 p-5 backdrop-blur-sm">
             <p className="text-sm text-white/90 leading-relaxed">
               &ldquo;I don&apos;t need faster payments. I need to know, at a
               glance, that every naira coming in is accounted for.&rdquo;
             </p>
-            <footer className="mt-3 text-xs text-white/50">
+            <footer className="mt-3 text-xs text-white/60">
               Adebora Okafor; Business Owner, 2-branch pharmacy
             </footer>
           </blockquote>
