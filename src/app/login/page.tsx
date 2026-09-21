@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Logo from "@/components/logo";
 
 const bullets = [
@@ -10,61 +11,64 @@ const bullets = [
 ];
 
 export default function LoginPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // TODO: wire up to auth endpoint
-    console.log({ email, password });
+    // TODO: wire up to auth endpoint, then navigate only on success
+    router.push("/dashboard");
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-[5fr_6fr]">
+    <div className="min-h-screen grid lg:h-screen lg:overflow-hidden lg:grid-cols-[5fr_6fr]">
       {/* Left panel */}
-      <div className="relative flex flex-col justify-between bg-[#08745F] text-white px-10 py-12 lg:px-14 lg:py-16">
-        <div>
-          <div className="mb-16">
-            <Logo variant="light" />
+      <div className="relative flex flex-col bg-[#08745F] text-white px-10 pt-8 pb-8 lg:px-14 lg:pt-8 lg:pb-8">
+        <div className="mx-auto flex min-h-0 w-full max-w-sm flex-1 flex-col justify-between">
+          <div>
+            <div className="mb-10">
+              <Logo variant="light" />
+            </div>
+
+            <h1 className="text-3xl font-semibold leading-tight max-w-sm">
+              Welcome back.
+              <br />
+              Your money,
+              <br />
+              one clear picture.
+            </h1>
+
+            <p className="mt-4 max-w-sm text-sm text-white/60 leading-relaxed">
+              Log in to see today&apos;s sales across every branch, channel, and
+              staff member — in real time.
+            </p>
+
+            <ul className="mt-6 space-y-2.5">
+              {bullets.map((item) => (
+                <li key={item} className="flex items-start gap-2.5 text-sm text-white/80">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/50" />
+                  {item}
+                </li>
+              ))}
+            </ul>
           </div>
 
-          <h1 className="text-3xl lg:text-4xl font-semibold leading-tight max-w-sm">
-            Welcome back.
-            <br />
-            Your money,
-            <br />
-            one clear picture.
-          </h1>
-
-          <p className="mt-5 max-w-sm text-sm text-white/60 leading-relaxed">
-            Log in to see today&apos;s sales across every branch, channel, and
-            staff member — in real time.
-          </p>
-
-          <ul className="mt-8 space-y-3">
-            {bullets.map((item) => (
-              <li key={item} className="flex items-start gap-2.5 text-sm text-white/80">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/50" />
-                {item}
-              </li>
-            ))}
-          </ul>
+          <blockquote className="mt-8 max-w-sm rounded-lg border border-white/15 bg-white/5 p-5">
+            <p className="text-sm text-white/90 leading-relaxed">
+              &ldquo;I don&apos;t need faster payments. I need to know, at a
+              glance, that every naira coming in is accounted for.&rdquo;
+            </p>
+            <footer className="mt-3 text-xs text-white/50">
+              Adebora Okafor; Business Owner, 2-branch pharmacy
+            </footer>
+          </blockquote>
         </div>
-
-        <blockquote className="max-w-sm rounded-lg border border-white/15 bg-white/5 p-4">
-          <p className="text-sm text-white/90 leading-relaxed">
-            &ldquo;I don&apos;t need faster payments. I need to know, at a
-            glance, that every naira coming in is accounted for.&rdquo;
-          </p>
-          <footer className="mt-3 text-xs text-white/50">
-            Adebora Okafor — Business Owner, 2-branch pharmacy
-          </footer>
-        </blockquote>
       </div>
 
       {/* Right panel */}
-      <div className="flex items-center justify-center bg-white px-6 py-16">
+      <div className="flex items-center justify-center bg-white px-6 py-8">
         <div className="w-full max-w-sm">
           <h2 className="text-2xl font-semibold text-gray-900">
             Log in to your account
@@ -73,7 +77,7 @@ export default function LoginPage() {
             Enter your details to access your dashboard.
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
               <label
                 htmlFor="email"
@@ -148,7 +152,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="my-6 flex items-center gap-3">
+          <div className="my-5 flex items-center gap-3">
             <div className="h-px flex-1 bg-gray-200" />
             <span className="text-xs text-gray-400">or</span>
             <div className="h-px flex-1 bg-gray-200" />
@@ -156,7 +160,7 @@ export default function LoginPage() {
 
           <p className="text-center text-sm text-gray-600">
             New to Kassa?{" "}
-            <a href="/signup" className="font-medium text-[#08745F] hover:underline">
+            <a href="/sign-up" className="font-medium text-[#08745F] hover:underline">
               Create a business account
             </a>
           </p>
