@@ -251,17 +251,17 @@ useEffect(() => {
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">Staff</h2>
             <p className="text-gray-500 mb-4 text-sm sm:text-base">Manage staff members and their access.</p>
 
-            <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6 mb-6 flex flex-wrap gap-8 sm:gap-16">
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Staff</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+              <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                <p className="text-sm text-gray-500 mb-2">Total staff</p>
                 <p className="text-xl sm:text-2xl font-semibold text-gray-900">{totalStaff}</p>
               </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Active</p>
+              <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                <p className="text-sm text-gray-500 mb-2">Active</p>
                 <p className="text-xl sm:text-2xl font-semibold text-emerald-700">{active}</p>
               </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Pending Invites</p>
+              <div className="col-span-2 sm:col-span-1 bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                <p className="text-sm text-gray-500 mb-2">Pending invites</p>
                 <p className="text-xl sm:text-2xl font-semibold text-amber-500">{pending}</p>
               </div>
             </div>
@@ -589,21 +589,21 @@ useEffect(() => {
               Control what each role can view, create, edit, and manage.
             </p>
 
-            <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6 mb-6 flex flex-wrap gap-8 sm:gap-16">
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Roles</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+              <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                <p className="text-sm text-gray-500 mb-2">Roles</p>
                 <p className="text-xl sm:text-2xl font-semibold text-gray-900">{totalRoles}</p>
               </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Staff Assigned</p>
+              <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                <p className="text-sm text-gray-500 mb-2">Staff assigned</p>
                 <p className="text-xl sm:text-2xl font-semibold text-gray-900">{staffAssigned}</p>
               </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Custom Roles</p>
+              <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                <p className="text-sm text-gray-500 mb-2">Custom roles</p>
                 <p className="text-xl sm:text-2xl font-semibold text-gray-900">2</p>
               </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Access Levels</p>
+              <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                <p className="text-sm text-gray-500 mb-2">Access levels</p>
                 <p className="text-xl sm:text-2xl font-semibold text-gray-900">4</p>
               </div>
             </div>
