@@ -33,7 +33,7 @@ export default function LoginPage() {
           alt=""
           fill
           priority
-          sizes="(min-width: 1024px) 45vw, 100vw"
+          sizes="(min-width: 1024px) 70vw, 100vw"
           className="object-cover"
         />
         {/* Green overlay */}
