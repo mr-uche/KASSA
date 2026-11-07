@@ -74,6 +74,15 @@ export default function DashboardPage() {
   const [branchOpen, setBranchOpen] = useState(false);
   const branchRef = useRef<HTMLDivElement>(null);
   const [selectedBranch, setSelectedBranch] = useState("Main branch");
+  const [greetingName, setGreetingName] = useState("there");
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((profile: { fullName?: string } | null) => {
+        if (profile?.fullName) setGreetingName(profile.fullName.split(" ")[0]);
+      })
+      .catch(() => {});
+  }, []);
   useEffect(() => {
   const savedBranch = localStorage.getItem("selectedBranch");
 
@@ -126,7 +135,7 @@ export default function DashboardPage() {
             </button>
 
             <h1 className="truncate text-[15px] font-bold text-[#182033] sm:text-[10px] lg:text-[21px]">
-              Good morning, Adebola
+              Good morning, {greetingName}
             </h1>
           </div>
 

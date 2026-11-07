@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/logo";
 import TextField from "@/components/ui/TextField";
 import SelectField from "@/components/ui/SelectField";
 import Button from "@/components/ui/Button";
+import { kassaPost } from "@/lib/kassa-client";
 
 
 const bullets = [
@@ -33,13 +35,53 @@ const EyeIcon = () => (
 
 export default function SignUpPage() {
   const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (submitting) return;
 
-    // No authentication.
-    // Just move to the first onboarding page.
-    router.push("/onboarding");
+    const fields = new FormData(e.currentTarget);
+    const password = String(fields.get("password") ?? "");
+    const confirmation = String(fields.get("confirmPassword") ?? "");
+    if (password !== confirmation) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (password.length < 12) {
+      setError("Password must be at least 12 characters.");
+      return;
+    }
+
+    setError("");
+    setSubmitting(true);
+    try {
+      await kassaPost("/api/auth/register", {
+        fullName: String(fields.get("fullName") ?? "").trim(),
+        email: String(fields.get("email") ?? "").trim(),
+        phone: String(fields.get("phone") ?? "").trim() || undefined,
+        password,
+      });
+      const typeValue = String(fields.get("businessType") ?? "");
+      const typeLabels: Record<string, string> = {
+        pharmacy: "Pharmacy",
+        retail: "Retail store",
+        restaurant: "Restaurant / Food",
+        services: "Other",
+        other: "Other",
+      };
+      // No passwords or tokens are stored in the browser.
+      sessionStorage.setItem("kassa_onboarding_prefill", JSON.stringify({
+        businessName: String(fields.get("businessName") ?? "").trim(),
+        businessType: typeLabels[typeValue] ?? "Other",
+      }));
+      router.replace("/onboarding");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Registration failed.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -111,11 +153,15 @@ export default function SignUpPage() {
          <TextField
           label="Business name"
           name="businessName"
+          required
+          maxLength={150}
           placeholder="e.g. Adebola Pharmacy"
           />
          <TextField
             label="Your full name"
             name="fullName"
+            required
+            maxLength={120}
             placeholder="Full name"
           />
         
@@ -133,6 +179,7 @@ export default function SignUpPage() {
           <TextField
           label="Work email"
           name="email"
+          required
           type="email"
           placeholder="name@business.com"
           />
@@ -143,6 +190,7 @@ export default function SignUpPage() {
           <SelectField
           label="Business type"
           name="businessType"
+          required
           placeholder="Select business type"
          >
           <option value="retail">Retail / Shop</option>
@@ -158,14 +206,18 @@ export default function SignUpPage() {
          <TextField
           label="Password"
           name="password"
+          required
+          minLength={12}
           type="password"
-          placeholder="Minimum 8 characters"
+          placeholder="Minimum 12 characters"
           trailingIcon={<EyeIcon />}
          />
 
          <TextField
           label="Confirm password"
           name="confirmPassword"
+          required
+          minLength={12}
           type="password"
           placeholder="Re-enter password"
           trailingIcon={<EyeIcon />}
@@ -177,7 +229,7 @@ export default function SignUpPage() {
         <label className="flex items-start gap-2 text-sm text-text-secondary">
           <input
             type="checkbox"
-            defaultChecked
+            required
             className="mt-0.5 h-4 w-4 rounded border-border-subtle text-brand-500 focus:ring-brand-100"
           />
 
@@ -199,12 +251,17 @@ export default function SignUpPage() {
           </span>
         </label>
 
+        {error && (
+          <p role="alert" className="text-sm text-red-700">{error}</p>
+        )}
+
         <Button
           type="submit"
+          disabled={submitting}
           fullWidth
           className="mt-2"
         >
-          Sign up
+          {submitting ? "Creating account..." : "Sign up"}
         </Button>
 
        

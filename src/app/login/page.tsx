@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/logo";
+import { kassaPost } from "@/lib/kassa-client";
 
 const bullets = [
   "One reconciled view of every sale, every channel",
@@ -15,10 +16,28 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    router.push("/dashboard");
+    if (submitting) return;
+
+    setSubmitting(true);
+    setError("");
+    try {
+      await kassaPost("/api/auth/login", { email, password });
+      const response = await fetch("/api/businesses/mine", { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error("Signed in, but couldn't load your businesses. Please try again.");
+      }
+      const businesses: unknown = await response.json();
+      router.replace(Array.isArray(businesses) && businesses.length ? "/dashboard" : "/onboarding");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to sign in.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -80,6 +99,7 @@ export default function LoginPage() {
               </label>
               <input
                 id="email"
+                required
                 type="email"
                 placeholder="name@business.com"
                 value={email}
@@ -95,6 +115,7 @@ export default function LoginPage() {
               <div className="relative">
                 <input
                   id="password"
+                  required
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
@@ -123,7 +144,7 @@ export default function LoginPage() {
 
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2 text-gray-600">
-                <input type="checkbox" className="h-4 w-4 rounded border-gray-300 text-[#08745F] focus:ring-[#08745F]/30" />
+                <input type="checkbox" disabled title="Longer sessions are not yet available" className="h-4 w-4 rounded border-gray-300 text-[#08745F] focus:ring-[#08745F]/30" />
                 Remember me
               </label>
               <a href="/forgot-password" className="font-medium text-[#08745F] hover:underline">
@@ -131,11 +152,15 @@ export default function LoginPage() {
               </a>
             </div>
 
+            {error && (
+              <p role="alert" className="text-sm text-red-700">{error}</p>
+            )}
             <button
               type="submit"
+              disabled={submitting}
               className="w-full rounded-md bg-[#08745F] py-2.5 text-sm font-semibold text-white hover:bg-[#08745F] transition-colors"
             >
-              Log in
+              {submitting ? "Signing in..." : "Log in"}
             </button>
           </form>
 

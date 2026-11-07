@@ -84,7 +84,20 @@ export default function KassaSidebar({
         </nav>
 
         {/* Log out */} 
-        <button type="button" onClick={() => {  router.push("/login"); }} 
+        <button type="button" onClick={async () => {
+          try {
+            const response = await fetch("/api/auth/logout", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: "{}",
+            });
+            if (!response.ok) return;
+            router.replace("/login");
+            router.refresh();
+          } catch {
+            // Keep the current session if the logout request fails.
+          }
+        }} 
         className="mx-4 mb-5 flex h-[44px] w-[calc(100%-2rem)] items-center gap-3 rounded-[8px] px-[14px] text-[14px] text-white/90 transition hover:bg-[#075C4D]" > 
         <LogOut size={18} />
         <span>Log out</span> 
