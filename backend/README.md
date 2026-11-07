@@ -2,7 +2,7 @@
 
 NestJS + PostgreSQL + Prisma 7 API for the existing Next.js frontend.
 
-**Status:** Foundation scaffold only. Authentication, business onboarding, product CRUD, sales, payment verification and reporting routes are **not implemented yet**. The database model is an initial design that will evolve as those modules are built.
+**Status:** Authentication and basic business onboarding APIs implemented. Product CRUD, staff invitation activation, verified payouts, sales, payment reconciliation and reporting APIs are **not implemented yet**. The schema remains an evolving initial design.
 
 ## Requirements (Windows)
 
@@ -85,3 +85,54 @@ To compile after installing dependencies and generating the client:
 ```powershell
 npm run build
 ```
+
+## Auth and business onboarding (Phase 1)
+
+After pulling these changes:
+
+1. Run `npm install` inside `backend/` for the new JWT, bcrypt and throttling packages.
+2. Generate a **new secret locally** (never commit it):
+   ```powershell
+   node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+   ```
+   Paste the output after `JWT_SECRET=` in your local `backend/.env`.
+   If `.env` already exists, add the JWT_SECRET line yourself; copying the example again is **not** necessary.
+3. With your **development** Supabase database URL configured, run:
+   ```powershell
+   npm run db:migrate -- --name auth_onboarding
+   npm run db:generate
+   npm run start:dev
+   ```
+4. Open http://localhost:3001/api/docs to test the new endpoints:
+   - `POST /api/v1/auth/register` — create user, receive 15-minute access token
+   - `POST /api/v1/auth/login` — log in
+   - `GET /api/v1/auth/me` — authenticated user
+   - `POST /api/v1/businesses/onboarding` — create a merchant business, owner membership, branches and pending staff drafts
+   - `GET /api/v1/businesses/mine` — list only businesses the caller belongs to
+
+### Example onboarding JSON
+
+```json
+{
+  "businessName": "Demo Pharmacy",
+  "businessType": "Pharmacy",
+  "registeredName": "Demo Pharmacy Ltd",
+  "staffCount": 4,
+  "branches": [{ "name": "Main Branch", "address": "Abuja" }],
+  "payoutSchedule": "daily",
+  "staff": [{ "fullName": "Sample Cashier", "role": "Cashier" }]
+}
+```
+
+Select **Authorize** in Swagger and paste the access token returned by register/login. Do not paste your PostgreSQL password.
+
+### Security and implementation notes
+
+- Passwords are salted and hashed with bcrypt; they are never returned from the API.
+- JWT access tokens expire after 15 minutes; refresh tokens, secure cookie sessions, password reset and account verification are not implemented yet. Do not store access tokens in browser localStorage.
+- The first onboarding request creates a business, an owner role, membership, and initial branches in one database transaction.
+- Staff entries are **drafts**, not actual login accounts or delivered invitations.
+- Raw bank account numbers are **not persisted**. The app saves only bank name and last four digits as an unverified preference. No payout instructions or settlement features are enabled.
+- Business listings are filtered by server-verified user membership. All later tenant-owned endpoints must do equivalent permission checks.
+- A basic in-memory request throttler is enabled; use shared distributed rate limiting and further anti-abuse controls before production.
+- All auth routes need production HTTPS, secure browser-session handling, logging controls, audit trails and integration/security testing before real customers use them.

@@ -10,6 +10,12 @@ datasource db {
   provider = "postgresql"
 }
 
+enum PayoutSchedule {
+  INSTANT
+  DAILY
+  WEEKLY
+}
+
 enum SaleStatus {
   DRAFT
   PENDING_PAYMENT
@@ -62,6 +68,10 @@ model Business {
   name        String
   type        String?
   legalName   String?
+  staffCountEstimate Int?
+  payoutSchedule PayoutSchedule @default(DAILY)
+  settlementBankName String?
+  settlementAccountLast4 String?
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
   memberships BusinessMembership[]
@@ -72,6 +82,19 @@ model Business {
   customers   Customer[]
   sales       Sale[]
   payments    Payment[]
+  staffDrafts  StaffOnboardingDraft[]
+}
+
+model StaffOnboardingDraft {
+  id         String   @id @default(uuid()) @db.Uuid
+  businessId String   @db.Uuid
+  fullName   String
+  roleName   String
+  phone      String?
+  createdAt  DateTime @default(now())
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
 }
 
 model BusinessRole {

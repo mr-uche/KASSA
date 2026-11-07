@@ -19,7 +19,8 @@ async function bootstrap() {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Kassa API')
     .setDescription('Kassa merchant operations backend (foundation)')
-    .setVersion('0.1.0')
+    .setVersion('0.2.0')
+    .addBearerAuth()
     .build();
 
   SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, swaggerConfig));
