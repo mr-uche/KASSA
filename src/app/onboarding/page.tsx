@@ -104,7 +104,7 @@ export default function OnboardingPage() {
         return "Each branch needs a different name.";
       }
     }
-    if (step === 3 && accountNumber && !/^\\d{10}$/.test(accountNumber)) {
+    if (step === 3 && accountNumber && !/^\d{10}$/.test(accountNumber)) {
       return "Account number must contain exactly 10 digits.";
     }
     if (step === 3 && accountNumber && !settlementBank) return "Select a settlement bank.";
@@ -127,7 +127,7 @@ export default function OnboardingPage() {
       setError("Complete your business and branch details before finishing.");
       return;
     }
-    if (accountNumber && !/^\\d{10}$/.test(accountNumber)) {
+    if (accountNumber && !/^\d{10}$/.test(accountNumber)) {
       setError("Account number must contain exactly 10 digits.");
       return;
     }
