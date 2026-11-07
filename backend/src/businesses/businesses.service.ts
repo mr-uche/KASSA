@@ -88,6 +88,7 @@ export class BusinessesService {
     const memberships = await this.prisma.businessMembership.findMany({
       where: { userId },
       select: {
+        branchId: true,
         role: { select: { name: true } },
         business: {
           select: {
@@ -99,6 +100,9 @@ export class BusinessesService {
     });
     return memberships.map((membership) => ({
       ...membership.business,
+      branches: membership.role.name === 'Owner'
+        ? membership.business.branches
+        : membership.business.branches.filter((branch) => branch.id === membership.branchId),
       myRole: membership.role.name,
     }));
   }
