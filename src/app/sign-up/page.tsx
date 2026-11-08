@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/logo";
@@ -16,27 +17,12 @@ const bullets = [
   "Know exactly which staff member handled each sale",
 ];
 
-const EyeIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-    <path
-      d="M1.5 10s3-6 8.5-6 8.5 6 8.5 6-3 6-8.5 6-8.5-6-8.5-6Z"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    />
-    <circle
-      cx="10"
-      cy="10"
-      r="2.5"
-      stroke="currentColor"
-      strokeWidth="1.5"
-    />
-  </svg>
-);
-
 export default function SignUpPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -208,9 +194,21 @@ export default function SignUpPage() {
           name="password"
           required
           minLength={12}
-          type="password"
+          type={showPassword ? "text" : "password"}
           placeholder="Minimum 12 characters"
-          trailingIcon={<EyeIcon />}
+          trailingIcon={
+            <button
+              type="button"
+              onClick={() => setShowPassword((current) => !current)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-controls="password"
+              aria-pressed={showPassword}
+              title={showPassword ? "Hide password" : "Show password"}
+              className="flex items-center justify-center rounded text-text-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          }
          />
 
          <TextField
@@ -218,9 +216,21 @@ export default function SignUpPage() {
           name="confirmPassword"
           required
           minLength={12}
-          type="password"
+          type={showConfirmPassword ? "text" : "password"}
           placeholder="Re-enter password"
-          trailingIcon={<EyeIcon />}
+          trailingIcon={
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword((current) => !current)}
+              aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+              aria-controls="confirmPassword"
+              aria-pressed={showConfirmPassword}
+              title={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+              className="flex items-center justify-center rounded text-text-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          }
           />
         </div>  
 

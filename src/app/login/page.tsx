@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/logo";
 import { kassaPost } from "@/lib/kassa-client";
@@ -126,18 +127,12 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-controls="password"
+                  aria-pressed={showPassword}
+                  title={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#08745F]"
                 >
-                  {showPassword ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M3 3l18 18M10.6 10.6a3 3 0 004.24 4.24M9.4 5.3A10.6 10.6 0 0112 5c6 0 10 6 10 6a15.4 15.4 0 01-3.5 4.2M6.5 6.5C4 8.2 2 11 2 11s4 6 10 6c1 0 2-.15 2.9-.42" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M2 11s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6z" strokeLinecap="round" strokeLinejoin="round"/>
-                      <circle cx="12" cy="11" r="3" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
+                  {showPassword ? <EyeOff size={18} strokeWidth={1.8} /> : <Eye size={18} strokeWidth={1.8} />}
                 </button>
               </div>
             </div>
