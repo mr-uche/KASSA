@@ -5,47 +5,70 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import KassaSidebar from "@/components/KassaSidebar";
 import { Loader2, Menu,Bell } from "lucide-react";
-
-const productOptions = [
-  { name: "Paracetamol 500mg", currentStock: 8 },
-  { name: "Amoxicillin 500mg", currentStock: 8 },
-  { name: "Vitamin C 1000mg", currentStock: 5 },
-];
+import { getInventoryContext, getInventoryProducts, kassaPost, type InventoryContext, type InventoryProduct } from "@/lib/inventory-client";
 
 export default function RestockProductPage() {
   const router = useRouter();
 
   const [saving, setSaving] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const [selectedProduct, setSelectedProduct] = useState(
-    productOptions[0].name
-  );
+  const [error, setError] = useState("");
+  const [productOptions, setProductOptions] = useState<InventoryProduct[]>([]);
+  const [inventoryContext, setInventoryContext] = useState<InventoryContext | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState("");
 
   const [quantityToAdd, setQuantityToAdd] = useState("50");
   const [supplierRef, setSupplierRef] = useState("");
   const [note, setNote] = useState("");
 
-  const current =
-    productOptions.find((p) => p.name === selectedProduct)?.currentStock ?? 0;
+  const activeProduct = productOptions.find((p) => p.id === selectedProduct);
+  const current = activeProduct?.stock ?? 0;
 
   const added = Number(quantityToAdd) || 0;
   const newStock = current + added;
 
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const context = await getInventoryContext();
+        const data = await getInventoryProducts(context);
+        if (cancelled) return;
+        setInventoryContext(context);
+        setProductOptions(data);
+        setSelectedBranch(context.branchName);
+        const requestedId = new URLSearchParams(window.location.search).get("productId");
+        setSelectedProduct(data.find((product) => product.id === requestedId)?.id ?? data[0]?.id ?? "");
+      } catch (cause) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Unable to load products.");
+      }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, []);
+
   const handleSave = async () => {
+    if (saving) return;
+    const quantity = Number(quantityToAdd);
+    if (!inventoryContext || !activeProduct)
+      return setError("Select a product in an active branch first.");
+    if (!/^\d+$/.test(quantityToAdd) || !Number.isSafeInteger(quantity) ||
+        quantity < 1 || quantity > 100000000)
+      return setError("Quantity to add must be a whole number between 1 and 100,000,000.");
+    setError("");
     setSaving(true);
-
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    setSaving(false);
-
-    const params = new URLSearchParams({
-      added: "restock",
-      product: selectedProduct,
-      units: quantityToAdd,
-    });
-
-    router.push(`/products?${params.toString()}`);
+    try {
+      await kassaPost(`/api/inventory/products/${activeProduct.id}/restock`, {
+        businessId: inventoryContext.businessId, branchId: inventoryContext.branchId,
+        quantity, supplierRef: supplierRef.trim() || undefined, note: note.trim() || undefined,
+      });
+      const params = new URLSearchParams({
+        added: "restock", product: activeProduct.name, units: quantityToAdd,
+      });
+      router.push(`/products?${params.toString()}`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to restock this product.");
+    } finally { setSaving(false); }
   };
 
    // Branch selected from the dashboard
@@ -144,8 +167,9 @@ export default function RestockProductPage() {
                   onChange={(e) => setSelectedProduct(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-700"
                 >
+                  {productOptions.length === 0 && <option value="">No products yet</option>}
                   {productOptions.map((p) => (
-                    <option key={p.name} value={p.name}>
+                    <option key={p.id} value={p.id}>
                       {p.name}
                     </option>
                   ))}
@@ -230,6 +254,7 @@ export default function RestockProductPage() {
               </div>
             </div>
 
+            {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
             {/* ================= ACTION BUTTONS ================= */}
             <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6 pt-2">
               <Link
@@ -242,7 +267,7 @@ export default function RestockProductPage() {
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || !activeProduct}
                 className="px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors disabled:opacity-70"
               >
                 {saving && (
@@ -272,7 +297,7 @@ export default function RestockProductPage() {
                   </p>
 
                   <p className="text-sm font-semibold text-gray-900">
-                    {selectedProduct}
+                    {activeProduct?.name ?? "No product selected"}
                   </p>
                 </div>
 
