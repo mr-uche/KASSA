@@ -13,55 +13,29 @@ import {
 } from "lucide-react";
 
 import KassaSidebar from "@/components/KassaSidebar";
+import { getInventoryContext, formatNaira } from "@/lib/inventory-client";
+import { listSales, saleStatusLabel, type SavedSale } from "@/lib/sales-client";
 
-const branches = ["All branches", "Main Branch", "Branch 2"];
+type MerchantBranch = { id: string; name: string; isActive: boolean };
+type MerchantBusiness = { id: string; branches: MerchantBranch[] };
 
-const transactions = [
-  {
-    customer: "Mary Adeyemi",
-    cashier: "Ifeoma Bassey",
-    channel: "Transfer",
-    amount: "₦12,400",
-    status: "Success",
-    time: "9:14 AM",
-  },
-  {
-    customer: "Walk-in customer",
-    cashier: "Ifeoma Bassey",
-    channel: "Cash",
-    amount: "₦3,200",
-    status: "Success",
-    time: "9:26 AM",
-  },
-  {
-    customer: "Chuka Nwosu",
-    cashier: "Ibrahim Musa",
-    channel: "POS",
-    amount: "₦8,750",
-    status: "Failed",
-    time: "9:41 AM",
-  },
-  {
-    customer: "Grace Umeh",
-    cashier: "Ifeoma Bassey",
-    channel: "USSD",
-    amount: "₦5,000",
-    status: "Pending",
-    time: "9:52 AM",
-  },
-];
+const channelLabels: Record<string, string> = {
+  CASH: "Cash", BANK_TRANSFER: "Transfer", POS: "POS", CARD: "Card", USSD: "USSD", WALLET: "Wallet",
+};
 
 function StatusBadge({ status }: { status: string }) {
   const styles = {
     Success: "bg-[#E8F3DC] text-[#32651C]",
     Failed: "bg-[#FCE5E5] text-[#A42626]",
     Pending: "bg-[#FCEED8] text-[#8A4F05]",
+    Cancelled: "bg-gray-100 text-gray-600",
+    Refunded: "bg-gray-100 text-gray-600",
   };
 
   return (
     <span
       className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-semibold ${
-        styles[status as keyof typeof styles]
+        styles[status as keyof typeof styles] ?? "bg-gray-100 text-gray-600"
       }`}
     >
       {status}
@@ -72,9 +46,12 @@ function StatusBadge({ status }: { status: string }) {
 export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [branchOpen, setBranchOpen] = useState(false);
+  const [branches, setBranches] = useState<MerchantBranch[]>([]);
   const branchRef = useRef<HTMLDivElement>(null);
   const [selectedBranch, setSelectedBranch] = useState("Main branch");
   const [greetingName, setGreetingName] = useState("there");
+  const [sales, setSales] = useState<SavedSale[]>([]);
+  const [salesError, setSalesError] = useState("");
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
       .then((response) => response.ok ? response.json() : null)
@@ -84,12 +61,77 @@ export default function DashboardPage() {
       .catch(() => {});
   }, []);
   useEffect(() => {
-  const savedBranch = localStorage.getItem("selectedBranch");
+    let cancelled = false;
+    async function loadBranches() {
+      try {
+        const response = await fetch("/api/businesses/mine", { cache: "no-store" });
+        if (!response.ok) return;
+        const data: unknown = await response.json();
+        if (!Array.isArray(data)) return;
+        const activeBranches = (data as MerchantBusiness[])
+          .flatMap((business) => business.branches ?? [])
+          .filter((branch) => branch.isActive);
+        if (cancelled) return;
+        setBranches(activeBranches);
+        if (!activeBranches.length) {
+          setSelectedBranch("No active branches");
+          return;
+        }
+        const savedId = localStorage.getItem("selectedBranchId");
+        const savedName = localStorage.getItem("selectedBranch")?.trim().toLowerCase();
+        const branch = activeBranches.find((item) => item.id === savedId)
+          ?? activeBranches.find((item) => item.name.trim().toLowerCase() === savedName)
+          ?? activeBranches[0];
+        setSelectedBranch(branch.name);
+        localStorage.setItem("selectedBranchId", branch.id);
+        localStorage.setItem("selectedBranch", branch.name);
+      } catch {
+        // Inventory shows an API error if the session has expired.
+      }
+    }
+    void loadBranches();
+    return () => { cancelled = true; };
+  }, []);
 
-  if (savedBranch) {
-    setSelectedBranch(savedBranch);
-  }
- }, []);
+  useEffect(() => {
+    let requestNumber = 0;
+    let live = true;
+    async function loadSales() {
+      const sequence = ++requestNumber;
+      try {
+        const context = await getInventoryContext();
+        const data = await listSales(context);
+        if (!live || sequence !== requestNumber) return;
+        setSales(data);
+        setSalesError("");
+      } catch (cause) {
+        if (!live || sequence !== requestNumber) return;
+        setSales([]);
+        setSalesError(cause instanceof Error ? cause.message : "Unable to load recent sales.");
+      }
+    }
+    void loadSales();
+    window.addEventListener("branchChanged", loadSales);
+    return () => {
+      live = false;
+      window.removeEventListener("branchChanged", loadSales);
+    };
+  }, []);
+
+  const today = new Date().toDateString();
+  const salesToday = sales
+    .filter((sale) => sale.status === "PAID" && new Date(sale.createdAt).toDateString() === today)
+    .reduce((sum, sale) => sum + Number(sale.total), 0);
+  const failedPayments = sales.filter((sale) => sale.payments.some((p) => p.status === "FAILED")).length;
+  const transactions = sales.slice(0, 6).map((sale) => ({
+    id: sale.id,
+    customer: sale.customer,
+    cashier: sale.cashier,
+    channel: channelLabels[sale.payments[0]?.channel ?? ""] ?? "Unknown",
+    amount: formatNaira(sale.total),
+    status: saleStatusLabel(sale.status),
+    time: new Date(sale.createdAt).toLocaleString("en-NG"),
+  }));
 
   // Close the dropdown when clicking outside it or pressing Escape
   useEffect(() => {
@@ -168,15 +210,16 @@ export default function DashboardPage() {
                   className="absolute right-0 top-full z-30 mt-2 w-full min-w-[162px] overflow-hidden rounded-[9px] border border-[#E0E3E8] bg-white py-1 shadow-lg"
                 >
                   {branches.map((branch) => {
-                    const active = branch === selectedBranch;
+                    const active = branch.name === selectedBranch;
 
                     return (
-                      <li key={branch} role="option" aria-selected={active}>
+                      <li key={branch.id} role="option" aria-selected={active}>
                         <button
                           type="button"
                          onClick={() => {
-                           setSelectedBranch(branch);
-                           localStorage.setItem("selectedBranch", branch);
+                           setSelectedBranch(branch.name);
+                           localStorage.setItem("selectedBranch", branch.name);
+                           localStorage.setItem("selectedBranchId", branch.id);
                             window.dispatchEvent(new Event("branchChanged"));
                             setBranchOpen(false);
                           }}
@@ -186,7 +229,7 @@ export default function DashboardPage() {
                               : "text-[#374151]"
                           }`}
                         >
-                          <span className="truncate">{branch}</span>
+                          <span className="truncate">{branch.name}</span>
                           {active && <Check size={15} className="shrink-0" />}
                         </button>
                       </li>
@@ -220,30 +263,30 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
             <StatCard
               title="Total sales today"
-              value="₦482,600"
-              subtitle="↑ 12% vs yesterday"
+              value={formatNaira(salesToday)}
+              subtitle="Confirmed paid sales today"
               subtitleClass="text-[#4D7C27]"
             />
 
             <StatCard
-              title="Transactions"
-              value="146"
-              subtitle="↑ 8 vs yesterday"
+              title="Recent transactions"
+              value={String(sales.length)}
+              subtitle="Latest 100 sales"
               subtitleClass="text-[#4D7C27]"
             />
 
             <StatCard
               title="Failed payments"
-              value="3"
-              subtitle="Needs attention"
+              value={String(failedPayments)}
+              subtitle="Recorded failures"
               valueClass="text-[#B82E2E]"
               subtitleClass="text-[#C73737]"
             />
 
             <StatCard
               title="Branches active"
-              value="2 / 2"
-              subtitle="All reporting in"
+              value={String(branches.length)}
+              subtitle="Authorised active branches"
               subtitleClass="text-[#70798A]"
             />
           </div>
@@ -302,6 +345,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {salesError && <p role="alert" className="mt-5 text-sm text-red-700">{salesError}</p>}
           {/* Recent Transactions */}
           <div className="mt-8">
             <div className="mb-3 flex items-center justify-between gap-4">
@@ -349,9 +393,9 @@ export default function DashboardPage() {
                 </thead>
 
                 <tbody>
-                  {transactions.map((transaction, index) => (
+                  {transactions.map((transaction) => (
                     <tr
-                      key={index}
+                      key={transaction.id}
                       className="h-[52px] border-b border-[#EEF0F3] last:border-0 hover:bg-[#FAFBFB]"
                     >
                       <td className="whitespace-nowrap px-4 text-[13px] text-[#354052] sm:px-6">
@@ -379,6 +423,11 @@ export default function DashboardPage() {
                       </td>
                     </tr>
                   ))}
+                  {transactions.length === 0 && (
+                    <tr><td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
+                      No recent sales yet.
+                    </td></tr>
+                  )}
                 </tbody>
               </table>
             </div>

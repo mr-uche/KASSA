@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Search, ScanBarcode, Minus, Plus, Menu, Bell } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import Link from "next/link";
-import { getInventoryContext, getInventoryProducts, type InventoryProduct } from "@/lib/inventory-client";
+import { getInventoryContext, getInventoryProducts, type InventoryContext, type InventoryProduct } from "@/lib/inventory-client";
+import { type PaymentMethod } from "@/lib/sales-client";
 
 type Product = InventoryProduct;
 type SaleItem = { id: string; name: string; price: number; qty: number };
@@ -17,6 +18,7 @@ export default function NewSalePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [inventoryContext, setInventoryContext] = useState<InventoryContext | null>(null);
 
   const [query, setQuery] = useState("");
 
@@ -62,6 +64,7 @@ export default function NewSalePage() {
         const result = await getInventoryProducts(context);
         if (cancelled) return;
         setProducts(result);
+        setInventoryContext(context);
         setSelectedBranch(context.branchName);
         setError("");
       } catch (cause) {
@@ -107,6 +110,22 @@ export default function NewSalePage() {
 
   const discount = 0;
   const total = subtotal - discount;
+
+  function handleContinue() {
+    if (!inventoryContext || !sale.length) return;
+    const channelMap: Record<string, PaymentMethod> = {
+      Transfer: "BANK_TRANSFER", POS: "POS", Cash: "CASH", USSD: "USSD", Card: "CARD",
+    };
+    sessionStorage.setItem("kassa_sale_draft", JSON.stringify({
+      businessId: inventoryContext.businessId,
+      branchId: inventoryContext.branchId,
+      clientRequestId: crypto.randomUUID(),
+      channel: channelMap[paymentMethod] ?? "BANK_TRANSFER",
+      items: sale.map((item) => ({ productId: item.id, quantity: item.qty })),
+      previewItems: sale,
+    }));
+    router.push("/sales/checkout");
+  }
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50">
@@ -273,7 +292,7 @@ export default function NewSalePage() {
               </p>
 
               <p className="text-sm text-amber-700">
-                Product selection is available, but checkout and automatic stock deduction are not enabled yet.
+                All prices are recalculated by the backend. Stock is deducted only after cash receipt or verified payment.
               </p>
             </div>
           </div>
@@ -286,7 +305,7 @@ export default function NewSalePage() {
             </h2>
 
             <p className="text-sm text-gray-500 mb-5">
-              Draft order preview only. Sales are not recorded until checkout is connected.
+              Review your order. Payment confirmation happens after the sale is saved.
             </p>
 
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
@@ -375,7 +394,7 @@ export default function NewSalePage() {
             </p>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
-              {["Transfer", "POS", "Cash", "USSD / Card"].map((method) => (
+              {["Transfer", "POS", "Cash", "USSD", "Card"].map((method) => (
                 <button
                   key={method}
                   onClick={() => setPaymentMethod(method)}
@@ -391,11 +410,12 @@ export default function NewSalePage() {
             </div>
 
             <button
-              disabled
-               title="Checkout is not connected to the Kassa backend yet"
+              type="button"
+              onClick={handleContinue}
+              disabled={sale.length === 0 || !inventoryContext || loading}
               className="w-full bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
             >
-              Checkout coming soon
+              Continue to payment
             </button>
 
           </div>

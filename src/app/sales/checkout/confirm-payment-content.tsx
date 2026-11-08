@@ -1,58 +1,51 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { createSale, type PaymentMethod, type SaleDraft } from "@/lib/sales-client";
+import { formatNaira } from "@/lib/inventory-client";
 import KassaSidebar from "@/components/KassaSidebar";
 import { Check, Menu, Bell } from "lucide-react";
 
-type SaleItem = {
-  name: string;
-  price: number;
-  qty: number;
-};
+type SaleItem = { id: string; name: string; price: number; qty: number };
+type DraftWithPreview = SaleDraft & { previewItems: SaleItem[] };
 
 export default function ConfirmPaymentContent() {
   const router = useRouter();
-  const params = useSearchParams();
+
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState("Main branch");
   const [items, setItems] = useState<SaleItem[]>([]);
+  const [draft, setDraft] = useState<DraftWithPreview | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const total = Number(params.get("total") ?? 0);
-  const subtotal = Number(params.get("subtotal") ?? 0);
-  const discount = Number(params.get("discount") ?? 0);
-  const method = params.get("method") ?? "Transfer";
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const total = subtotal;
+  const discount = 0;
+  const method = draft?.channel ?? "BANK_TRANSFER";
 
-  // Get sale items from the URL
   useEffect(() => {
-    const itemsParam = params.get("items");
-
-    if (!itemsParam) {
-      setItems([]);
-      return;
-    }
-
     try {
-      const decodedItems = decodeURIComponent(itemsParam);
-      const parsedItems = JSON.parse(decodedItems);
-
-      if (Array.isArray(parsedItems)) {
-        setItems(parsedItems);
-      } else {
-        setItems([]);
-      }
-    } catch (error) {
-      console.error("Unable to read sale items:", error);
-      setItems([]);
+      const raw = sessionStorage.getItem("kassa_sale_draft");
+      if (!raw) return setError("No order to review. Return to New Sale.");
+      const data: unknown = JSON.parse(raw);
+      if (!data || typeof data !== "object") throw new Error("Invalid order");
+      const stored = data as DraftWithPreview;
+      if (!Array.isArray(stored.items) || !Array.isArray(stored.previewItems) ||
+          !stored.items.length || !stored.businessId || !stored.branchId ||
+          !stored.clientRequestId) throw new Error("Invalid order");
+      setDraft(stored);
+      setItems(stored.previewItems);
+    } catch {
+      setError("The order could not be loaded. Return to New Sale.");
     }
-  }, [params]);
+  }, []);
 
-  const methodLabel: Record<string, string> = {
-    Transfer: "Bank Transfer",
-    POS: "POS",
-    Cash: "Cash",
-    "USSD / Card": "USSD / Card",
+  const methodLabel: Record<PaymentMethod, string> = {
+    BANK_TRANSFER: "Bank Transfer", POS: "POS", CASH: "Cash",
+    CARD: "Card", USSD: "USSD", WALLET: "Wallet",
   };
 
   // Get the selected branch
@@ -81,13 +74,20 @@ export default function ConfirmPaymentContent() {
     };
   }, []);
 
-  const handleConfirm = () => {
-    const query = new URLSearchParams({
-      total: String(total),
-      method,
-    }).toString();
-
-    router.push(`/sales/payment?${query}`);
+  const handleConfirm = async () => {
+    if (!draft || submitting) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      const sale = await createSale({
+        businessId: draft.businessId, branchId: draft.branchId,
+        clientRequestId: draft.clientRequestId, channel: draft.channel, items: draft.items,
+      });
+      sessionStorage.removeItem("kassa_sale_draft");
+      router.replace("/sales/payment?saleId=" + encodeURIComponent(sale.id));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to save sale.");
+    } finally { setSubmitting(false); }
   };
 
   return (
@@ -148,7 +148,7 @@ export default function ConfirmPaymentContent() {
         {/* Page content */}
         <div className="px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
           <p className="mb-8 text-sm text-gray-500 sm:text-base">
-            Complete the payment for this sale.
+            Review the order before saving it. Cash receipt or provider verification is required to complete payment.
           </p>
 
           {/* Stepper */}
@@ -282,14 +282,14 @@ export default function ConfirmPaymentContent() {
             ========================== */}
             <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
               <h2 className="mb-1 text-lg font-semibold text-gray-900">
-                Confirm payment
+                Save pending sale
               </h2>
 
               <p className="mb-4 text-sm text-gray-500">
-                Payment method selected during checkout
+                The sale will remain pending until payment has been confirmed.
               </p>
 
-              {/* Selected payment method */}
+              {/* Payment method for pending sale */}
               <div className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-emerald-600 bg-emerald-50 p-4">
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-xs font-bold text-white">
@@ -319,7 +319,7 @@ export default function ConfirmPaymentContent() {
 
               <div className="mb-5 rounded-lg border border-gray-200 px-4 py-3">
                 <p className="text-xl font-bold text-gray-900">
-                  ₦{total.toLocaleString()}.00
+                  {formatNaira(total)}
                 </p>
               </div>
 
@@ -334,27 +334,28 @@ export default function ConfirmPaymentContent() {
                 </p>
               </div>
 
+              {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
               {/* Confirm button */}
               <button
                 type="button"
                 onClick={handleConfirm}
-                className="mb-2 w-full rounded-lg bg-emerald-800 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
+                disabled={!draft || !items.length || submitting}
+                className="disabled:opacity-50 mb-2 w-full rounded-lg bg-emerald-800 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
               >
-                Confirm & Pay • ₦
-                {total.toLocaleString()}
+                {submitting ? "Saving sale..." : "Create pending sale • " + formatNaira(total)}
               </button>
 
               <p className="text-center text-xs text-gray-400">
-                Confirm to verify the payment and issue the receipt.
+                Creating a sale does not verify payment or issue a receipt.
               </p>
             </div>
           </div>
 
           {/* Footer */}
           <p className="mt-8 text-center text-xs text-gray-400">
-            Kassa • Secure Payment
+            Kassa • Sales & payment review
             <span className="mt-1 block sm:ml-4 sm:mt-0 sm:inline">
-              Payment confirmation will appear before the receipt is issued.
+              The backend calculates the final price from the current catalogue.
             </span>
           </p>
         </div>
