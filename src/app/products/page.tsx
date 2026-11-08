@@ -13,9 +13,13 @@ import {
 } from "lucide-react"; 
 import KassaSidebar from "@/components/KassaSidebar"; 
 import { useSearchParams, useRouter } from "next/navigation"; 
-import Link from "next/link"; 
+import Link from "next/link";
+import { formatNaira, getInventoryContext, getInventoryProducts, getInventoryCategories, type InventoryProduct } from "@/lib/inventory-client"; 
   
-type Product = { 
+type Product = {
+  id: string;
+  categoryId: string | null;
+  lowStockThreshold: number;
   name: string; 
   sku: string; 
   category: string; 
@@ -24,54 +28,13 @@ type Product = {
   status: "In stock" | "Low stock" | "Out of stock"; 
 }; 
   
-const products: Product[] = [ 
-  { 
-    name: "Amoxicillin 500mg", 
-    sku: "MED-00142", 
-    category: "Medicine", 
-    price: "₦4,000", 
-    stock: 42, 
-    status: "In stock", 
-  }, 
-  { 
-    name: "Vitamin C 1000mg", 
-    sku: "SUP-00231", 
-    category: "Supplements", 
-    price: "₦6,500", 
-    stock: 18, 
-    status: "In stock", 
-  }, 
-  { 
-    name: "Paracetamol 500mg", 
-    sku: "MED-00098", 
-    category: "Medicine", 
-    price: "₦1,200", 
-    stock: 4, 
-    status: "Low stock", 
-  }, 
-]; 
-  
-type Category = { 
+type Category = {
+  id: string;
   name: string; 
   products: number; 
   stockValue: string; 
   status: "Active" | "Inactive"; 
 }; 
-  
-const categories: Category[] = [ 
-  { 
-    name: "Medicines", 
-    products: 64, 
-    stockValue: "₦486,500", 
-    status: "Active", 
-  }, 
-  { 
-    name: "Vitamins & supplements", 
-    products: 31, 
-    stockValue: "₦218,700", 
-    status: "Active", 
-  }, 
-]; 
   
 type LowStockProduct = { 
   name: string; 
@@ -81,25 +44,6 @@ type LowStockProduct = {
   reorderLevel: number; 
   status: "Low stock" | "Out of stock"; 
 }; 
-  
-const lowStockProducts: LowStockProduct[] = [ 
-  { 
-    name: "Amoxicillin 500mg", 
-    sku: "AMX-500", 
-    category: "Medicine", 
-    currentStock: 8, 
-    reorderLevel: 20, 
-    status: "Low stock", 
-  }, 
-  { 
-    name: "Vitamin C 1000mg", 
-    sku: "VIT-1000", 
-    category: "Supplements", 
-    currentStock: 5, 
-    reorderLevel: 15, 
-    status: "Low stock", 
-  }, 
-]; 
   
 const tabs = ["Catalogue", "Categories", "Low Stock"] as const; 
 type Tab = (typeof tabs)[number]; 
@@ -175,7 +119,18 @@ function FilterDropdown({
   ); 
 } 
   
-function ProductsPageContent() { 
+function ProductsPageContent() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const lowStockProducts: LowStockProduct[] = products
+    .filter((product) => product.status !== "In stock")
+    .map((product) => ({
+      name: product.name, sku: product.sku, category: product.category,
+      currentStock: product.stock, reorderLevel: product.lowStockThreshold,
+      status: product.status as LowStockProduct["status"],
+    }));
   const [query, setQuery] = useState(""); 
   const [sidebarOpen, setSidebarOpen] = useState(false); 
   const [selectedCategory, setSelectedCategory] = useState("All Categories"); 
@@ -248,6 +203,35 @@ function ProductsPageContent() {
     }; 
   }, []); 
  
+  useEffect(() => {
+    let cancelled = false;
+    async function loadInventory() {
+      try {
+        const context = await getInventoryContext();
+        const [productList, categoryList] = await Promise.all([
+          getInventoryProducts(context), getInventoryCategories(context),
+        ]);
+        if (cancelled) return;
+        setProducts(productList.map((product: InventoryProduct) => ({
+          id: product.id, name: product.name, sku: product.sku,
+          categoryId: product.categoryId, lowStockThreshold: product.lowStockThreshold,
+          category: product.category, price: formatNaira(product.price),
+          stock: product.stock, status: product.status,
+        })));
+        setCategories(categoryList.map((category) => ({
+          id: category.id, name: category.name, products: category.products,
+          stockValue: formatNaira(category.stockValue), status: category.status,
+        })));
+        setSelectedBranch(context.branchName);
+        setError("");
+      } catch (cause) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Unable to load inventory.");
+      } finally { if (!cancelled) setLoading(false); }
+    }
+    void loadInventory();
+    return () => { cancelled = true; };
+  }, []);
+
   // =========================
   // CATALOGUE SEARCH + FILTER
   // =========================
@@ -340,13 +324,9 @@ function ProductsPageContent() {
   
   const totalProducts = products.length; 
  
-  const numCategories = new Set( 
-    products.map((p) => p.category) 
-  ).size; 
+  const numCategories = categories.length; 
  
-  const lowStock = products.filter( 
-    (p) => p.status === "Low stock" 
-  ).length; 
+  const lowStock = lowStockProducts.length; 
  
   const headerButtonLabel = 
     activeTab === "Catalogue" 
@@ -416,6 +396,9 @@ function ProductsPageContent() {
             : "Manage your catalogue, categories and stock levels."} 
         </p> 
  
+        {error && <p role="alert" className="mb-4 px-8 text-sm text-red-700">{error}</p>}
+        {loading && <p role="status" className="mb-4 px-8 text-sm text-gray-500">Loading inventory...</p>}
+
         {/* Tabs + Action Button */} 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center mb-6 px-8"> 
           {/* Tabs */} 
@@ -471,7 +454,7 @@ function ProductsPageContent() {
                   </p> 
  
                   <span className="text-xs text-emerald-600"> 
-                    +12 this month 
+                    In catalogue 
                   </span> 
                 </div> 
               </div> 
@@ -522,11 +505,7 @@ function ProductsPageContent() {
               <div className="-mx-4 flex gap-3 overflow-visible px-4 sm:mx-0 sm:px-0"> 
                 <FilterDropdown 
                   selected={selectedCategory} 
-                  options={[ 
-                    "All Categories", 
-                    "Medicine", 
-                    "Supplements", 
-                  ]} 
+                  options={["All Categories", ...categories.map((category) => category.name)]} 
                   onSelect={setSelectedCategory} 
                 /> 
  
@@ -625,7 +604,12 @@ function ProductsPageContent() {
                       </td> 
  
                       <td className="px-6 py-4 whitespace-nowrap"> 
-                        <button className="text-gray-400 hover:text-gray-600"> 
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/products/restock?productId=${encodeURIComponent(p.id)}`)}
+                          aria-label={`Restock ${p.name}`}
+                          title="Restock this product"
+                          className="text-gray-400 hover:text-gray-600">
                           <MoreHorizontal size={18} /> 
                         </button> 
                       </td> 
@@ -659,7 +643,7 @@ function ProductsPageContent() {
  
                 <div className="flex items-baseline gap-2 flex-wrap"> 
                   <p className="text-xl sm:text-2xl font-semibold text-gray-900"> 
-                    12 
+                    {categories.length} 
                   </p> 
  
                   <span className="text-xs text-gray-400"> 
@@ -675,7 +659,7 @@ function ProductsPageContent() {
  
                 <div className="flex items-baseline gap-2 flex-wrap"> 
                   <p className="text-xl sm:text-2xl font-semibold text-gray-900"> 
-                    186 
+                    {products.filter((p) => p.categoryId).length} 
                   </p> 
  
                   <span className="text-xs text-gray-400"> 
@@ -691,7 +675,7 @@ function ProductsPageContent() {
  
                 <div className="flex items-baseline gap-2 flex-wrap"> 
                   <p className="text-xl sm:text-2xl font-semibold text-gray-900"> 
-                    7 
+                    {products.filter((p) => !p.categoryId).length} 
                   </p> 
  
                   <span className="text-xs text-amber-600"> 
@@ -768,7 +752,10 @@ function ProductsPageContent() {
                       </td> 
  
                       <td className="px-6 py-4 whitespace-nowrap"> 
-                        <button className="text-sm font-medium text-emerald-700 hover:text-emerald-800"> 
+                        <button
+                          type="button"
+                          onClick={() => { setActiveTab("Catalogue"); setSelectedCategory(c.name); setQuery(""); }}
+                          className="text-sm font-medium text-emerald-700 hover:text-emerald-800">
                           View › 
                         </button> 
                       </td> 
@@ -801,7 +788,7 @@ function ProductsPageContent() {
                 </p> 
  
                 <p className="text-xl sm:text-2xl font-semibold text-amber-600"> 
-                  12 
+                  {products.filter((p) => p.status === "Low stock").length} 
                 </p> 
               </div> 
  
@@ -811,7 +798,7 @@ function ProductsPageContent() {
                 </p> 
  
                 <p className="text-xl sm:text-2xl font-semibold text-red-600"> 
-                  3 
+                  {products.filter((p) => p.status === "Out of stock").length} 
                 </p> 
               </div> 
  
@@ -845,11 +832,7 @@ function ProductsPageContent() {
               <div className="-mx-4 flex gap-3 overflow-visible px-4 sm:mx-0 sm:px-0"> 
                 <FilterDropdown 
                   selected={selectedCategories} 
-                  options={[ 
-                    "All categories", 
-                    "Medicine", 
-                    "Supplements", 
-                  ]} 
+                  options={["All categories", ...categories.map((category) => category.name)]} 
                   onSelect={setSelectedCategories} 
                 /> 
                 
