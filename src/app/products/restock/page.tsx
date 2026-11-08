@@ -58,12 +58,16 @@ export default function RestockProductPage() {
     setError("");
     setSaving(true);
     try {
-      await kassaPost(`/api/inventory/products/${activeProduct.id}/restock`, {
+      const result = await kassaPost<{ stock: number; status: InventoryProduct["status"]; added: number }>(`/api/inventory/products/${activeProduct.id}/restock`, {
         businessId: inventoryContext.businessId, branchId: inventoryContext.branchId,
         quantity, supplierRef: supplierRef.trim() || undefined, note: note.trim() || undefined,
       });
       const params = new URLSearchParams({
-        added: "restock", product: activeProduct.name, units: quantityToAdd,
+        added: "restock",
+        product: activeProduct.name,
+        units: String(result.added),
+        stock: String(result.stock),
+        status: result.status,
       });
       router.push(`/products?${params.toString()}`);
     } catch (cause) {

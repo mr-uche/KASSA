@@ -124,6 +124,7 @@ function ProductsPageContent() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshRevision, setRefreshRevision] = useState(0);
   const lowStockProducts: LowStockProduct[] = products
     .filter((product) => product.status !== "In stock")
     .map((product) => ({
@@ -143,20 +144,28 @@ function ProductsPageContent() {
   const router = useRouter(); 
  
   const [activeTab, setActiveTab] = useState<Tab>(() => 
-    searchParams.get("added") === "restock" ? "Low Stock" : "Catalogue" 
+    searchParams.get("added") === "restock" && searchParams.get("status") !== "In stock"
+      ? "Low Stock"
+      : "Catalogue" 
   ); 
  
   const [showRestockToast, setShowRestockToast] = useState( 
     () => searchParams.get("added") === "restock" 
   ); 
  
-  const [restockedProduct, setRestockedProduct] = useState( 
+  const [restockedProduct] = useState( 
     () => searchParams.get("product") || "" 
   ); 
  
-  const [restockedUnits, setRestockedUnits] = useState( 
-    () => searchParams.get("units") || "" 
-  ); 
+  const [restockedUnits] = useState(
+    () => searchParams.get("units") || ""
+  );
+  const [restockedStock] = useState(
+    () => searchParams.get("stock") || ""
+  );
+  const [restockedStatus] = useState(
+    () => searchParams.get("status") || ""
+  );
  
   useEffect(() => { 
     if (searchParams.get("added") === "restock") { 
@@ -174,38 +183,36 @@ function ProductsPageContent() {
     return () => clearTimeout(timer); 
   }, [showRestockToast]); 
   
-  // Branch selected from the dashboard 
-  const [selectedBranch, setSelectedBranch] = useState("Main branch"); 
- 
-  // Get the selected branch from the dashboard 
-  useEffect(() => { 
-    const savedBranch = localStorage.getItem("selectedBranch"); 
- 
-    if (savedBranch) { 
-      setSelectedBranch(savedBranch); 
-    } 
-  }, []); 
- 
-  // Listen for branch changes 
-  useEffect(() => { 
-    const handleBranchChange = () => { 
-      const savedBranch = localStorage.getItem("selectedBranch"); 
- 
-      if (savedBranch) { 
-        setSelectedBranch(savedBranch); 
-      } 
-    }; 
- 
-    window.addEventListener("storage", handleBranchChange); 
- 
-    return () => { 
-      window.removeEventListener("storage", handleBranchChange); 
-    }; 
+  // Branch names and quantities are loaded from the authenticated API response.
+  const [selectedBranch, setSelectedBranch] = useState("Loading branch...");
+
+  // The page may remain mounted while users switch tabs or return from another window.
+  // Reload instead of relying on the first snapshot of stock data.
+  useEffect(() => {
+    const refresh = () => setRefreshRevision((revision) => revision + 1);
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "selectedBranch") refresh();
+    };
+    window.addEventListener("focus", refresh);
+    window.addEventListener("branchChanged", refresh);
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("branchChanged", refresh);
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
   }, []); 
  
   useEffect(() => {
     let cancelled = false;
     async function loadInventory() {
+      setLoading(true);
+      setError("");
       try {
         const context = await getInventoryContext();
         const [productList, categoryList] = await Promise.all([
@@ -225,12 +232,18 @@ function ProductsPageContent() {
         setSelectedBranch(context.branchName);
         setError("");
       } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "Unable to load inventory.");
-      } finally { if (!cancelled) setLoading(false); }
+        if (!cancelled) {
+          setProducts([]);
+          setCategories([]);
+          setError(cause instanceof Error ? cause.message : "Unable to load inventory.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
     void loadInventory();
     return () => { cancelled = true; };
-  }, []);
+  }, [refreshRevision]);
 
   // =========================
   // CATALOGUE SEARCH + FILTER
@@ -407,8 +420,9 @@ function ProductsPageContent() {
               <button 
                 key={tab} 
                 onClick={() => { 
-                  setActiveTab(tab); 
-                  setQuery(""); 
+                  setActiveTab(tab);
+                  setQuery("");
+                  setRefreshRevision((revision) => revision + 1); 
                 }} 
                 className={`flex-1 shrink-0 px-3 sm:px-4 py-2.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${ 
                   activeTab === tab 
@@ -471,7 +485,7 @@ function ProductsPageContent() {
  
               <div className="col-span-2 sm:col-span-1 bg-white rounded-xl border border-gray-200 p-4 sm:p-5"> 
                 <p className="text-sm text-gray-500 mb-2"> 
-                  Low stock items 
+                  Stock alerts 
                 </p> 
  
                 <div className="flex items-baseline gap-2 flex-wrap"> 
@@ -808,7 +822,7 @@ function ProductsPageContent() {
                 </p> 
  
                 <p className="text-sm sm:text-base font-semibold text-gray-900 mt-1.5"> 
-                  Restock before next sales cycle 
+                  {lowStockProducts.length === 0 ? "All products are adequately stocked" : "Restock before next sales cycle"} 
                 </p> 
               </div> 
             </div> 
@@ -919,7 +933,7 @@ function ProductsPageContent() {
                         colSpan={5} 
                         className="px-6 py-8 text-center text-gray-400" 
                       > 
-                        No low-stock products found. 
+                        No products currently below their stock threshold. 
                       </td> 
                     </tr> 
                   )} 
@@ -944,8 +958,10 @@ function ProductsPageContent() {
             </p> 
  
             <p className="text-[12px] text-[#98A1AE]"> 
-              {restockedUnits} units added to {restockedProduct}. Stock is 
-              now above the low level threshold. 
+              {restockedUnits} units added to {restockedProduct}.
+              {restockedStock && restockedStatus
+                ? ` Stock is now ${restockedStock} units (${restockedStatus}).`
+                : " Updated stock has been saved."}
             </p> 
           </div> 
  
