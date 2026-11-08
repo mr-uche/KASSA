@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { CheckCircle2, X, Menu, Bell } from "lucide-react";
 import Link from "next/link";
 import KassaSidebar from "@/components/KassaSidebar";
+import { getInventoryContext, kassaPost } from "@/lib/inventory-client";
  
 export default function AddCategoryPage() {
   const [form, setForm] = useState({
@@ -13,15 +14,38 @@ export default function AddCategoryPage() {
   });
   const [saved, setSaved] = useState(false);
   const [showBanner, setShowBanner] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
  
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
  
-  const handleSave = () => {
-    setSaved(true);
-    setShowBanner(true);
+  const handleSave = async () => {
+    if (saving) return;
+    if (!form.name.trim()) {
+      setError("Enter a category name.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setSaved(false);
+    try {
+      const context = await getInventoryContext();
+      await kassaPost("/api/inventory/categories", {
+        businessId: context.businessId,
+        name: form.name.trim(),
+        description: form.description.trim() || undefined,
+        isActive: form.status === "Active",
+      });
+      setSaved(true);
+      setShowBanner(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to save category.");
+    } finally {
+      setSaving(false);
+    }
   };
 
 // Branch selected from the dashboard
@@ -72,7 +96,7 @@ export default function AddCategoryPage() {
             </button>
 
             <h1 className="truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">
-                Add Catergory
+                Add Category
             </h1>
           </div>
 
@@ -146,6 +170,7 @@ export default function AddCategoryPage() {
               </div>
             </div>
  
+            {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
             <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6 pt-2">
               <Link
                 href="/products"
@@ -155,9 +180,10 @@ export default function AddCategoryPage() {
               </Link>
               <button
                 onClick={handleSave}
+                disabled={saving || saved}
                 className="px-5 py-2.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-sm font-medium transition-colors"
               >
-                Save category
+                {saving ? "Saving..." : saved ? "Category saved" : "Save category"}
               </button>
             </div>
           </div>
