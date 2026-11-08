@@ -114,7 +114,7 @@ export default function NewSalePage() {
   function handleContinue() {
     if (!inventoryContext || !sale.length) return;
     const channelMap: Record<string, PaymentMethod> = {
-      Transfer: "BANK_TRANSFER", POS: "POS", Cash: "CASH", "USSD / Card": "CARD",
+      Transfer: "BANK_TRANSFER", POS: "POS", Cash: "CASH", USSD: "USSD", Card: "CARD",
     };
     sessionStorage.setItem("kassa_sale_draft", JSON.stringify({
       businessId: inventoryContext.businessId,
@@ -394,7 +394,7 @@ export default function NewSalePage() {
             </p>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
-              {["Transfer", "POS", "Cash", "USSD / Card"].map((method) => (
+              {["Transfer", "POS", "Cash", "USSD", "Card"].map((method) => (
                 <button
                   key={method}
                   onClick={() => setPaymentMethod(method)}
