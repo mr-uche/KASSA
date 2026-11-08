@@ -8,7 +8,7 @@ import KassaSidebar from "@/components/KassaSidebar";
 import { Check, Menu, Bell } from "lucide-react";
 
 type SaleItem = { id: string; name: string; price: number; qty: number };
-type DraftWithPreview = SaleDraft & { previewItems: SaleItem[] };
+type DraftWithPreview = SaleDraft & { previewItems: SaleItem[]; customerName?: string };
 
 export default function ConfirmPaymentContent() {
   const router = useRouter();
@@ -81,7 +81,8 @@ export default function ConfirmPaymentContent() {
     try {
       const sale = await createSale({
         businessId: draft.businessId, branchId: draft.branchId,
-        clientRequestId: draft.clientRequestId, channel: draft.channel, items: draft.items,
+        clientRequestId: draft.clientRequestId, channel: draft.channel,
+        customerId: draft.customerId, items: draft.items,
       });
       sessionStorage.removeItem("kassa_sale_draft");
       router.replace("/sales/payment?saleId=" + encodeURIComponent(sale.id));
@@ -330,7 +331,7 @@ export default function ConfirmPaymentContent() {
 
               <div className="mb-6 rounded-lg border border-gray-200 px-4 py-3">
                 <p className="text-sm font-semibold text-gray-900">
-                  Walk-in customer
+                  {draft?.customerName ?? "Walk-in customer"}
                 </p>
               </div>
 

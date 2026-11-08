@@ -7,6 +7,7 @@ import KassaSidebar from "@/components/KassaSidebar";
 import Link from "next/link";
 import { getInventoryContext, getInventoryProducts, type InventoryContext, type InventoryProduct } from "@/lib/inventory-client";
 import { type PaymentMethod } from "@/lib/sales-client";
+import { listCustomers, type CustomerRecord } from "@/lib/customers-client";
 
 type Product = InventoryProduct;
 type SaleItem = { id: string; name: string; price: number; qty: number };
@@ -19,6 +20,8 @@ export default function NewSalePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [inventoryContext, setInventoryContext] = useState<InventoryContext | null>(null);
+  const [customers, setCustomers] = useState<CustomerRecord[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
 
   const [query, setQuery] = useState("");
 
@@ -61,9 +64,12 @@ export default function NewSalePage() {
     async function loadProducts() {
       try {
         const context = await getInventoryContext();
-        const result = await getInventoryProducts(context);
+        const [productsResult, customerRecords] = await Promise.all([
+          getInventoryProducts(context), listCustomers(context.businessId),
+        ]);
         if (cancelled) return;
-        setProducts(result);
+        setProducts(productsResult);
+        setCustomers(customerRecords);
         setInventoryContext(context);
         setSelectedBranch(context.branchName);
         setError("");
@@ -122,6 +128,8 @@ export default function NewSalePage() {
       clientRequestId: crypto.randomUUID(),
       channel: channelMap[paymentMethod] ?? "BANK_TRANSFER",
       items: sale.map((item) => ({ productId: item.id, quantity: item.qty })),
+      customerId: selectedCustomerId || undefined,
+      customerName: customers.find((customer) => customer.id === selectedCustomerId)?.fullName ?? "Walk-in customer",
       previewItems: sale,
     }));
     router.push("/sales/checkout");
@@ -312,9 +320,12 @@ export default function NewSalePage() {
               Customer
             </p>
 
-            <select className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm bg-white mb-5 focus:outline-none focus:ring-2 focus:ring-emerald-700">
-              <option>Walk-in customer</option>
-
+            <select value={selectedCustomerId} onChange={(event) => setSelectedCustomerId(event.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm bg-white mb-5 focus:outline-none focus:ring-2 focus:ring-emerald-700">
+              <option value="">Walk-in customer</option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>{customer.fullName}</option>
+              ))}
             </select>
 
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">

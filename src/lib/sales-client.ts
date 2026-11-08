@@ -6,6 +6,7 @@ export type SaleDraft = {
   branchId: string;
   clientRequestId: string;
   channel: PaymentMethod;
+  customerId?: string;
   items: { productId: string; quantity: number }[];
 };
 
@@ -21,6 +22,7 @@ export type SavedSale = {
   currency: string;
   createdAt: string;
   cashier: string;
+  customerId: string | null;
   customer: string;
   items: {
     id: string;

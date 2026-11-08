@@ -18,6 +18,7 @@ export class SalesService {
 
   private readonly include = {
     cashier: { select: { fullName: true } },
+    customer: { select: { fullName: true } },
     items: { select: {
       id: true, productId: true, productNameSnapshot: true, quantity: true, unitPrice: true, lineTotal: true,
     } },
@@ -46,6 +47,7 @@ export class SalesService {
     id: string; reference: string; businessId: string; branchId: string; status: string;
     subtotal: { toString(): string }; discount: { toString(): string }; total: { toString(): string };
     currency: string; createdAt: Date; cashier: { fullName: string } | null;
+    customerId: string | null; customer: { fullName: string } | null;
     items: { id: string; productId: string; productNameSnapshot: string; quantity: number; unitPrice: { toString(): string }; lineTotal: { toString(): string } }[];
     payments: { id: string; reference: string; channel: string; status: string; confirmedAt: Date | null }[];
   }) {
@@ -53,7 +55,8 @@ export class SalesService {
       id: sale.id, reference: sale.reference, businessId: sale.businessId, branchId: sale.branchId,
       status: sale.status, subtotal: sale.subtotal.toString(), discount: sale.discount.toString(),
       total: sale.total.toString(), currency: sale.currency, createdAt: sale.createdAt.toISOString(),
-      cashier: sale.cashier?.fullName ?? 'Business owner', customer: 'Walk-in customer',
+      cashier: sale.cashier?.fullName ?? 'Business owner',
+      customerId: sale.customerId, customer: sale.customer?.fullName ?? 'Walk-in customer',
       items: sale.items.map((item) => ({
         id: item.id, productId: item.productId, name: item.productNameSnapshot,
         quantity: item.quantity, unitPrice: item.unitPrice.toString(), lineTotal: item.lineTotal.toString(),
@@ -74,11 +77,18 @@ export class SalesService {
     if (existing) {
       if (existing.businessId !== dto.businessId || existing.branchId !== dto.branchId ||
           existing.payments[0]?.channel !== dto.channel || existing.items.length !== dto.items.length ||
+          existing.customerId !== (dto.customerId ?? null) ||
           dto.items.some((line) => !existing.items.some((item) =>
             line.productId === item.productId && line.quantity === item.quantity))) {
         throw new ConflictException('This request ID belongs to another sale');
       }
       return this.serialize(existing);
+    }
+    if (dto.customerId) {
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: dto.customerId, businessId: dto.businessId }, select: { id: true },
+      });
+      if (!customer) throw new BadRequestException('Customer not found in this business');
     }
     const products = await this.prisma.product.findMany({
       where: { businessId: dto.businessId, id: { in: ids } },
@@ -108,7 +118,8 @@ export class SalesService {
     try {
       const sale = await this.prisma.sale.create({
         data: {
-          reference, businessId: dto.businessId, branchId: dto.branchId, cashierId: userId,
+          reference, businessId: dto.businessId, branchId: dto.branchId,
+          cashierId: userId, customerId: dto.customerId ?? null,
           status: 'PENDING_PAYMENT', subtotal: total, discount: '0.00', total,
           items: { create: lines.map((line) => ({
             productId: line.productId, productNameSnapshot: line.productNameSnapshot,

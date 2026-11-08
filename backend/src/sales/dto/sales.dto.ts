@@ -1,6 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsUUID, Max, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsOptional, IsUUID, Max, Min, ValidateNested } from 'class-validator';
 
 export class SaleLineDto {
   @ApiProperty({ format: 'uuid' }) @IsUUID('4') productId!: string;
@@ -14,6 +14,9 @@ export class CreateSaleDto {
   @ApiProperty({ enum: ['CASH', 'BANK_TRANSFER', 'POS', 'CARD', 'USSD', 'WALLET'] })
   @IsIn(['CASH', 'BANK_TRANSFER', 'POS', 'CARD', 'USSD', 'WALLET'])
   channel!: 'CASH' | 'BANK_TRANSFER' | 'POS' | 'CARD' | 'USSD' | 'WALLET';
+  @ApiPropertyOptional({ format: 'uuid', description: 'Optional existing customer in the same business' })
+  @IsOptional() @IsUUID('4') customerId?: string;
+
   @ApiProperty({ type: [SaleLineDto] })
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(50) @ValidateNested({ each: true })
   @Type(() => SaleLineDto) items!: SaleLineDto[];
