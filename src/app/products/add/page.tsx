@@ -10,6 +10,8 @@ import {
   Bell,
 } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
+import Link from "next/link";
+import { getInventoryContext, getInventoryCategories, kassaPost, type InventoryCategory, type InventoryContext } from "@/lib/inventory-client";
 
 export default function AddProductPage() {
   const [form, setForm] = useState({
@@ -27,6 +29,9 @@ export default function AddProductPage() {
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  const [categories, setCategories] = useState<InventoryCategory[]>([]);
+  const [inventoryContext, setInventoryContext] = useState<InventoryContext | null>(null);
 
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -71,16 +76,54 @@ export default function AddProductPage() {
     }, []);
   
 
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const context = await getInventoryContext();
+        const data = await getInventoryCategories(context);
+        if (cancelled) return;
+        setInventoryContext(context);
+        setSelectedBranch(context.branchName);
+        setCategories(data.filter((category) => category.status === "Active"));
+      } catch (cause) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Unable to load categories.");
+      }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, []);
+
   const handleSave = async () => {
+    if (saving || saved) return;
+    if (!inventoryContext) return setError("Inventory is not ready. Confirm that your business is set up.");
+    if (!form.name.trim() || !form.sku.trim() || !form.category)
+      return setError("Enter the product name, SKU, and category.");
+    const money = /^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/;
+    if (!money.test(form.sellingPrice.trim()) ||
+        (form.costPrice.trim() && !money.test(form.costPrice.trim())))
+      return setError("Enter a valid naira price with no more than two decimal places.");
+    if (!/^\d+$/.test(form.currentStock.trim()) || !/^\d+$/.test(form.lowStockThreshold.trim()))
+      return setError("Current stock and low-stock threshold must be whole numbers of zero or more.");
+    const currentStock = Number(form.currentStock), lowStockThreshold = Number(form.lowStockThreshold);
+    if (!Number.isSafeInteger(currentStock) || !Number.isSafeInteger(lowStockThreshold) ||
+        currentStock > 100000000 || lowStockThreshold > 100000000)
+      return setError("Stock values must be no greater than 100,000,000.");
+    setError("");
     setSaving(true);
-
-    // TODO: replace with your real API call
-    await new Promise((resolve) =>
-      setTimeout(resolve, 1000)
-    );
-
-    setSaving(false);
-    setSaved(true);
+    try {
+      await kassaPost("/api/inventory/products", {
+        businessId: inventoryContext.businessId, branchId: inventoryContext.branchId,
+        name: form.name.trim(), sku: form.sku.trim(), categoryId: form.category,
+        brand: form.brand.trim() || undefined, unit: form.unit.trim() || undefined,
+        description: form.description.trim() || undefined,
+        sellingPrice: form.sellingPrice.trim(), costPrice: form.costPrice.trim() || undefined,
+        currentStock, lowStockThreshold,
+      });
+      setSaved(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to save the product.");
+    } finally { setSaving(false); }
   };
 
   return (
@@ -196,16 +239,15 @@ export default function AddProductPage() {
                       <option value="">
                         Select category
                       </option>
-                      <option value="Medicine">
-                        Medicine
-                      </option>
-                      <option value="Supplements">
-                        Supplements
-                      </option>
-                      <option value="Wellness">
-                        Wellness
-                      </option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>{category.name}</option>
+                      ))}
                     </select>
+                    {categories.length === 0 && (
+                      <p className="mt-2 text-xs text-amber-700">
+                        No active categories yet. <Link href="/products/categories/add" className="underline">Create a category</Link> first.
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -385,7 +427,7 @@ export default function AddProductPage() {
                 />
 
                 <span className="text-sm font-medium text-emerald-700">
-                  Upload product image
+                  Product images coming soon
                 </span>
 
                 <span className="text-xs text-gray-400">
@@ -394,6 +436,7 @@ export default function AddProductPage() {
 
                 <input
                   type="file"
+                  disabled
                   accept="image/jpeg,image/png"
                   className="hidden"
                 />
@@ -403,6 +446,7 @@ export default function AddProductPage() {
 
           {/* ================= SAVE PANEL ================= */}
           <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 h-fit">
+            {error && <p role="alert" className="mb-4 text-sm text-red-700">{error}</p>}
             {!saved ? (
               <>
                 <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-1">
@@ -429,12 +473,12 @@ export default function AddProductPage() {
                   {saving ? "Saving..." : "Save Product"}
                 </button>
 
-                <button
-                  type="button"
-                  className="w-full border border-emerald-700 text-emerald-700 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-50 transition-colors mb-6"
+                <Link
+                  href="/products"
+                  className="flex w-full items-center justify-center border border-emerald-700 text-emerald-700 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-50 transition-colors mb-6"
                 >
                   Cancel
-                </button>
+                </Link>
               </>
             ) : (
               <div className="flex items-start gap-3 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 mb-6">
@@ -455,7 +499,10 @@ export default function AddProductPage() {
 
                 <button
                   type="button"
-                  onClick={() => setSaved(false)}
+                  onClick={() => {
+                    setSaved(false);
+                    setForm({ name: "", sku: "", category: "", brand: "", unit: "", description: "", sellingPrice: "", costPrice: "", currentStock: "", lowStockThreshold: "" });
+                  }}
                 >
                   <X
                     size={14}
