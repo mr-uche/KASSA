@@ -1,322 +1,299 @@
 "use client";
- 
-import { useState, useEffect, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Search, ChevronDown, Download, MoreHorizontal, Plus, CheckCircle2, X, Menu,Bell } from "lucide-react";
+
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Search, ChevronDown, Download, MoreHorizontal, Plus, CheckCircle2, X, Menu, Bell } from "lucide-react";
 import Link from "next/link";
 import KassaSidebar from "@/components/KassaSidebar";
- 
-type Customer = {
-  name: string;
-  phone: string;
-  email: string;
-  purchases: number;
-  lastPurchase: string;
-  status: "Active" | "Inactive";
-};
- 
-const customers: Customer[] = [
-  { name: "Mary Adeyemi", phone: "0803 421 7782", email: "mary.adeyemi@email.com", purchases: 24, lastPurchase: "Today, 9:14 AM", status: "Active" },
-  { name: "Chuka Nwosu", phone: "0814 552 1093", email: "chuka.nwosu@email.com", purchases: 17, lastPurchase: "Yesterday, 4:26 PM", status: "Active" },
-  { name: "Grace Umeh", phone: "0806 218 4501", email: "grace.umeh@email.com", purchases: 12, lastPurchase: "Aug 18, 11:52 AM", status: "Active" },
-];
- 
+import { getCustomerBusiness, listCustomers, type CustomerRecord } from "@/lib/customers-client";
+
+function FilterDropdown({
+  selected, options, onSelect,
+}: { selected: string; options: string[]; onSelect: (value: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative shrink-0">
+      <button type="button" onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50">
+        {selected} <ChevronDown size={14} className={open ? "rotate-180" : ""}/>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
+          {options.map((option) => (
+            <button key={option} type="button" onClick={() => { onSelect(option); setOpen(false); }}
+              className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+              {option}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CustomersPageContent() {
-  const [query, setQuery] = useState("");
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const [showToast, setShowToast] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const params = useSearchParams();
+  const [customers, setCustomers] = useState<CustomerRecord[]>([]);
+  const [query, setQuery] = useState("");
   const [selectedCustomers, setSelectedCustomers] = useState("All Customers");
-  const [selectedbranches, setSelectedbranches] = useState("All Branches");
-  const [selectedNewestfirst, setSelectedNewestfirst] = useState("Newest first");
- 
+  const [selectedSort, setSelectedSort] = useState("Newest first");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastText, setToastText] = useState("");
+
   useEffect(() => {
-    if (searchParams.get("added") === "true") {
+    const action = params.get("added") === "true" ? "added" :
+      params.get("updated") === "true" ? "updated" : null;
+    if (action) {
+      setToastText(action === "added" ? "Customer added successfully" : "Customer updated successfully");
       setShowToast(true);
       router.replace("/customers");
     }
-  }, [searchParams, router]);
-  6
+  }, [params, router]);
+
   useEffect(() => {
     if (!showToast) return;
     const timer = setTimeout(() => setShowToast(false), 4000);
     return () => clearTimeout(timer);
   }, [showToast]);
- 
-  const filtered = customers.filter((c) =>
-    `${c.name} ${c.phone} ${c.email}`.toLowerCase().includes(query.toLowerCase())
-  );
-  const [selectedBranch, setSelectedBranch] = useState("Main branch");
 
-// Get the selected branch from localStorage
-useEffect(() => {
-  const savedBranch = localStorage.getItem("selectedBranch");
-
-  if (savedBranch) { 
-    setSelectedBranch(savedBranch);
-  }
-}, []);
-
-// Listen for branch changes
-useEffect(() => {
-  const handleBranchChange = () => {
-    const savedBranch = localStorage.getItem("selectedBranch");
-
-    if (savedBranch) {
-      setSelectedBranch(savedBranch);
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      setLoading(true);
+      try {
+        const { businessId } = await getCustomerBusiness();
+        const records = await listCustomers(businessId);
+        if (!active) return;
+        setCustomers(records);
+        setError("");
+      } catch (cause) {
+        if (!active) return;
+        setCustomers([]);
+        setError(cause instanceof Error ? cause.message : "Unable to load customer records.");
+      } finally {
+        if (active) setLoading(false);
+      }
     }
-  };
+    void load();
+    return () => { active = false; };
+  }, []);
 
-  window.addEventListener("branchChanged", handleBranchChange);
+  const now = new Date();
+  const filtered = customers
+    .filter((customer) => {
+      const text = query.trim().toLowerCase();
+      const matchesSearch = (
+        customer.fullName + " " + (customer.phone ?? "") + " " + (customer.email ?? "")
+      ).toLowerCase().includes(text);
+      const matchesType = selectedCustomers === "All Customers" ||
+        (selectedCustomers === "With purchases" && customer.purchases > 0) ||
+        (selectedCustomers === "No purchases" && customer.purchases === 0);
+      return matchesSearch && matchesType;
+    })
+    .sort((a, b) => {
+      if (selectedSort === "Oldest first") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (selectedSort === "Most purchases") return b.purchases - a.purchases;
+      if (selectedSort === "Recently purchased") return (b.lastPurchase ? Date.parse(b.lastPurchase) : 0) - (a.lastPurchase ? Date.parse(a.lastPurchase) : 0);
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
-  return () => {
-    window.removeEventListener("branchChanged", handleBranchChange);
-  };
-}, []);
+  const withPurchases = customers.filter((customer) => customer.purchases > 0).length;
+  const joinedThisMonth = customers.filter((customer) => {
+    const date = new Date(customer.createdAt);
+    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  }).length;
+  const boughtLast30 = customers.filter((customer) =>
+    customer.lastPurchase && new Date(customer.lastPurchase).getTime() >= now.getTime() - 30 * 86400000,
+  ).length;
 
-  function FilterDropdown({
-    selected,
-    options,
-    onSelect,
-  }: {
-    selected: string;
-    options: string[];
-    onSelect: (value: string) => void;
-  }) {
-    const [open, setOpen] = useState(false);
-   
-    return (
-      <div className="relative shrink-0">
-        <button
-          type="button"
-          onClick={() => setOpen((prev) => !prev)}
-          className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
-        >
-          {selected}
-          <ChevronDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />
-        </button>
-   
-        {open && (
-          <div className="absolute left-0 top-full z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
-            {options.map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => {
-                  onSelect(option);
-                  setOpen(false);
-                }}
-                className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    );
+  function exportCustomers() {
+    if (!filtered.length) return;
+    const rows = [
+      ["Name", "Phone", "Email", "Purchases", "Last purchase", "Created at", "Address", "Notes"],
+      ...filtered.map((customer) => [
+        customer.fullName, customer.phone ?? "", customer.email ?? "", String(customer.purchases),
+        customer.lastPurchase ?? "", customer.createdAt, customer.address ?? "", customer.notes ?? "",
+      ]),
+    ];
+    const quote = (value: string) => {
+      const safe = /^[=+@-]/.test(value) ? "'" + value : value;
+      return '"' + safe.replaceAll('"', '""') + '"';
+    };
+    const csv = rows.map((row) => row.map(quote).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "kassa-customers.csv";
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50">
-      <KassaSidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
- 
+      <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="min-h-screen lg:ml-[198px]">
-         {/* Header */}
-                <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setSidebarOpen(true)}
-                      className="shrink-0 rounded-md p-1.5 text-[#374151] transition hover:bg-[#F3F4F6] lg:hidden"
-                      aria-label="Open menu"
-                    >
-                      <Menu size={22} />
-                    </button>
-        
-                    <h1 className="truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">
-                      Customers
-                    </h1>
-                  </div>
-        
-                  <div className="flex shrink-0 items-center gap-3 sm:gap-5">
-                    {/* Branch display - no dropdown */}
-                    <div className="hidden w-[130px] sm:block sm:w-[150px] lg:w-[162px]">
-                      <div className="flex h-[34px] w-full items-center justify-between rounded-[9px] border border-[#D8DCE3] bg-white px-3 text-[12px] text-[#374151] sm:text-[13px]">
-                        <span className="truncate">{selectedBranch}</span>
-                      </div>
-                    </div>
-                    <button className="relative flex h-[36px] w-[36px] items-center justify-center rounded-full bg-[#F8F9FA]">
-                      <Bell size={17} className="text-[#98A1AE]" />
-        
-                      <span className="absolute right-[8px] top-[6px] h-[7px] w-[7px] rounded-full bg-[#E54848]" />
-                    </button>
-        
-                    <div className="flex h-[36px] w-[36px] items-center justify-center rounded-full bg-[#E5F5F0] text-[12px] font-semibold text-[#08745F]">
-                      AO
-                    </div>
-                  </div>
-                </header>
-       
- 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 mt-2 px-8 mt-4">
-          <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">Manage customers</h2>
-            <p className="text-gray-500 text-sm sm:text-base">View, search and manage your customer records.</p>
+        <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <button type="button" onClick={() => setSidebarOpen(true)}
+              className="shrink-0 rounded-md p-1.5 text-[#374151] transition hover:bg-[#F3F4F6] lg:hidden"
+              aria-label="Open menu"><Menu size={22}/></button>
+            <h1 className="truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">
+              Customers
+            </h1>
           </div>
-          <Link
-            href="/customers/add"
-            className="flex items-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0"
-          >
-            <Plus size={16} />
-            Add customer
+          <div className="flex shrink-0 items-center gap-3 sm:gap-5">
+            <div className="hidden w-[130px] sm:block sm:w-[150px] lg:w-[162px]">
+              <div className="flex h-[34px] w-full items-center rounded-[9px] border border-[#D8DCE3] bg-white px-3 text-[12px] text-[#374151]">
+                <span className="truncate">All branches</span>
+              </div>
+            </div>
+            <button type="button" aria-label="Notifications"
+              className="relative flex h-[36px] w-[36px] items-center justify-center rounded-full bg-[#F8F9FA]">
+              <Bell size={17} className="text-[#98A1AE]"/>
+            </button>
+            <div className="flex h-[36px] w-[36px] items-center justify-center rounded-full bg-[#E5F5F0] text-[12px] font-semibold text-[#08745F]">
+              AO
+            </div>
+          </div>
+        </header>
+
+        <div className="mb-6 mt-4 flex flex-col gap-4 px-8 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="mb-1 text-lg font-semibold text-gray-900 sm:text-xl">Manage customers</h2>
+            <p className="text-sm text-gray-500 sm:text-base">View, search and manage your business-wide customer records.</p>
+          </div>
+          <Link href="/customers/add"
+            className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-900">
+            <Plus size={16}/> Add customer
           </Link>
         </div>
- 
-        {/* Summary cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 px-8">
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-            <p className="text-sm text-gray-500 mb-2">Total customers</p>
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <p className="text-xl sm:text-2xl font-semibold text-gray-900">1,248</p>
-              <span className="text-xs text-emerald-600">↑ 8.4% this month</span>
-            </div>
+
+        {error && <p role="alert" className="mb-4 px-8 text-sm text-red-700">{error}</p>}
+        {loading && <p role="status" className="mb-4 px-8 text-sm text-gray-500">Loading customers...</p>}
+
+        <div className="mb-6 grid grid-cols-2 gap-4 px-8 lg:grid-cols-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+            <p className="mb-2 text-sm text-gray-500">Total customers</p>
+            <p className="text-xl font-semibold text-gray-900 sm:text-2xl">{customers.length}</p>
+            <span className="text-xs text-gray-400">Saved customer records</span>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-            <p className="text-sm text-gray-500 mb-2">Active customers</p>
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <p className="text-xl sm:text-2xl font-semibold text-gray-900">936</p>
-              <span className="text-xs text-gray-400">75% of total records</span>
-            </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+            <p className="mb-2 text-sm text-gray-500">Returning customers</p>
+            <p className="text-xl font-semibold text-gray-900 sm:text-2xl">{withPurchases}</p>
+            <span className="text-xs text-gray-400">Linked to confirmed sales</span>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-            <p className="text-sm text-gray-500 mb-2">New this month</p>
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <p className="text-xl sm:text-2xl font-semibold text-gray-900">86</p>
-              <span className="text-xs text-emerald-600">↑ 14 from last month</span>
-            </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+            <p className="mb-2 text-sm text-gray-500">New this month</p>
+            <p className="text-xl font-semibold text-gray-900 sm:text-2xl">{joinedThisMonth}</p>
+            <span className="text-xs text-gray-400">Customers created this month</span>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-            <p className="text-sm text-gray-500 mb-2">Customers with purchases</p>
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <p className="text-xl sm:text-2xl font-semibold text-gray-900">782</p>
-              <span className="text-xs text-gray-400">Last 30 days</span>
-            </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+            <p className="mb-2 text-sm text-gray-500">Customers with purchases</p>
+            <p className="text-xl font-semibold text-gray-900 sm:text-2xl">{boughtLast30}</p>
+            <span className="text-xs text-gray-400">Last 30 days</span>
           </div>
         </div>
- 
-        {/* Search + filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-4 px-8">
-          <div className="flex-1 relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+
+        <div className="mb-4 flex flex-col gap-3 px-8 sm:flex-row">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+            <input value={query} onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name, phone or email"
-              className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
-            />
+              className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"/>
           </div>
-             
           <div className="-mx-4 flex items-center gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-            <FilterDropdown
-                selected={selectedCustomers}
-                options={["All Customers", "VIP", "Regular", "New"]}
-                onSelect={setSelectedCustomers}
-              />
-
-              <FilterDropdown
-                selected={selectedbranches}
-                options={["All Branches", "Main branch", "Branch 1", "Branch 2"]}
-                onSelect={setSelectedbranches}
-              />
-
-              <FilterDropdown
-                selected={selectedNewestfirst}
-                options={["Last 7 days", "Last 30 days", "This month", "This year"]}
-                onSelect={setSelectedNewestfirst}
-              />
-            <button className="flex shrink-0 items-center gap-2 px-4 py-2.5 text-sm text-emerald-700 font-medium hover:text-emerald-800">
-              <Download size={16} />
-              Export
+            <FilterDropdown selected={selectedCustomers}
+              options={["All Customers", "With purchases", "No purchases"]}
+              onSelect={setSelectedCustomers}/>
+            <span className="shrink-0 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600">
+              All branches
+            </span>
+            <FilterDropdown selected={selectedSort}
+              options={["Newest first", "Oldest first", "Most purchases", "Recently purchased"]}
+              onSelect={setSelectedSort}/>
+            <button type="button" disabled={!filtered.length || loading} onClick={exportCustomers}
+              className="flex shrink-0 items-center gap-2 px-4 py-2.5 text-sm font-medium text-emerald-700 hover:text-emerald-800 disabled:opacity-50">
+              <Download size={16}/> Export
             </button>
           </div>
         </div>
- 
-        {/* Customers table */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto mx-8">
+
+        <div className="mx-8 overflow-x-auto rounded-xl border border-gray-200 bg-white">
           <table className="w-full min-w-[820px] text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase tracking-wide">
-                <th className="px-6 py-4 font-medium whitespace-nowrap">Customer</th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap">Phone</th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap">Email</th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap">Purchases</th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap">Last Purchase</th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap">Status</th>
-                <th className="px-6 py-4 font-medium whitespace-nowrap"></th>
-              </tr>
-            </thead>
+            <thead><tr className="border-b border-gray-100 text-left text-xs uppercase text-gray-500">
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Customer</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Phone</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Email</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Purchases</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Last Purchase</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Status</th>
+              <th className="whitespace-nowrap px-6 py-4 font-medium">Actions</th>
+            </tr></thead>
             <tbody>
-              {filtered.map((c) => (
-                <tr key={c.email} className="border-b border-gray-50 last:border-0">
-                  <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{c.name}</td>
-                  <td className="px-6 py-4 text-gray-700 whitespace-nowrap">{c.phone}</td>
-                  <td className="px-6 py-4 text-gray-700 whitespace-nowrap">{c.email}</td>
-                  <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{c.purchases}</td>
-                  <td className="px-6 py-4 text-gray-500 whitespace-nowrap">{c.lastPurchase}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-                      {c.status}
+              {filtered.map((customer) => (
+                <tr key={customer.id} className="border-b border-gray-50 last:border-0">
+                  <td className="whitespace-nowrap px-6 py-4 font-medium text-gray-900">{customer.fullName}</td>
+                  <td className="whitespace-nowrap px-6 py-4 text-gray-700">{customer.phone ?? "—"}</td>
+                  <td className="whitespace-nowrap px-6 py-4 text-gray-700">{customer.email ?? "—"}</td>
+                  <td className="whitespace-nowrap px-6 py-4 font-medium text-gray-900">{customer.purchases}</td>
+                  <td className="whitespace-nowrap px-6 py-4 text-gray-500">
+                    {customer.lastPurchase
+                      ? new Date(customer.lastPurchase).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })
+                      : "No purchases yet"}
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-4">
+                    <span className={customer.purchases > 0
+                      ? "rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700"
+                      : "rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600"}>
+                      {customer.purchases > 0 ? "Returning" : "New"}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button className="text-gray-400 hover:text-gray-600">
-                      <MoreHorizontal size={18} />
-                    </button>
+                  <td className="whitespace-nowrap px-6 py-4">
+                    <Link href={"/customers/" + encodeURIComponent(customer.id) + "/edit"}
+                      aria-label={"Edit " + customer.fullName} title={"Edit " + customer.fullName}
+                      className="inline-flex items-center gap-1 text-gray-500 hover:text-emerald-700">
+                      <MoreHorizontal size={18}/> <span className="text-xs">Edit</span>
+                    </Link>
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
-                    No customers found.
-                  </td>
-                </tr>
+              {!loading && filtered.length === 0 && (
+                <tr><td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-500">
+                  {error ? "Unable to load customer records." : query ? "No customers match this search." :
+                    "No customers found. Add a customer to get started."}
+                </td></tr>
               )}
             </tbody>
           </table>
         </div>
+        {customers.length === 500 && (
+          <p className="px-8 pt-3 text-xs text-amber-700">
+            Showing the most recent 500 customers. More records require pagination, which will be added later.
+          </p>
+        )}
       </main>
- 
+
       {showToast && (
-        <div className="fixed bottom-6 right-6 flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 shadow-lg">
-          <CheckCircle2 className="text-[#0F4C3A]" size={20} />
-          <div>
-            <p className="text-[13px] font-semibold text-[#182033]">
-              Customer added successfully
-            </p>
-            <p className="text-[12px] text-[#98A1AE]">
-              The customer record has been saved.
-            </p>
+        <div className="fixed bottom-6 right-6 left-6 z-50 flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 shadow-lg sm:left-auto sm:max-w-md">
+          <CheckCircle2 className="shrink-0 text-[#0F4C3A]" size={20}/>
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold text-[#182033]">{toastText}</p>
+            <p className="text-[12px] text-[#98A1AE]">The customer record has been saved to your business.</p>
           </div>
-          <button onClick={() => setShowToast(false)}>
-            <X size={14} className="text-[#98A1AE]" />
+          <button type="button" onClick={() => setShowToast(false)} aria-label="Dismiss notification">
+            <X size={14} className="text-[#98A1AE]"/>
           </button>
         </div>
       )}
     </div>
   );
 }
- 
+
 export default function CustomersPage() {
-  return (
-    <Suspense fallback={null}>
-      <CustomersPageContent />
-    </Suspense>
-  );
+  return <Suspense fallback={null}><CustomersPageContent/></Suspense>;
 }
- 
