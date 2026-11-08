@@ -26,7 +26,10 @@ export class CustomersService {
 
   private normalizedPhone(value: string): string {
     const phone = value.trim();
-    if (!phone) throw new BadRequestException('Customer phone is required');
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 7 || digits.length > 15) {
+      throw new BadRequestException('Customer phone must contain 7–15 digits');
+    }
     return phone;
   }
 
@@ -46,9 +49,14 @@ export class CustomersService {
         _max: { createdAt: true },
       }),
     ]);
-    const totals = new Map(purchases.map((row) => [
-      row.customerId, { count: row._count._all, lastPurchase: row._max.createdAt },
-    ]));
+    const totals = new Map<string, { count: number; lastPurchase: Date | null }>(
+      purchases
+        .filter((row): row is typeof row & { customerId: string } => row.customerId !== null)
+        .map((row) => [
+          row.customerId,
+          { count: row._count._all, lastPurchase: row._max.createdAt },
+        ] as const),
+    );
     return customers.map((customer) => ({
       id: customer.id,
       businessId: customer.businessId,
