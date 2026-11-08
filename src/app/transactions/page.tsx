@@ -10,81 +10,45 @@ import {
 } from "lucide-react";
 
 import KassaSidebar from "@/components/KassaSidebar";
+import { getInventoryContext, formatNaira } from "@/lib/inventory-client";
+import { listSales, saleStatusLabel, type SavedSale } from "@/lib/sales-client";
 
-const transactions = [
-  {
-    id: "TXN-2026-000141",
-    customer: "Mary Adeyemi",
-    cashier: "Ifeoma Bassey",
-    channel: "Transfer",
-    items: "3 items",
-    amount: "₦12,400",
-    status: "Success",
-    time: "9:14 AM",
-  },
-  {
-    id: "TXN-2026-000142",
-    customer: "Walk-in customer",
-    cashier: "Ifeoma Bassey",
-    channel: "Cash",
-    items: "1 item",
-    amount: "₦3,200",
-    status: "Success",
-    time: "9:26 AM",
-  },
-  {
-    id: "TXN-2026-000143",
-    customer: "Chuka Nwosu",
-    cashier: "Ibrahim Musa",
-    channel: "POS",
-    items: "2 items",
-    amount: "₦8,750",
-    status: "Failed",
-    time: "9:41 AM",
-  },
-  {
-    id: "TXN-2026-000144",
-    customer: "Grace Umeh",
-    cashier: "Ifeoma Bassey",
-    channel: "USSD",
-    items: "4 items",
-    amount: "₦5,000",
-    status: "Pending",
-    time: "9:52 AM",
-  },
-  {
-    id: "TXN-2026-000145",
-    customer: "Walk-in customer",
-    cashier: "Ibrahim Musa",
-    channel: "Card",
-    items: "1 item",
-    amount: "₦17,300",
-    status: "Success",
-    time: "10:03 AM",
-  },
-  {
-    id: "TXN-2026-000146",
-    customer: "Tunde Bakare",
-    cashier: "Ifeoma Bassey",
-    channel: "kassa Wallet",
-    items: "2 items",
-    amount: "₦6,900",
-    status: "Success",
-    time: "10:18 AM",
-  },
-];
+type TransactionRow = {
+  id: string; reference: string; customer: string; cashier: string;
+  channel: string; items: string; amount: string; status: string;
+  time: string; createdAt: string; total: number;
+};
+const channelLabels: Record<string, string> = {
+  CASH: "Cash", BANK_TRANSFER: "Transfer", POS: "POS", CARD: "Card",
+  USSD: "USSD", WALLET: "Kassa Wallet",
+};
+function toTransactionRow(sale: SavedSale): TransactionRow {
+  const payment = sale.payments[0];
+  const status = payment?.status === "FAILED" ? "Failed" : saleStatusLabel(sale.status);
+  return {
+    id: sale.id, reference: sale.reference, customer: sale.customer,
+    cashier: sale.cashier, channel: channelLabels[payment?.channel ?? ""] ?? "Not set",
+    items: sale.items.length + (sale.items.length === 1 ? " item" : " items"),
+    amount: formatNaira(sale.total), status,
+    time: new Date(sale.createdAt).toLocaleString("en-NG"),
+    createdAt: sale.createdAt, total: Number(sale.total),
+  };
+}
 
 function StatusBadge({ status }: { status: string }) {
   const styles = {
     Success: "bg-[#E8F3DC] text-[#32651C]",
     Failed: "bg-[#FCE5E5] text-[#A42626]",
     Pending: "bg-[#FCEED8] text-[#8A4F05]",
+    Cancelled: "bg-gray-100 text-gray-600",
+    Refunded: "bg-gray-100 text-gray-600",
+    "Partial refund": "bg-gray-100 text-gray-600",
   };
 
   return (
     <span
       className={`inline-flex whitespace-nowrap rounded-full px-3 py-[5px] text-[11px] font-semibold ${
-        styles[status as keyof typeof styles]
+        styles[status as keyof typeof styles] ?? "bg-gray-100 text-gray-600"
       }`}
     >
       {status}
@@ -162,6 +126,10 @@ export default function TransactionsPage() {
   const [selectedChannels, setSelectedChannels] = useState("All Channels");
   const [selectedStatuses, setSelectedStatuses] = useState("All statuses");
   const [selected7Days, setSelected7Days] = useState("Last 7 days");
+  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   // Branch selected from the dashboard
 const [selectedBranch, setSelectedBranch] = useState("Main branch");
@@ -191,6 +159,67 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
     window.removeEventListener("branchChanged", handleBranchChange);
   };
 }, []);
+
+  useEffect(() => {
+    let active = true;
+    async function loadSales() {
+      setLoading(true);
+      try {
+        const context = await getInventoryContext();
+        const sales = await listSales(context);
+        if (!active) return;
+        setSelectedBranch(context.branchName);
+        setTransactions(sales.map(toTransactionRow));
+        setError("");
+      } catch (cause) {
+        if (active) {
+          setTransactions([]);
+          setError(cause instanceof Error ? cause.message : "Unable to load transactions.");
+        }
+      } finally { if (active) setLoading(false); }
+    }
+    void loadSales();
+    return () => { active = false; };
+  }, []);
+
+  const now = new Date();
+  const filteredTransactions = transactions.filter((row) => {
+    const search = query.trim().toLowerCase();
+    if (search && !(row.reference + " " + row.customer + " " + row.cashier).toLowerCase().includes(search)) return false;
+    if (selectedChannels !== "All Channels" && row.channel !== selectedChannels) return false;
+    if (selectedStatuses !== "All statuses") {
+      const expected = selectedStatuses === "Successful" ? "Success" : selectedStatuses;
+      if (row.status !== expected) return false;
+    }
+    const date = new Date(row.createdAt);
+    if (selected7Days === "Last 7 days") return date.getTime() >= now.getTime() - 7 * 86400000;
+    if (selected7Days === "Last 30 days") return date.getTime() >= now.getTime() - 30 * 86400000;
+    if (selected7Days === "This month") return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+    if (selected7Days === "This year") return date.getFullYear() === now.getFullYear();
+    return true;
+  });
+  const successful = filteredTransactions.filter((row) => row.status === "Success");
+  const received = successful.reduce((total, row) => total + row.total, 0);
+  const pending = filteredTransactions.filter((row) => row.status === "Pending").length;
+  const failed = filteredTransactions.filter((row) => row.status === "Failed").length;
+
+  function exportTransactions() {
+    const rows = [["Reference", "Customer", "Cashier", "Channel", "Items", "Amount (NGN)", "Status", "Created At"],
+      ...filteredTransactions.map((row) => [row.reference, row.customer, row.cashier, row.channel,
+        row.items, String(row.total), row.status, row.createdAt])];
+    const safe = (value: string) => {
+      const text = /^[=+@-]/.test(value) ? "'" + value : value;
+      return '"' + text.replaceAll('"', '""') + '"';
+    };
+    const csv = rows.map((cells) => cells.map(safe).join(",")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "kassa-sales.csv";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#F5F6F8]">
@@ -249,6 +278,8 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
 
               <input
                 type="text"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search customer or reference"
                 className="h-[42px] w-full rounded-[8px] border border-[#D4D9E0] bg-white pl-[40px] pr-[12px] text-[13px] text-[#374151] outline-none placeholder:text-[#9BA4B3] focus:border-[#08745F]"
               />
@@ -264,7 +295,7 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
 
               <FilterDropdown
                 selected={selectedStatuses}
-                options={["All statuses", "Successful", "Failed", "Pending"]}
+                options={["All statuses", "Successful", "Failed", "Pending", "Cancelled", "Refunded"]}
                 onSelect={setSelectedStatuses}
               />
 
@@ -275,24 +306,27 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
               />
             </div>
 
-            <button className="h-[42px] w-full rounded-[8px] border border-[#D4D9E0] bg-white px-[17px] text-[13px] font-semibold text-[#394355] sm:ml-auto sm:w-auto">
+            <button type="button" onClick={exportTransactions} disabled={loading || !filteredTransactions.length}
+              className="h-[42px] w-full rounded-[8px] border border-[#D4D9E0] bg-white px-[17px] text-[13px] font-semibold text-[#394355] disabled:opacity-50 sm:ml-auto sm:w-auto">
               Export
             </button>
           </div>
 
+          {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
+          {loading && <p className="mt-4 text-sm text-gray-500">Loading transactions...</p>}
           {/* Summary */}
           <div className="mt-[18px] grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-5">
-            <SummaryCard title="Total received" value="₦2,840,600" />
+            <SummaryCard title="Total received" value={formatNaira(received)} />
 
             <SummaryCard
               title="Successful"
-              value="612"
+              value={String(successful.length)}
               valueClass="text-[#32651C]"
             />
 
-            <SummaryCard title="Pending" value="14" valueClass="text-[#8A4F05]" />
+            <SummaryCard title="Pending" value={String(pending)} valueClass="text-[#8A4F05]" />
 
-            <SummaryCard title="Failed" value="9" valueClass="text-[#A42626]" />
+            <SummaryCard title="Failed" value={String(failed)} valueClass="text-[#A42626]" />
           </div>
 
           {/* Transactions table */}
@@ -331,18 +365,14 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
               </thead>
 
               <tbody>
-                {transactions.map((transaction) => (
+                {filteredTransactions.map((transaction) => (
                   <tr
                     key={transaction.id}
                     className="h-[52px] border-b border-[#EEF0F3] last:border-0"
                   >
                     <td className="whitespace-nowrap px-4 text-[13px] sm:px-[23px]">
                       <Link
-                        href={
-                          transaction.status === "Pending"
-                            ? `/transactions/${transaction.id}/dispute`
-                            : `/transactions/${transaction.id}`
-                        }
+                        href={"/transactions/" + encodeURIComponent(transaction.id)}
                         className="text-[#354052] hover:text-emerald-700 hover:underline"
                       >
                         {transaction.customer}
@@ -374,6 +404,11 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
                     </td>
                   </tr>
                 ))}
+                {!loading && filteredTransactions.length === 0 && (
+                  <tr><td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500">
+                    No matching sales have been recorded.
+                  </td></tr>
+                )}
               </tbody>
             </table>
           </div>
