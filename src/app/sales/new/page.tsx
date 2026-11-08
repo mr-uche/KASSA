@@ -5,76 +5,22 @@ import { useRouter } from "next/navigation";
 import { Search, ScanBarcode, Minus, Plus, Menu, Bell } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import Link from "next/link";
+import { getInventoryContext, getInventoryProducts, type InventoryProduct } from "@/lib/inventory-client";
 
-type Product = {
-  name: string;
-  sku: string;
-  stock: number;
-  price: number;
-  category: string;
-  color: string;
-};
-
-const products: Product[] = [
-  {
-    name: "Panadol Extra",
-    sku: "PAN-001",
-    stock: 42,
-    price: 2400,
-    category: "Medicines",
-    color: "bg-red-100",
-  },
-  {
-    name: "Vitamin C 1000mg",
-    sku: "VIT-014",
-    stock: 18,
-    price: 5800,
-    category: "Supplements",
-    color: "bg-orange-100",
-  },
-  {
-    name: "Amoxicillin 500mg",
-    sku: "AMX-001",
-    stock: 27,
-    price: 3500,
-    category: "Medicines",
-    color: "bg-blue-100",
-  },
-  {
-    name: "Cough Syrup",
-    sku: "COU-005",
-    stock: 31,
-    price: 2900,
-    category: "Medicines",
-    color: "bg-amber-100",
-  },
-];
-
-const filterTabs = [
-  "All",
-  "Medicines",
-  "Personal care",
-  "Supplements",
-] as const;
-
-type SaleItem = {
-  name: string;
-  price: number;
-  qty: number;
-};
+type Product = InventoryProduct;
+type SaleItem = { id: string; name: string; price: number; qty: number };
 
 export default function NewSalePage() {
   const router = useRouter();
 
-  const [activeFilter, setActiveFilter] =
-    useState<(typeof filterTabs)[number]>("All");
+  const [activeFilter, setActiveFilter] = useState("All");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [query, setQuery] = useState("");
 
-  const [sale, setSale] = useState<SaleItem[]>([
-    { name: "Panadol Extra", price: 2400, qty: 2 },
-    { name: "Vitamin C 1000mg", price: 5800, qty: 1 },
-  ]);
+  const [sale, setSale] = useState<SaleItem[]>([]);
 
   const [paymentMethod, setPaymentMethod] = useState("Transfer");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -108,43 +54,50 @@ export default function NewSalePage() {
     };
   }, []);
 
-  const filtered = products.filter(
-    (p) =>
-      (activeFilter === "All" || p.category === activeFilter) &&
-      p.name.toLowerCase().includes(query.toLowerCase())
+  useEffect(() => {
+    let cancelled = false;
+    async function loadProducts() {
+      try {
+        const context = await getInventoryContext();
+        const result = await getInventoryProducts(context);
+        if (cancelled) return;
+        setProducts(result);
+        setSelectedBranch(context.branchName);
+        setError("");
+      } catch (cause) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Unable to load products.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void loadProducts();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filterTabs = ["All", ...Array.from(new Set(products.map((p) => p.category).filter(Boolean)))];
+  const filtered = products.filter((p) =>
+    (activeFilter === "All" || p.category === activeFilter) &&
+    `${p.name} ${p.sku}`.toLowerCase().includes(query.toLowerCase())
   );
 
   const addToSale = (product: Product) => {
+    if (product.stock < 1) return;
     setSale((prev) => {
-      const existing = prev.find((i) => i.name === product.name);
-
+      const existing = prev.find((item) => item.id === product.id);
       if (existing) {
-        return prev.map((i) =>
-          i.name === product.name ? { ...i, qty: i.qty + 1 } : i
-        );
+        if (existing.qty >= product.stock) return prev;
+        return prev.map((item) => item.id === product.id ? { ...item, qty: item.qty + 1 } : item);
       }
-
-      return [
-        ...prev,
-        {
-          name: product.name,
-          price: product.price,
-          qty: 1,
-        },
-      ];
+      return [...prev, { id: product.id, name: product.name, price: Number(product.price), qty: 1 }];
     });
   };
 
-  const updateQty = (name: string, delta: number) => {
-    setSale((prev) =>
-      prev
-        .map((i) =>
-          i.name === name
-            ? { ...i, qty: Math.max(0, i.qty + delta) }
-            : i
-        )
-        .filter((i) => i.qty > 0)
-    );
+  const updateQty = (id: string, delta: number) => {
+    setSale((prev) => prev.map((item) => {
+      if (item.id !== id) return item;
+      const product = products.find((p) => p.id === id);
+      return { ...item, qty: Math.max(0, Math.min(product?.stock ?? item.qty, item.qty + delta)) };
+    }).filter((item) => item.qty > 0));
   };
 
   const subtotal = sale.reduce(
@@ -154,18 +107,6 @@ export default function NewSalePage() {
 
   const discount = 0;
   const total = subtotal - discount;
-
-  const handleContinue = () => {
-    const params = new URLSearchParams({
-      total: String(total),
-      subtotal: String(subtotal),
-      discount: String(discount),
-      method: paymentMethod,
-      items: encodeURIComponent(JSON.stringify(sale)),
-    });
-
-    router.push(`/sales/checkout?${params.toString()}`);
-  };
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50">
@@ -282,14 +223,21 @@ export default function NewSalePage() {
               ))}
             </div>
 
+            {error && <p role="alert" className="mb-4 text-sm text-red-700">{error}</p>}
+            {loading && <p className="mb-4 text-sm text-gray-500">Loading products...</p>}
+            {!loading && !error && products.length === 0 && (
+              <p className="mb-4 rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
+                No products have been added yet. <Link href="/products/add" className="font-medium text-emerald-700 underline">Add your first product</Link> to inventory.
+              </p>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 ">
               {filtered.map((p) => (
                 <div
-                  key={p.sku}
+                  key={p.id}
                   className="border border-gray-200 rounded-lg p-3 flex gap-3"
                 >
                   <div
-                    className={`w-12 h-12 rounded-md ${p.color} shrink-0`}
+                    className="w-12 h-12 rounded-md bg-emerald-50 shrink-0"
                   />
 
                   <div className="flex-1 min-w-0">
@@ -303,12 +251,13 @@ export default function NewSalePage() {
 
                     <div className="flex items-center justify-between mt-1.5">
                       <span className="font-semibold text-gray-900 text-sm">
-                        ₦{p.price.toLocaleString()}
+                        ₦{Number(p.price).toLocaleString("en-NG")}
                       </span>
 
                       <button
                         onClick={() => addToSale(p)}
-                        className="px-3 py-1 rounded-md bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-medium transition-colors"
+                        disabled={p.stock === 0 || sale.some((item) => item.id === p.id && item.qty >= p.stock)}
+                        className="disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded-md bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-medium transition-colors"
                       >
                         Add
                       </button>
@@ -324,7 +273,7 @@ export default function NewSalePage() {
               </p>
 
               <p className="text-sm text-amber-700">
-                Use the barcode scanner for faster checkout and automatic stock updates.
+                Product selection is available, but checkout and automatic stock deduction are not enabled yet.
               </p>
             </div>
           </div>
@@ -337,7 +286,7 @@ export default function NewSalePage() {
             </h2>
 
             <p className="text-sm text-gray-500 mb-5">
-              Transaction will be linked to Ifeoma Bassey.
+              Draft order preview only. Sales are not recorded until checkout is connected.
             </p>
 
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
@@ -346,8 +295,7 @@ export default function NewSalePage() {
 
             <select className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm bg-white mb-5 focus:outline-none focus:ring-2 focus:ring-emerald-700">
               <option>Walk-in customer</option>
-              <option>Mary Adeyemi</option>
-              <option>Chuka Nwosu</option>
+
             </select>
 
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
@@ -357,7 +305,7 @@ export default function NewSalePage() {
             <div className="space-y-3 mb-4">
               {sale.map((item) => (
                 <div
-                  key={item.name}
+                  key={item.id}
                   className="flex items-center justify-between gap-3"
                 >
                   <div className="min-w-0">
@@ -372,7 +320,7 @@ export default function NewSalePage() {
 
                   <div className="flex items-center gap-2 shrink-0">
                     <button
-                      onClick={() => updateQty(item.name, -1)}
+                      onClick={() => updateQty(item.id, -1)}
                       className="w-6 h-6 rounded border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50"
                     >
                       <Minus size={12} />
@@ -383,7 +331,7 @@ export default function NewSalePage() {
                     </span>
 
                     <button
-                      onClick={() => updateQty(item.name, 1)}
+                      onClick={() => updateQty(item.id, 1)}
                       className="w-6 h-6 rounded border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50"
                     >
                       <Plus size={12} />
@@ -443,11 +391,11 @@ export default function NewSalePage() {
             </div>
 
             <button
-              onClick={handleContinue}
-              disabled={sale.length === 0}
+              disabled
+               title="Checkout is not connected to the Kassa backend yet"
               className="w-full bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
             >
-              Continue to payment
+              Checkout coming soon
             </button>
 
           </div>
