@@ -66,8 +66,11 @@ export async function getInventoryContext(): Promise<InventoryContext> {
   );
   if (!branches.length) throw new Error("Your business has no active branches.");
 
-  const selectedName = typeof window === "undefined" ? "" : localStorage.getItem("selectedBranch") ?? "";
-  const preferred = branches.find((branch) => branch.name === selectedName) ?? branches[0];
+  const selectedId = typeof window === "undefined" ? "" : localStorage.getItem("selectedBranchId") ?? "";
+  const selectedName = typeof window === "undefined" ? "" : (localStorage.getItem("selectedBranch") ?? "").trim().toLowerCase();
+  const preferred = branches.find((branch) => branch.id === selectedId)
+    ?? branches.find((branch) => branch.name.trim().toLowerCase() === selectedName)
+    ?? branches[0];
   return {
     businessId: preferred.businessId,
     branchId: preferred.id,

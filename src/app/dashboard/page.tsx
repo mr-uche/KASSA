@@ -14,7 +14,8 @@ import {
 
 import KassaSidebar from "@/components/KassaSidebar";
 
-const branches = ["All branches", "Main Branch", "Branch 2"];
+type MerchantBranch = { id: string; name: string; isActive: boolean };
+type MerchantBusiness = { id: string; branches: MerchantBranch[] };
 
 const transactions = [
   {
@@ -72,6 +73,7 @@ function StatusBadge({ status }: { status: string }) {
 export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [branchOpen, setBranchOpen] = useState(false);
+  const [branches, setBranches] = useState<MerchantBranch[]>([]);
   const branchRef = useRef<HTMLDivElement>(null);
   const [selectedBranch, setSelectedBranch] = useState("Main branch");
   const [greetingName, setGreetingName] = useState("there");
@@ -84,12 +86,37 @@ export default function DashboardPage() {
       .catch(() => {});
   }, []);
   useEffect(() => {
-  const savedBranch = localStorage.getItem("selectedBranch");
-
-  if (savedBranch) {
-    setSelectedBranch(savedBranch);
-  }
- }, []);
+    let cancelled = false;
+    async function loadBranches() {
+      try {
+        const response = await fetch("/api/businesses/mine", { cache: "no-store" });
+        if (!response.ok) return;
+        const data: unknown = await response.json();
+        if (!Array.isArray(data)) return;
+        const activeBranches = (data as MerchantBusiness[])
+          .flatMap((business) => business.branches ?? [])
+          .filter((branch) => branch.isActive);
+        if (cancelled) return;
+        setBranches(activeBranches);
+        if (!activeBranches.length) {
+          setSelectedBranch("No active branches");
+          return;
+        }
+        const savedId = localStorage.getItem("selectedBranchId");
+        const savedName = localStorage.getItem("selectedBranch")?.trim().toLowerCase();
+        const branch = activeBranches.find((item) => item.id === savedId)
+          ?? activeBranches.find((item) => item.name.trim().toLowerCase() === savedName)
+          ?? activeBranches[0];
+        setSelectedBranch(branch.name);
+        localStorage.setItem("selectedBranchId", branch.id);
+        localStorage.setItem("selectedBranch", branch.name);
+      } catch {
+        // Inventory shows an API error if the session has expired.
+      }
+    }
+    void loadBranches();
+    return () => { cancelled = true; };
+  }, []);
 
   // Close the dropdown when clicking outside it or pressing Escape
   useEffect(() => {
@@ -168,15 +195,16 @@ export default function DashboardPage() {
                   className="absolute right-0 top-full z-30 mt-2 w-full min-w-[162px] overflow-hidden rounded-[9px] border border-[#E0E3E8] bg-white py-1 shadow-lg"
                 >
                   {branches.map((branch) => {
-                    const active = branch === selectedBranch;
+                    const active = branch.name === selectedBranch;
 
                     return (
-                      <li key={branch} role="option" aria-selected={active}>
+                      <li key={branch.id} role="option" aria-selected={active}>
                         <button
                           type="button"
                          onClick={() => {
-                           setSelectedBranch(branch);
-                           localStorage.setItem("selectedBranch", branch);
+                           setSelectedBranch(branch.name);
+                           localStorage.setItem("selectedBranch", branch.name);
+                           localStorage.setItem("selectedBranchId", branch.id);
                             window.dispatchEvent(new Event("branchChanged"));
                             setBranchOpen(false);
                           }}
@@ -186,7 +214,7 @@ export default function DashboardPage() {
                               : "text-[#374151]"
                           }`}
                         >
-                          <span className="truncate">{branch}</span>
+                          <span className="truncate">{branch.name}</span>
                           {active && <Check size={15} className="shrink-0" />}
                         </button>
                       </li>
