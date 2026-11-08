@@ -163,7 +163,8 @@ export class SalesService {
         where: { id: sale.id, status: 'PENDING_PAYMENT' }, data: { status: 'PAID' },
       });
       if (claim.count !== 1) throw new ConflictException('Sale is already being processed');
-      for (const item of sale.items) {
+      // Lock stock balance rows in a stable order when concurrent sales share products.
+      for (const item of [...sale.items].sort((a, b) => a.productId.localeCompare(b.productId))) {
         const stock = await tx.stockBalance.updateMany({
           where: { productId: item.productId, branchId: sale.branchId, quantity: { gte: item.quantity } },
           data: { quantity: { decrement: item.quantity } },
