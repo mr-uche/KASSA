@@ -13,56 +13,29 @@ import {
 } from "lucide-react";
 
 import KassaSidebar from "@/components/KassaSidebar";
+import { getInventoryContext, formatNaira } from "@/lib/inventory-client";
+import { listSales, saleStatusLabel, type SavedSale } from "@/lib/sales-client";
 
 type MerchantBranch = { id: string; name: string; isActive: boolean };
 type MerchantBusiness = { id: string; branches: MerchantBranch[] };
 
-const transactions = [
-  {
-    customer: "Mary Adeyemi",
-    cashier: "Ifeoma Bassey",
-    channel: "Transfer",
-    amount: "₦12,400",
-    status: "Success",
-    time: "9:14 AM",
-  },
-  {
-    customer: "Walk-in customer",
-    cashier: "Ifeoma Bassey",
-    channel: "Cash",
-    amount: "₦3,200",
-    status: "Success",
-    time: "9:26 AM",
-  },
-  {
-    customer: "Chuka Nwosu",
-    cashier: "Ibrahim Musa",
-    channel: "POS",
-    amount: "₦8,750",
-    status: "Failed",
-    time: "9:41 AM",
-  },
-  {
-    customer: "Grace Umeh",
-    cashier: "Ifeoma Bassey",
-    channel: "USSD",
-    amount: "₦5,000",
-    status: "Pending",
-    time: "9:52 AM",
-  },
-];
+const channelLabels: Record<string, string> = {
+  CASH: "Cash", BANK_TRANSFER: "Transfer", POS: "POS", CARD: "Card", USSD: "USSD", WALLET: "Wallet",
+};
 
 function StatusBadge({ status }: { status: string }) {
   const styles = {
     Success: "bg-[#E8F3DC] text-[#32651C]",
     Failed: "bg-[#FCE5E5] text-[#A42626]",
     Pending: "bg-[#FCEED8] text-[#8A4F05]",
+    Cancelled: "bg-gray-100 text-gray-600",
+    Refunded: "bg-gray-100 text-gray-600",
   };
 
   return (
     <span
       className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-semibold ${
-        styles[status as keyof typeof styles]
+        styles[status as keyof typeof styles] ?? "bg-gray-100 text-gray-600"
       }`}
     >
       {status}
@@ -77,6 +50,8 @@ export default function DashboardPage() {
   const branchRef = useRef<HTMLDivElement>(null);
   const [selectedBranch, setSelectedBranch] = useState("Main branch");
   const [greetingName, setGreetingName] = useState("there");
+  const [sales, setSales] = useState<SavedSale[]>([]);
+  const [salesError, setSalesError] = useState("");
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
       .then((response) => response.ok ? response.json() : null)
@@ -117,6 +92,46 @@ export default function DashboardPage() {
     void loadBranches();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    let requestNumber = 0;
+    let live = true;
+    async function loadSales() {
+      const sequence = ++requestNumber;
+      try {
+        const context = await getInventoryContext();
+        const data = await listSales(context);
+        if (!live || sequence !== requestNumber) return;
+        setSales(data);
+        setSalesError("");
+      } catch (cause) {
+        if (!live || sequence !== requestNumber) return;
+        setSales([]);
+        setSalesError(cause instanceof Error ? cause.message : "Unable to load recent sales.");
+      }
+    }
+    void loadSales();
+    window.addEventListener("branchChanged", loadSales);
+    return () => {
+      live = false;
+      window.removeEventListener("branchChanged", loadSales);
+    };
+  }, []);
+
+  const today = new Date().toDateString();
+  const salesToday = sales
+    .filter((sale) => sale.status === "PAID" && new Date(sale.createdAt).toDateString() === today)
+    .reduce((sum, sale) => sum + Number(sale.total), 0);
+  const failedPayments = sales.filter((sale) => sale.payments.some((p) => p.status === "FAILED")).length;
+  const transactions = sales.slice(0, 6).map((sale) => ({
+    id: sale.id,
+    customer: sale.customer,
+    cashier: sale.cashier,
+    channel: channelLabels[sale.payments[0]?.channel ?? ""] ?? "Unknown",
+    amount: formatNaira(sale.total),
+    status: saleStatusLabel(sale.status),
+    time: new Date(sale.createdAt).toLocaleString("en-NG"),
+  }));
 
   // Close the dropdown when clicking outside it or pressing Escape
   useEffect(() => {
@@ -248,30 +263,30 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
             <StatCard
               title="Total sales today"
-              value="₦482,600"
-              subtitle="↑ 12% vs yesterday"
+              value={formatNaira(salesToday)}
+              subtitle="Confirmed paid sales today"
               subtitleClass="text-[#4D7C27]"
             />
 
             <StatCard
-              title="Transactions"
-              value="146"
-              subtitle="↑ 8 vs yesterday"
+              title="Recent transactions"
+              value={String(sales.length)}
+              subtitle="Latest 100 sales"
               subtitleClass="text-[#4D7C27]"
             />
 
             <StatCard
               title="Failed payments"
-              value="3"
-              subtitle="Needs attention"
+              value={String(failedPayments)}
+              subtitle="Recorded failures"
               valueClass="text-[#B82E2E]"
               subtitleClass="text-[#C73737]"
             />
 
             <StatCard
               title="Branches active"
-              value="2 / 2"
-              subtitle="All reporting in"
+              value={String(branches.length)}
+              subtitle="Authorised active branches"
               subtitleClass="text-[#70798A]"
             />
           </div>
@@ -330,6 +345,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {salesError && <p role="alert" className="mt-5 text-sm text-red-700">{salesError}</p>}
           {/* Recent Transactions */}
           <div className="mt-8">
             <div className="mb-3 flex items-center justify-between gap-4">
@@ -377,9 +393,9 @@ export default function DashboardPage() {
                 </thead>
 
                 <tbody>
-                  {transactions.map((transaction, index) => (
+                  {transactions.map((transaction) => (
                     <tr
-                      key={index}
+                      key={transaction.id}
                       className="h-[52px] border-b border-[#EEF0F3] last:border-0 hover:bg-[#FAFBFB]"
                     >
                       <td className="whitespace-nowrap px-4 text-[13px] text-[#354052] sm:px-6">
@@ -407,6 +423,11 @@ export default function DashboardPage() {
                       </td>
                     </tr>
                   ))}
+                  {transactions.length === 0 && (
+                    <tr><td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
+                      No recent sales yet.
+                    </td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
