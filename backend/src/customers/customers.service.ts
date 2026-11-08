@@ -49,13 +49,11 @@ export class CustomersService {
         _max: { createdAt: true },
       }),
     ]);
-    const totals = new Map<string, { count: number; lastPurchase: Date | null }>(
-      purchases
-        .filter((row): row is typeof row & { customerId: string } => row.customerId !== null)
-        .map((row) => [
-          row.customerId,
-          { count: row._count._all, lastPurchase: row._max.createdAt },
-        ] as const),
+    const totals = new Map(
+      purchases.map((row) => [
+        row.customerId,
+        { count: row._count._all, lastPurchase: row._max.createdAt },
+      ] as const),
     );
     return customers.map((customer) => ({
       id: customer.id,
