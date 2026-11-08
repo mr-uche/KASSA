@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSale, type PaymentMethod, type SaleDraft } from "@/lib/sales-client";
+import { formatNaira } from "@/lib/inventory-client";
 import KassaSidebar from "@/components/KassaSidebar";
 import { Check, Menu, Bell } from "lucide-react";
 
@@ -318,7 +319,7 @@ export default function ConfirmPaymentContent() {
 
               <div className="mb-5 rounded-lg border border-gray-200 px-4 py-3">
                 <p className="text-xl font-bold text-gray-900">
-                  ₦{total.toLocaleString()}.00
+                  {formatNaira(total)}
                 </p>
               </div>
 
@@ -341,7 +342,7 @@ export default function ConfirmPaymentContent() {
                 disabled={!draft || !items.length || submitting}
                 className="disabled:opacity-50 mb-2 w-full rounded-lg bg-emerald-800 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
               >
-                {submitting ? "Saving sale..." : "Create pending sale • ₦" + total.toLocaleString()}
+                {submitting ? "Saving sale..." : "Create pending sale • " + formatNaira(total)}
               </button>
 
               <p className="text-center text-xs text-gray-400">
