@@ -18,6 +18,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
@@ -27,7 +28,7 @@ export default function LoginPage() {
     setSubmitting(true);
     setError("");
     try {
-      await kassaPost("/api/auth/login", { email, password });
+      await kassaPost("/api/auth/login", { email, password, rememberMe });
       const response = await fetch("/api/businesses/mine", { cache: "no-store" });
       if (!response.ok) {
         throw new Error("Signed in, but couldn't load your businesses. Please try again.");
@@ -139,7 +140,7 @@ export default function LoginPage() {
 
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2 text-gray-600">
-                <input type="checkbox" disabled title="Longer sessions are not yet available" className="h-4 w-4 rounded border-gray-300 text-[#08745F] focus:ring-[#08745F]/30" />
+                <input type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} disabled={submitting} className="h-4 w-4 rounded border-gray-300 accent-[#08745F] focus:ring-[#08745F]/30" />
                 Remember me
               </label>
               <a href="/forgot-password" className="font-medium text-[#08745F] hover:underline">

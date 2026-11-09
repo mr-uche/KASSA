@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // This is a server-only helper: never expose the NestJS credentials or JWT to browser code.
 export const SESSION_COOKIE = "kassa_session";
+export const REMEMBER_COOKIE = "kassa_remember";
 const BACKEND_URL = process.env.KASSA_API_URL ?? "http://127.0.0.1:3001";
 
 export type ApiResult = { status: number; body: unknown };

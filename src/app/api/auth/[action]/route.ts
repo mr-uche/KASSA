@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  SESSION_COOKIE, forwardToBackend, upstreamError, validateJsonRequest,
+  REMEMBER_COOKIE, SESSION_COOKIE, forwardToBackend, upstreamError, validateJsonRequest,
 } from "@/lib/kassa-server";
 
 type RouteContext = { params: Promise<{ action: string }> };
@@ -29,19 +29,43 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     if (!body || typeof body !== "object" || Array.isArray(body)) {
       return NextResponse.json({ message: "Authentication response was incomplete." }, { status: 502 });
     }
-    const { accessToken, expiresInSeconds, ...safeBody } = body as Record<string, unknown>;
+    const { accessToken, expiresInSeconds, refreshToken, refreshExpiresInSeconds, ...safeBody } =
+      body as Record<string, unknown>;
     if (typeof accessToken !== "string" || !accessToken) {
       return NextResponse.json({ message: "Authentication response was incomplete." }, { status: 502 });
     }
+    const rememberMe = action === "login" &&
+      input !== null && typeof input === "object" && !Array.isArray(input) &&
+      (input as Record<string, unknown>).rememberMe === true;
+
+    // Do not leak either token to browser JavaScript; both are HttpOnly cookies.
+    if (rememberMe && (typeof refreshToken !== "string" || !refreshToken)) {
+      return NextResponse.json({ message: "Remembered session could not be started." }, { status: 502 });
+    }
 
     const response = NextResponse.json(safeBody, { status });
-    response.cookies.set(SESSION_COOKIE, accessToken, {
-      httpOnly: true,
+    const settings = {
+      httpOnly: true as const,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: "lax" as const,
       path: "/",
-      maxAge: typeof expiresInSeconds === "number" ? Math.min(expiresInSeconds, 900) : 900,
+    };
+    response.cookies.set(SESSION_COOKIE, accessToken, {
+      ...settings,
+      ...(rememberMe
+        ? { maxAge: typeof expiresInSeconds === "number" ? Math.min(expiresInSeconds, 900) : 900 }
+        : {}),
     });
+    if (rememberMe && typeof refreshToken === "string") {
+      response.cookies.set(REMEMBER_COOKIE, refreshToken, {
+        ...settings,
+        maxAge: typeof refreshExpiresInSeconds === "number"
+          ? Math.min(refreshExpiresInSeconds, 30 * 86400) : 30 * 86400,
+      });
+    } else {
+      // Normal login and registration do not carry over an older remembered session.
+      response.cookies.delete(REMEMBER_COOKIE);
+    }
     return response;
   } catch {
     return upstreamError();
