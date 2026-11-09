@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import {
-  createInvitation, getStaffSummary, revokeInvitation, staffContext, updateStaff,
+  createInvitation, getStaffSummary, revokeInvitation, staffContext, updateStaff, staffPatch,
   type BranchRecord, type RoleRecord, type StaffRecord, type StaffSummary,
 } from "@/lib/staff-branches-client";
 
@@ -63,6 +63,15 @@ export default function StaffBranchPage() {
   const [editRoleId, setEditRoleId] = useState("");
   const [editBranchId, setEditBranchId] = useState("");
   const [selectedRole, setSelectedRole] = useState<RoleRecord | null>(null);
+  const [roleDraft, setRoleDraft] = useState({ name: "", description: "", permissions: [] as string[] });
+  const [editingBranch, setEditingBranch] = useState<BranchRecord | null>(null);
+  const [branchDraft, setBranchDraft] = useState({
+    name: "", code: "", address: "", city: "", state: "", phone: "", isActive: true,
+  });
+  const editablePermissions = [
+    "View dashboard", "Manage sales & transactions", "Manage products & inventory",
+    "View reports & analytics", "Manage customers",
+  ];
 
   const reload = useCallback(async (id: string) => {
     const summary = await getStaffSummary(id);
@@ -179,6 +188,53 @@ export default function StaffBranchPage() {
       setToast("Staff assignment updated.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to save assignment.");
+    } finally { setSaving(false); }
+  }
+
+  function editBranch(branch: BranchRecord) {
+    setEditingBranch(branch);
+    setBranchDraft({
+      name: branch.name, code: branch.code ?? "", address: branch.address ?? "",
+      city: branch.city ?? "", state: branch.state ?? "", phone: branch.phone ?? "",
+      isActive: branch.status === "Active",
+    });
+  }
+
+  async function saveBranch() {
+    if (!businessId || !editingBranch || saving) return;
+    if (!branchDraft.name.trim()) return setError("Branch name is required.");
+    setSaving(true);
+    setError("");
+    try {
+      await staffPatch("branches/" + editingBranch.id, { businessId, ...branchDraft });
+      await reload(businessId);
+      setEditingBranch(null);
+      setToast("Branch updated.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to update branch.");
+    } finally { setSaving(false); }
+  }
+
+  function viewRole(role: RoleRecord) {
+    setSelectedRole(role);
+    setRoleDraft({
+      name: role.name, description: role.description,
+      permissions: Array.isArray(role.permissions) ? role.permissions : [],
+    });
+  }
+
+  async function saveRole() {
+    if (!businessId || !selectedRole || selectedRole.isSystem || saving) return;
+    if (!roleDraft.name.trim()) return setError("Enter a role name.");
+    setSaving(true);
+    setError("");
+    try {
+      await staffPatch("roles/" + selectedRole.id, { businessId, ...roleDraft });
+      await reload(businessId);
+      setSelectedRole(null);
+      setToast("Role permissions updated.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to update role.");
     } finally { setSaving(false); }
   }
 
@@ -403,7 +459,7 @@ export default function StaffBranchPage() {
                 <thead><tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-500">
                   <th className="px-6 py-4 font-medium">Branch</th><th className="px-6 py-4 font-medium">Location</th>
                   <th className="px-6 py-4 font-medium">Staff</th><th className="px-6 py-4 font-medium">Status</th>
-                  <th className="px-6 py-4 font-medium">Last Activity</th>
+                  <th className="px-6 py-4 font-medium">Last Activity</th><th className="px-6 py-4 font-medium">Action</th>
                 </tr></thead>
                 <tbody>
                   {branches.map((branch) => <tr key={branch.id} className="border-b border-gray-50 last:border-0">
@@ -419,11 +475,39 @@ export default function StaffBranchPage() {
                     <td className="whitespace-nowrap px-6 py-4 text-gray-700">{branch.staffCount} staff</td>
                     <td className="px-6 py-4"><StatusBadge status={branch.status}/></td>
                     <td className="whitespace-nowrap px-6 py-4 text-gray-500">{branch.lastActivity ? new Date(branch.lastActivity).toLocaleString("en-NG",{dateStyle:"medium",timeStyle:"short"}) : "No sales yet"}</td>
+                    <td className="px-6 py-4"><button className="text-xs text-emerald-800" onClick={() => editBranch(branch)}>Edit</button></td>
                   </tr>)}
-                  {!loading && branches.length === 0 && <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No branches found.</td></tr>}
+                  {!loading && branches.length === 0 && <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No branches found.</td></tr>}
                 </tbody>
               </table>
             </div>
+            {editingBranch && (
+              <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
+                <h3 className="mb-3 font-semibold text-gray-900">Edit branch</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {([
+                    ["name", "Branch name"], ["code", "Branch code"], ["phone", "Phone number"],
+                    ["address", "Address"], ["city", "City"], ["state", "State"],
+                  ] as const).map(([key, label]) => (
+                    <label key={key} className="text-sm text-gray-700">{label}
+                      <input value={branchDraft[key]} maxLength={key === "address" ? 250 : 120}
+                        onChange={(e) => setBranchDraft((old) => ({ ...old, [key]: e.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm"/>
+                    </label>
+                  ))}
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={branchDraft.isActive}
+                      onChange={(e) => setBranchDraft((old) => ({ ...old, isActive: e.target.checked }))}/>
+                    Active branch
+                  </label>
+                </div>
+                <p className="mt-3 text-xs text-gray-500">Reassign active staff before deactivating a branch.</p>
+                <div className="mt-4 flex gap-3">
+                  <button disabled={saving} onClick={() => void saveBranch()} className="rounded-lg bg-emerald-800 px-4 py-2 text-sm text-white disabled:opacity-50">Save branch</button>
+                  <button onClick={() => setEditingBranch(null)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm">Cancel</button>
+                </div>
+              </div>
+            )}
           </section>
         )}
 
@@ -450,20 +534,48 @@ export default function StaffBranchPage() {
                     <td className="px-6 py-4 text-gray-600">{role.description || "No description"}</td>
                     <td className="px-6 py-4 text-gray-700">{role.staff}</td><td className="px-6 py-4 text-gray-700">{role.access}</td>
                     <td className="whitespace-nowrap px-6 py-4">
-                      <button className="text-xs text-emerald-700" onClick={() => setSelectedRole(role)}>View permissions</button>
+                      <button className="text-xs text-emerald-700" onClick={() => viewRole(role)}>{role.isSystem ? "View permissions" : "Edit permissions"}</button>
                     </td>
                   </tr>)}
                   {!loading && roles.length === 0 && <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No roles found.</td></tr>}
                 </tbody>
               </table>
             </div>
-            {selectedRole && <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
-              <h3 className="font-semibold text-gray-900">{selectedRole.name} permissions</h3>
-              <p className="my-2 text-sm text-gray-600">{selectedRole.name === "Owner" ? "Full business access" :
-                selectedRole.permissions.length ? selectedRole.permissions.join(", ") : "No permissions configured."}</p>
-              <button className="text-sm text-emerald-700" onClick={() => setSelectedRole(null)}>Close</button>
-            </div>}
-            <p className="mt-4 text-sm text-gray-500">The owner can create roles and assign them to staff. Existing roles are read-only for now.</p>
+            {selectedRole && (
+              <div className="mt-4 max-w-2xl rounded-xl border border-gray-200 bg-white p-5">
+                <h3 className="mb-3 font-semibold text-gray-900">{selectedRole.name} permissions</h3>
+                {selectedRole.isSystem ? <p className="text-sm text-gray-600">System role — full access. This role cannot be edited.</p> : (
+                  <div className="space-y-4">
+                    <label className="block text-sm text-gray-700">Role name
+                      <input value={roleDraft.name} maxLength={80}
+                        onChange={(e) => setRoleDraft((old) => ({ ...old, name: e.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm"/>
+                    </label>
+                    <label className="block text-sm text-gray-700">Description
+                      <textarea value={roleDraft.description} maxLength={500}
+                        onChange={(e) => setRoleDraft((old) => ({ ...old, description: e.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm"/>
+                    </label>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-gray-700">Permissions</p>
+                      {editablePermissions.map((perm) => (
+                        <label key={perm} className="flex items-center gap-2 text-sm text-gray-700">
+                          <input type="checkbox" checked={roleDraft.permissions.includes(perm)}
+                            onChange={(e) => setRoleDraft((old) => ({
+                              ...old, permissions: e.target.checked
+                                ? [...old.permissions, perm] : old.permissions.filter((p) => p !== perm),
+                            }))}/>{perm}
+                        </label>
+                      ))}
+                    </div>
+                    <button disabled={saving} onClick={() => void saveRole()}
+                      className="rounded-lg bg-emerald-800 px-4 py-2 text-sm text-white disabled:opacity-50">Save role</button>
+                  </div>
+                )}
+                <button className="ml-3 text-sm text-gray-500" onClick={() => setSelectedRole(null)}>Close</button>
+              </div>
+            )}
+            <p className="mt-4 text-sm text-gray-500">Updates to role permissions affect assigned staff immediately on their next API request.</p>
           </section>
         )}
         <div className="h-10"/>
