@@ -274,7 +274,7 @@ export default function ScanProductPage() {
           </div>
         </header>
 
-        <div className="mb-5 mt-4 flex flex-wrap items-center justify-between gap-3 px-4 sm:px-8">
+        <div className="mb-5 mt-6 flex flex-wrap items-center justify-between gap-3 px-4 sm:mt-8 sm:px-6 lg:mt-12 lg:px-8">
           <Link href="/sales/new" className="flex items-center gap-1.5 text-sm font-medium text-emerald-800">
             <ArrowLeft size={16}/> Back to New Sale
           </Link>
@@ -284,11 +284,11 @@ export default function ScanProductPage() {
           </button>
         </div>
 
-        {loadingContext && <p className="mb-4 px-4 text-sm text-gray-500 sm:px-8">Loading business access...</p>}
+        {loadingContext && <p className="mb-4 px-4 text-sm text-gray-500 sm:px-6 lg:px-8">Loading business access...</p>}
         {error && <p role="alert" className="mx-4 mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 sm:mx-8">{error}</p>}
         {notice && <p role="status" className="mx-4 mb-4 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-800 sm:mx-8">{notice}</p>}
 
-        <div className="grid grid-cols-1 gap-5 px-4 pb-10 sm:px-8 lg:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-1 gap-5 px-4 pb-8 sm:px-6 lg:grid-cols-3 lg:px-8 lg:pb-10">
           <section className="flex flex-col gap-4 lg:col-span-2">
             <div className="rounded-xl bg-[#0B1220] p-5 text-white sm:p-7">
               <div className="relative flex min-h-[255px] items-center justify-center overflow-hidden rounded-lg bg-black/30 sm:min-h-[385px]">

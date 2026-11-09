@@ -107,7 +107,7 @@ const handleSave = async () => {
         onClose={() => setSidebarOpen(false)}
       />
 
-      <main className="ml-0 md:ml-[198px] ">
+      <main className="min-h-screen lg:ml-[198px]">
         {/* Header */}
                 <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
                   <div className="flex min-w-0 items-center gap-3">
@@ -145,13 +145,13 @@ const handleSave = async () => {
                   </div>
                 </header>
         
-        <p className="text-sm sm:text-base text-gray-500 mb-6 mt-4 px-3">
+        <p className="mb-6 px-4 pt-6 text-sm text-gray-500 sm:px-6 sm:pt-8 sm:text-base lg:px-8 lg:pt-12">
           Create a custom role and choose what this role can access.
         </p>
 
-        {error && <p role="alert" className="mb-4 px-3 text-sm text-red-700">{error}</p>}
+        {error && <p role="alert" className="mb-4 px-4 text-sm text-red-700 sm:px-6 lg:px-8">{error}</p>}
         {/* Main responsive layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-3">
+        <div className="grid grid-cols-1 gap-6 px-4 pb-8 sm:px-6 lg:grid-cols-3 lg:px-8 lg:pb-10">
           {/* Left / Main form */}
           <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-5">

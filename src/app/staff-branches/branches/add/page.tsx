@@ -132,12 +132,12 @@ export default function AddBranchPage() {
                   </div>
                 </header>
         
-        <p className="text-sm sm:text-base text-gray-500 mb-6 mt-4 px-3">
+        <p className="mb-6 px-4 pt-6 text-sm text-gray-500 sm:px-6 sm:pt-8 sm:text-base lg:px-8 lg:pt-12">
           Create a new business location and assign staff to it.
         </p>
  
-        {error && <p role="alert" className="mb-4 px-3 text-sm text-red-700">{error}</p>}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-3">
+        {error && <p role="alert" className="mb-4 px-4 text-sm text-red-700 sm:px-6 lg:px-8">{error}</p>}
+        <div className="grid grid-cols-1 gap-6 px-4 pb-8 sm:px-6 lg:grid-cols-3 lg:px-8 lg:pb-10">
           <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1">
               Branch information

@@ -120,7 +120,7 @@ export default function AddCategoryPage() {
           </div>
         </header>
  
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-3 mt-4">
+        <div className="grid grid-cols-1 gap-6 px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:grid-cols-3 lg:px-8 lg:pb-10 lg:pt-12">
           <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1">
               Category information

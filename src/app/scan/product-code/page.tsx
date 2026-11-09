@@ -29,7 +29,7 @@ export default function EnterProductCodePage() {
  
       <div className="lg:ml-[198px]">
         {/* Header */}
-        <header className="flex h-[80px] items-center justify-between border-b border-[#E5E7EB] bg-white px-4 sm:px-8 lg:px-[32px]">
+        <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -58,14 +58,14 @@ export default function EnterProductCodePage() {
  
         <Link
           href="/scan"
-          className="mt-4 ml-4 sm:ml-8 lg:ml-[32px] flex items-center gap-1 text-[13px] text-[#0F4C3A]"
+          className="ml-4 mt-6 flex items-center gap-1 text-[13px] text-[#0F4C3A] sm:ml-6 sm:mt-8 lg:ml-8 lg:mt-12"
         >
           <ArrowLeft size={14} />
           Back to scanner
         </Link>
  
         {/* Content */}
-        <section className="flex flex-col lg:flex-row items-stretch justify-center gap-6 px-4 sm:px-8 lg:px-[32px] pb-[40px] pt-[24px]">
+        <section className="flex min-w-0 flex-col items-stretch justify-center gap-6 px-4 pb-8 pt-6 sm:px-6 lg:flex-row lg:px-8 lg:pb-10">
           {/* Manual entry card */}
           <form onSubmit={submit} className="flex-1 max-w-full lg:max-w-[560px] rounded-2xl border border-[#E5E7EB] bg-white p-6 sm:p-10 text-center">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#E3F2EC]">
