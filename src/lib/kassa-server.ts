@@ -48,9 +48,25 @@ export function validateJsonRequest(request: NextRequest): NextResponse | null {
     return NextResponse.json({ message: "JSON request required." }, { status: 415 });
   }
   const origin = request.headers.get("origin");
-  // Same-origin JSON requests prevent ordinary cross-origin form submissions.
-  if (origin && origin !== request.nextUrl.origin) {
-    return NextResponse.json({ message: "Cross-origin request rejected." }, { status: 403 });
+  if (origin) {
+    // Next.js can normalize request.nextUrl.origin to localhost even when a
+    // mobile browser actually visits the dev server via its LAN IP.
+    // Compare the browser's origin with the real HTTP Host as a fallback,
+    // never with an arbitrary Origin allowlist or an untrusted forwarded host.
+    let sameHostAndScheme = false;
+    try {
+      const source = new URL(origin);
+      const host = request.headers.get("host");
+      sameHostAndScheme =
+        source.origin === origin &&
+        source.host === host &&
+        source.protocol === request.nextUrl.protocol;
+    } catch {
+      // Reject malformed or opaque origins such as "null".
+    }
+    if (origin !== request.nextUrl.origin && !sameHostAndScheme) {
+      return NextResponse.json({ message: "Cross-origin request rejected." }, { status: 403 });
+    }
   }
   return null;
 }
