@@ -66,10 +66,13 @@ export class ReportsService {
     }
     if (branchId) {
       const branch = await this.prisma.branch.findFirst({
-        where: { id: branchId, businessId: query.businessId },
+        where: {
+          id: branchId, businessId: query.businessId,
+          ...(!owner ? { isActive: true } : {}),
+        },
         select: { id: true },
       });
-      if (!branch) throw new NotFoundException('Branch not found in this business');
+      if (!branch) throw new NotFoundException('Permitted branch not found in this business');
     }
 
     const branchClause = branchId
