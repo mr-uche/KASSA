@@ -54,12 +54,12 @@ export default function PaymentStatusContent() {
     <div className="min-h-screen bg-gray-50">
       <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="min-h-screen lg:ml-[198px]">
-        <header className="flex h-20 items-center gap-3 border-b border-[#E5E7EB] bg-white px-4 sm:px-8">
+        <header className="flex min-h-[80px] items-center gap-3 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
           <button type="button" onClick={() => setSidebarOpen(true)}
             className="rounded-md p-2 lg:hidden" aria-label="Open menu"><Menu size={21} /></button>
           <h1 className="text-xl font-bold text-[#182033]">Payment status</h1>
         </header>
-        <div className="mx-auto max-w-3xl space-y-5 px-4 py-8 sm:px-8">
+        <div className="mx-auto max-w-3xl space-y-5 px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-10 lg:pt-12">
           {loading && <p className="text-sm text-gray-500">Loading sale from Kassa...</p>}
           {error && <p role="alert" className="rounded-lg border border-red-200 bg-white p-4 text-sm text-red-700">{error}</p>}
           {sale && (

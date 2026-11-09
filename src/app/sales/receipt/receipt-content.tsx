@@ -45,12 +45,12 @@ export default function ReceiptContent() {
     <div className="min-h-screen bg-gray-50">
       <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="min-h-screen lg:ml-[198px]">
-        <header className="flex h-20 items-center gap-3 border-b border-[#E5E7EB] bg-white px-4 sm:px-8 print:hidden">
+        <header className="flex min-h-[80px] items-center gap-3 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8 print:hidden">
           <button type="button" onClick={() => setSidebarOpen(true)} aria-label="Open menu"
             className="rounded-md p-2 lg:hidden"><Menu size={21} /></button>
           <h1 className="text-xl font-bold text-[#182033]">Receipt</h1>
         </header>
-        <div className="mx-auto max-w-3xl px-4 py-8">
+        <div className="mx-auto max-w-3xl px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-10 lg:pt-12 print:p-0">
           {loading && <p className="text-sm text-gray-500">Loading verified receipt...</p>}
           {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
           {!loading && sale && !paid && (
@@ -80,7 +80,8 @@ export default function ReceiptContent() {
                     {sale.payments[0]?.channel.replaceAll("_", " ") ?? "Unknown"}
                   </span>
                 </div>
-                <table className="mt-5 w-full text-sm">
+                <div className="mt-5 w-full overflow-x-auto print:overflow-visible">
+                <table className="w-full min-w-[350px] text-sm print:min-w-0">
                   <thead><tr className="border-b border-gray-100 text-left text-xs uppercase text-gray-500">
                     <th className="py-3">Item</th><th className="py-3 text-center">Qty</th><th className="py-3 text-right">Amount</th>
                   </tr></thead>
@@ -92,6 +93,7 @@ export default function ReceiptContent() {
                     </tr>
                   ))}</tbody>
                 </table>
+                </div>
                 <div className="mt-5 space-y-2 border-t border-gray-100 pt-4 text-sm">
                   <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span>{formatNaira(sale.subtotal)}</span></div>
                   <div className="flex justify-between"><span className="text-gray-500">Discount</span><span>{formatNaira(sale.discount)}</span></div>

@@ -29,12 +29,12 @@ export default function TransactionDetailsPage() {
     <div className="min-h-screen bg-[#F5F6F8]">
       <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="min-h-screen lg:ml-[198px]">
-        <header className="flex h-20 items-center gap-3 border-b border-[#E5E7EB] bg-white px-4 sm:px-8">
+        <header className="flex min-h-[80px] items-center gap-3 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
           <button type="button" aria-label="Open menu" onClick={() => setSidebarOpen(true)}
             className="rounded-md p-2 lg:hidden"><Menu size={21} /></button>
           <h1 className="text-xl font-bold text-[#182033]">Transaction details</h1>
         </header>
-        <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 sm:px-8">
+        <div className="mx-auto max-w-4xl space-y-6 px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-10 lg:pt-12">
           <Link href="/transactions" className="text-sm font-medium text-emerald-700">← Back to transactions</Link>
           {loading && <p role="status" className="text-sm text-gray-500">Loading transaction...</p>}
           {error && <p role="alert" className="rounded-lg border border-red-200 bg-white p-4 text-sm text-red-700">{error}</p>}
@@ -63,7 +63,8 @@ export default function TransactionDetailsPage() {
               </section>
               <section className="rounded-xl border border-gray-200 bg-white p-6">
                 <h3 className="mb-4 text-base font-semibold text-gray-900">Sale items</h3>
-                <table className="w-full text-sm">
+                <div className="w-full overflow-x-auto">
+                <table className="w-full min-w-[370px] text-sm">
                   <thead><tr className="border-b border-gray-100 text-left text-xs uppercase text-gray-500">
                     <th className="pb-3">Product</th><th className="pb-3 text-center">Quantity</th><th className="pb-3 text-right">Line total</th>
                   </tr></thead>
@@ -75,6 +76,7 @@ export default function TransactionDetailsPage() {
                     </tr>
                   ))}</tbody>
                 </table>
+                </div>
                 <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4 font-semibold">
                   <span>Total</span><span className="text-lg text-emerald-700">{formatNaira(sale.total)}</span>
                 </div>

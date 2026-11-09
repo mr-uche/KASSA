@@ -123,7 +123,7 @@ export default function CustomerEditor({ customerId }: CustomerEditorProps) {
           </div>
         </header>
 
-        <main className="p-4 sm:p-6 lg:p-8">
+        <main className="px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-10 lg:pt-12">
           <p className="mb-6 text-sm text-gray-500 sm:text-base">
             {editing
               ? "Update this customer's information in your business records."
