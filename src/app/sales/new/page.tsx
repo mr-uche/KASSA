@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { Search, ScanBarcode, Minus, Plus, Menu, Bell } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import Link from "next/link";
-import { getInventoryContext, getInventoryProducts, type InventoryContext, type InventoryProduct } from "@/lib/inventory-client";
-import { type PaymentMethod } from "@/lib/sales-client";
+import { getInventoryContext, type InventoryContext, type InventoryProduct } from "@/lib/inventory-client";
+import { hasBusinessAccess, loadAccess } from "@/lib/kassa-permissions";
+import { listCheckoutProducts, type PaymentMethod } from "@/lib/sales-client";
 import { listCustomers, type CustomerRecord } from "@/lib/customers-client";
 
 type Product = InventoryProduct;
@@ -22,6 +23,8 @@ export default function NewSalePage() {
   const [inventoryContext, setInventoryContext] = useState<InventoryContext | null>(null);
   const [customers, setCustomers] = useState<CustomerRecord[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [canManageCustomers, setCanManageCustomers] = useState(false);
+  const [canManageInventory, setCanManageInventory] = useState(false);
 
   const [query, setQuery] = useState("");
 
@@ -64,12 +67,22 @@ export default function NewSalePage() {
     async function loadProducts() {
       try {
         const context = await getInventoryContext();
+        const memberships = await loadAccess();
+        const business = memberships.find((item) => item.id === context.businessId);
+        const permittedCustomers = hasBusinessAccess(business, "Manage customers");
+        const permittedInventory = hasBusinessAccess(business, "Manage products & inventory");
+        // Never require customer-management or cost-price access for a cashier sale.
+        // The checkout catalogue contains public selling prices and branch stock only.
         const [productsResult, customerRecords] = await Promise.all([
-          getInventoryProducts(context), listCustomers(context.businessId),
+          listCheckoutProducts(context),
+          permittedCustomers ? listCustomers(context.businessId) : Promise.resolve([]),
         ]);
         if (cancelled) return;
         setProducts(productsResult);
         setCustomers(customerRecords);
+        setCanManageCustomers(permittedCustomers);
+        setCanManageInventory(permittedInventory);
+        if (!permittedCustomers) setSelectedCustomerId("");
         setInventoryContext(context);
         setSelectedBranch(context.branchName);
         setError("");
@@ -254,7 +267,9 @@ export default function NewSalePage() {
             {loading && <p className="mb-4 text-sm text-gray-500">Loading products...</p>}
             {!loading && !error && products.length === 0 && (
               <p className="mb-4 rounded-lg border border-gray-200 p-5 text-sm text-gray-500">
-                No products have been added yet. <Link href="/products/add" className="font-medium text-emerald-700 underline">Add your first product</Link> to inventory.
+                No products have been added yet. {canManageInventory
+                  ? <Link href="/products/add" className="font-medium text-emerald-700 underline">Add your first product</Link>
+                  : "Ask the inventory manager to add products."}
               </p>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 ">
@@ -320,13 +335,19 @@ export default function NewSalePage() {
               Customer
             </p>
 
-            <select value={selectedCustomerId} onChange={(event) => setSelectedCustomerId(event.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm bg-white mb-5 focus:outline-none focus:ring-2 focus:ring-emerald-700">
+            <select value={selectedCustomerId} disabled={!canManageCustomers}
+              onChange={(event) => setSelectedCustomerId(event.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm bg-white mb-5 focus:outline-none focus:ring-2 focus:ring-emerald-700 disabled:opacity-70">
               <option value="">Walk-in customer</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>{customer.fullName}</option>
               ))}
             </select>
+            {!canManageCustomers && (
+              <p className="-mt-3 mb-4 text-xs text-gray-500">
+                Walk-in sale. Customer records require Manage customers permission.
+              </p>
+            )}
 
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
               Items ({sale.length})
