@@ -15,9 +15,10 @@ import {
 import KassaSidebar from "@/components/KassaSidebar";
 import { getInventoryContext, formatNaira } from "@/lib/inventory-client";
 import { listSales, saleStatusLabel, type SavedSale } from "@/lib/sales-client";
+import { hasBusinessAccess, selectedBusiness, type BusinessAccess } from "@/lib/kassa-permissions";
 
 type MerchantBranch = { id: string; name: string; isActive: boolean };
-type MerchantBusiness = { id: string; branches: MerchantBranch[] };
+type MerchantBusiness = BusinessAccess;
 
 const channelLabels: Record<string, string> = {
   CASH: "Cash", BANK_TRANSFER: "Transfer", POS: "POS", CARD: "Card", USSD: "USSD", WALLET: "Wallet",
@@ -52,6 +53,8 @@ export default function DashboardPage() {
   const [greetingName, setGreetingName] = useState("there");
   const [sales, setSales] = useState<SavedSale[]>([]);
   const [salesError, setSalesError] = useState("");
+  const [canViewSales, setCanViewSales] = useState<boolean | null>(null);
+  const [canManageCustomers, setCanManageCustomers] = useState(false);
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
       .then((response) => response.ok ? response.json() : null)
@@ -68,9 +71,14 @@ export default function DashboardPage() {
         if (!response.ok) return;
         const data: unknown = await response.json();
         if (!Array.isArray(data)) return;
-        const activeBranches = (data as MerchantBusiness[])
-          .flatMap((business) => business.branches ?? [])
-          .filter((branch) => branch.isActive);
+        const memberships = data as MerchantBusiness[];
+        const selectedId = localStorage.getItem("selectedBranchId") ?? "";
+        const current = selectedBusiness(memberships, selectedId);
+        if (!current) return;
+        const activeBranches = (current.branches ?? []).filter((branch) => branch.isActive);
+        if (cancelled) return;
+        setCanViewSales(hasBusinessAccess(current, "Manage sales & transactions"));
+        setCanManageCustomers(hasBusinessAccess(current, "Manage customers"));
         if (cancelled) return;
         setBranches(activeBranches);
         if (!activeBranches.length) {
@@ -90,10 +98,19 @@ export default function DashboardPage() {
       }
     }
     void loadBranches();
-    return () => { cancelled = true; };
+    window.addEventListener("branchChanged", loadBranches);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("branchChanged", loadBranches);
+    };
   }, []);
 
   useEffect(() => {
+    if (canViewSales !== true) {
+      setSales([]);
+      setSalesError("");
+      return;
+    }
     let requestNumber = 0;
     let live = true;
     async function loadSales() {
@@ -116,7 +133,7 @@ export default function DashboardPage() {
       live = false;
       window.removeEventListener("branchChanged", loadSales);
     };
-  }, []);
+  }, [canViewSales]);
 
   const today = new Date().toDateString();
   const salesToday = sales
@@ -263,22 +280,22 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
             <StatCard
               title="Total sales today"
-              value={formatNaira(salesToday)}
-              subtitle="Confirmed paid sales today"
+              value={canViewSales ? formatNaira(salesToday) : "Restricted"}
+              subtitle={canViewSales ? "Confirmed paid sales today" : "Sales permission required"}
               subtitleClass="text-[#4D7C27]"
             />
 
             <StatCard
               title="Recent transactions"
-              value={String(sales.length)}
-              subtitle="Latest 100 sales"
+              value={canViewSales ? String(sales.length) : "Restricted"}
+              subtitle={canViewSales ? "Latest 100 sales" : "Sales permission required"}
               subtitleClass="text-[#4D7C27]"
             />
 
             <StatCard
               title="Failed payments"
-              value={String(failedPayments)}
-              subtitle="Recorded failures"
+              value={canViewSales ? String(failedPayments) : "Restricted"}
+              subtitle={canViewSales ? "Recorded failures" : "Sales permission required"}
               valueClass="text-[#B82E2E]"
               subtitleClass="text-[#C73737]"
             />
@@ -299,7 +316,7 @@ export default function DashboardPage() {
 
            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
               {/* New sale */}
-              <Link
+              {canViewSales && <Link
                 href="/sales/new"
                 className="flex h-[72px] w-full flex-col items-center justify-center rounded-[9px] bg-[#08745F] text-white shadow-sm transition hover:bg-[#075F50]"
               >
@@ -311,10 +328,10 @@ export default function DashboardPage() {
                 <span className="mt-1 text-[11px] text-white/90">
                   Start checkout
                 </span>
-              </Link>
+              </Link>}
 
               {/* Scan product */}
-              <Link
+              {canViewSales && <Link
                 href="/scan"
                 className="flex h-[72px] w-full flex-col items-center justify-center rounded-[9px] border border-[#D2D7DE] bg-white text-[#182033] transition hover:bg-[#F8FAFA] sm:w-auto sm:min-w-[164px]"
               >
@@ -326,10 +343,10 @@ export default function DashboardPage() {
                 <span className="mt-1 text-[11px] text-[#70798A]">
                   Barcode lookup
                 </span>
-              </Link>
+              </Link>}
 
               {/* Customers */}
-              <Link
+              {canManageCustomers && <Link
                 href="/customers"
                 className="flex h-[72px] w-full flex-col items-center justify-center rounded-[9px] border border-[#D2D7DE] bg-white text-[#182033] transition hover:bg-[#F8FAFA] sm:w-auto sm:min-w-[164px]"
               >
@@ -341,7 +358,10 @@ export default function DashboardPage() {
                 <span className="mt-1 text-[11px] text-[#70798A]">
                   Manage records
                 </span>
-              </Link>
+              </Link>}
+              {canViewSales === false && !canManageCustomers && (
+                <p className="col-span-full text-sm text-gray-500">No quick actions are assigned to this role.</p>
+              )}
             </div>
           </div>
 
@@ -353,12 +373,14 @@ export default function DashboardPage() {
                 Recent Transactions
               </h2>
 
-              <Link
-                href="/transactions"
-                className="shrink-0 text-[13px] font-semibold text-[#08745F] hover:underline"
-              >
-                View all
-              </Link>
+              {canViewSales && (
+                <Link
+                  href="/transactions"
+                  className="shrink-0 text-[13px] font-semibold text-[#08745F] hover:underline"
+                >
+                  View all
+                </Link>
+              )}
             </div>
 
             {/* Responsive table wrapper */}
@@ -425,7 +447,7 @@ export default function DashboardPage() {
                   ))}
                   {transactions.length === 0 && (
                     <tr><td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
-                      No recent sales yet.
+                      {canViewSales === false ? "Recent transactions require sales permission." : "No recent sales yet."}
                     </td></tr>
                   )}
                 </tbody>
