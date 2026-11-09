@@ -46,7 +46,7 @@ export default function ScanProductPage() {
     const video = videoRef.current;
     if (video) {
       const stream = video.srcObject;
-      if (stream instanceof MediaStream) stream.getTracks().forEach((track) => track.stop());
+      if (typeof MediaStream !== "undefined" && stream instanceof MediaStream) stream.getTracks().forEach((track) => track.stop());
       video.srcObject = null;
     }
     setCameraState("idle");
@@ -189,7 +189,7 @@ export default function ScanProductPage() {
       controlsRef.current?.stop();
       controlsRef.current = null;
       const video = videoRef.current;
-      if (video?.srcObject instanceof MediaStream) {
+      if (typeof MediaStream !== "undefined" && video?.srcObject instanceof MediaStream) {
         video.srcObject.getTracks().forEach((track) => track.stop());
         video.srcObject = null;
       }

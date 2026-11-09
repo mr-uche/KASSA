@@ -98,12 +98,17 @@ export class SalesService {
     await this.checkAccess(userId, query.businessId, query.branchId);
     const code = query.code.trim();
     if (!code || code.length > 100) throw new BadRequestException('Enter a valid product barcode or SKU');
-    // Match case-insensitive SKUs, exact barcodes (including leading zeroes).
+    // UPC-A (12 digits) can be decoded by some camera readers as EAN-13
+    // with a leading zero. Look up both representations without removing
+    // significant zeroes from the original scanned string.
+    const barcodes = [code];
+    if (/^\d{12}$/.test(code)) barcodes.push('0' + code);
+    if (/^0\d{12}$/.test(code)) barcodes.push(code.slice(1));
     const matches = await this.prisma.product.findMany({
       where: {
         businessId: query.businessId,
         OR: [
-          { barcode: code },
+          { barcode: { in: barcodes } },
           { sku: { equals: code, mode: 'insensitive' } },
         ],
       },
