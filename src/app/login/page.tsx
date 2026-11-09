@@ -37,8 +37,8 @@ export default function LoginPage() {
       });
       if (sessionResponse.status === 401) {
         throw new Error(
-          "Your password was accepted, but this browser did not keep the sign-in session. " +
-          "Allow cookies for this site and open Kassa through the same address each time. " +
+          "Your password was accepted, but Kassa could not verify the session. " +
+          "Check that this browser allows cookies and use the same Kassa address each time. " +
           "For local HTTP testing, run npm run dev rather than a production build."
         );
       }
