@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import Link from "next/link";
 import { Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import {
@@ -29,12 +28,13 @@ export default function KassaAccessGate({
 
   useEffect(() => {
     let active = true;
+    let requestId = 0;
     async function checkAccess() {
-      if (active) setStatus("checking");
+      const id = ++requestId;
       try {
         // Fail closed while loading or if permissions cannot be confirmed.
         const memberships = await loadAccess();
-        if (!active) return;
+        if (!active || id !== requestId) return;
         const selectedId = localStorage.getItem("selectedBranchId") ?? "";
         const business = selectedBusiness(memberships, selectedId);
         if (!business) {
@@ -50,7 +50,7 @@ export default function KassaAccessGate({
           setStatus("denied");
         }
       } catch (cause) {
-        if (!active) return;
+        if (!active || id !== requestId) return;
         setMessage(cause instanceof Error ? cause.message : "Unable to verify access.");
         setStatus("error");
       }
