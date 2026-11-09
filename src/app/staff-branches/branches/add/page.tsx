@@ -5,10 +5,23 @@ import { useState,useEffect } from "react";
 import Link from "next/link";
 import KassaSidebar from "@/components/KassaSidebar";
 import { Loader2, Menu,Bell } from "lucide-react";
+import { createBranch, staffContext } from "@/lib/staff-branches-client";
  
 export default function AddBranchPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [businessId, setBusinessId] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    staffContext().then((context) => {
+      if (context.myRole !== "Owner") throw new Error("Only owners can create branches.");
+      if (active) setBusinessId(context.businessId);
+    }).catch((cause) => {
+      if (active) setError(cause instanceof Error ? cause.message : "Unable to load your business.");
+    });
+    return () => { active = false; };
+  }, []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -21,14 +34,27 @@ export default function AddBranchPage() {
   });
  
   const handleSave = async () => {
+    if (saving || !businessId) return;
+    if (!form.name.trim() || !form.code.trim() || !form.address.trim() ||
+        !form.city.trim() || !form.state.trim()) {
+      setError("Fill in the branch name, code, address, city and state.");
+      return;
+    }
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000)); // remove once real API is wired up
- 
-    setSaving(false);
- 
-    setTimeout(() => {
-      router.push("/staff-branches?added=branch");
-    }, 1200);
+    setError("");
+    try {
+      await createBranch({
+        businessId, name: form.name.trim(), code: form.code.trim(),
+        phone: form.phone.trim(), address: form.address.trim(),
+        city: form.city.trim(), state: form.state.trim(),
+        isActive: form.status === "Active",
+      });
+      router.replace("/staff-branches?added=branch");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create branch.");
+    } finally {
+      setSaving(false);
+    }
   };
  
   const handleChange = (field: keyof typeof form, value: string) => {
@@ -110,6 +136,7 @@ export default function AddBranchPage() {
           Create a new business location and assign staff to it.
         </p>
  
+        {error && <p role="alert" className="mb-4 px-3 text-sm text-red-700">{error}</p>}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-3">
           <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1">
@@ -195,6 +222,11 @@ export default function AddBranchPage() {
                     <option value="Lagos">Lagos</option>
                     <option value="Kano">Kano</option>
                     <option value="Rivers">Rivers</option>
+                    {["Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno",
+                      "Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","Gombe","Imo","Jigawa",
+                      "Kaduna","Katsina","Kebbi","Kogi","Kwara","Nasarawa","Niger","Ogun","Ondo",
+                      "Osun","Oyo","Plateau","Sokoto","Taraba","Yobe","Zamfara"].map((state) =>
+                      <option key={state} value={state}>{state}</option>)}
                   </select>
                 </div>
               </div>
@@ -242,7 +274,7 @@ export default function AddBranchPage() {
 
               <button
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || !businessId}
                 className="w-full flex items-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium transition-colors mb-3 disabled:opacity-70"
               >
                 {saving && <Loader2 size={14} className="animate-spin" />}
@@ -255,7 +287,7 @@ export default function AddBranchPage() {
                 Cancel
               </Link>
               <p className="text-xs text-gray-400 text-center">
-                You can edit branch details later from the branch actions menu.
+                Staff can only be assigned to active branches.
               </p>
             </div>
           </div>

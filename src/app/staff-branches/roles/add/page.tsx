@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {Menu, Bell,Loader2} from "lucide-react"
 import KassaSidebar from "@/components/KassaSidebar";
+import { createRole, staffContext } from "@/lib/staff-branches-client";
 
 const permissionOptions = [
   "View dashboard",
@@ -12,20 +13,30 @@ const permissionOptions = [
   "Manage products & inventory",
   "View reports & analytics",
   "Manage customers",
-  "Manage staff & branches",
 ];
 
 export default function AddRolePage() {
   const [form, setForm] = useState({ name: "", description: "" });
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [businessId, setBusinessId] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    staffContext().then((context) => {
+      if (context.myRole !== "Owner") throw new Error("Only owners may create roles.");
+      if (active) setBusinessId(context.businessId);
+    }).catch((cause) => {
+      if (active) setError(cause instanceof Error ? cause.message : "Unable to load business.");
+    });
+    return () => { active = false; };
+  }, []);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({
     "View dashboard": true,
     "Manage sales & transactions": true,
     "Manage products & inventory": false,
     "View reports & analytics": false,
     "Manage customers": false,
-    "Manage staff & branches": false,
   });
 
   // Branch selected from the dashboard
@@ -58,14 +69,21 @@ export default function AddRolePage() {
         }, []);
 
 const handleSave = async () => {
+    if (saving || !businessId) return;
+    if (!form.name.trim()) return setError("Enter a role name.");
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000)); // remove once real API is wired up
- 
-    setSaving(false);
- 
-    setTimeout(() => {
-      router.push("/staff-branches?added=role");
-    }, 1200);
+    setError("");
+    try {
+      await createRole({
+        businessId, name: form.name.trim(), description: form.description.trim(),
+        permissions: permissionOptions.filter((permission) => permissions[permission]),
+      });
+      router.replace("/staff-branches?added=role");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create role.");
+    } finally {
+      setSaving(false);
+    }
   };
   
 
@@ -131,6 +149,7 @@ const handleSave = async () => {
           Create a custom role and choose what this role can access.
         </p>
 
+        {error && <p role="alert" className="mb-4 px-3 text-sm text-red-700">{error}</p>}
         {/* Main responsive layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-3">
           {/* Left / Main form */}
@@ -225,7 +244,7 @@ const handleSave = async () => {
 
                 <p className="text-sm text-gray-600 leading-5">
                   Give staff only the access they need to perform their
-                  work. You can edit permissions later.
+                  work. Only owners can manage roles.
                 </p>
               </div>
 
@@ -238,13 +257,13 @@ const handleSave = async () => {
                 <ul className="space-y-1 text-sm text-gray-600">
                   <li>• Role appears in Roles & permissions</li>
                   <li>• You can assign it to staff</li>
-                  <li>• Permissions can be updated later</li>
+                  <li>• Existing roles are read-only in this phase</li>
                 </ul>
               </div>
 
                <button
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || !businessId}
                 className="w-full flex items-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium transition-colors mb-3 disabled:opacity-70"
               >
                 {saving && <Loader2 size={14} className="animate-spin" />}
