@@ -1,12 +1,26 @@
 "use client";
  
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Keyboard, Info, ScanLine, Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
  
 export default function EnterProductCodePage() {
   const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const router = useRouter();
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const cleaned = code.trim();
+    if (!cleaned || cleaned.length > 100) {
+      setError("Enter a valid barcode or SKU.");
+      return;
+    }
+    setError("");
+    router.push("/scan?code=" + encodeURIComponent(cleaned));
+  }
   const [sidebarOpen, setSidebarOpen] = useState(false);
  
   return (
@@ -53,7 +67,7 @@ export default function EnterProductCodePage() {
         {/* Content */}
         <section className="flex flex-col lg:flex-row items-stretch justify-center gap-6 px-4 sm:px-8 lg:px-[32px] pb-[40px] pt-[24px]">
           {/* Manual entry card */}
-          <div className="flex-1 max-w-full lg:max-w-[560px] rounded-2xl border border-[#E5E7EB] bg-white p-6 sm:p-10 text-center">
+          <form onSubmit={submit} className="flex-1 max-w-full lg:max-w-[560px] rounded-2xl border border-[#E5E7EB] bg-white p-6 sm:p-10 text-center">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#E3F2EC]">
               <Keyboard className="text-[#0F4C3A]" size={26} />
             </div>
@@ -73,12 +87,13 @@ export default function EnterProductCodePage() {
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="e.g. AMX-250 or 8901234567890"
+                placeholder="e.g. AMX-250 or 8901234567890" maxLength={100} autoComplete="off"
                 className="mt-1.5 w-full rounded-lg border-2 border-[#0e876f] px-4 py-2.5 text-[13px] text-[#182033] outline-none focus:border-[#0F4C3A]"
               />
             </div>
  
-            <button className="mt-4 w-full rounded-lg bg-[#0F4C3A] py-2.5 text-[13px] font-medium text-white hover:bg-[#0C3D2F]">
+            {error && <p role="alert" className="mt-3 text-left text-xs text-red-700">{error}</p>}
+            <button type="submit" className="mt-4 w-full rounded-lg bg-[#0F4C3A] py-2.5 text-[13px] font-medium text-white hover:bg-[#0C3D2F]">
               Find product
             </button>
  
@@ -92,7 +107,7 @@ export default function EnterProductCodePage() {
                 Return to scanner
               </button>
             </Link>
-          </div>
+          </form>
  
           {/* Quick tip card */}
           <div className="w-full lg:w-[280px] flex-shrink-0 rounded-2xl border border-[#E5E7EB] bg-white p-6">
