@@ -309,6 +309,20 @@ export class StaffBranchesService {
     }
     try {
       await this.prisma.$transaction(async (tx) => {
+        // Validate the current assignment again inside the same transaction.
+        const [role, branch] = await Promise.all([
+          tx.businessRole.findFirst({
+            where: { id: invitation.roleId, businessId: invitation.businessId },
+            select: { name: true },
+          }),
+          tx.branch.findFirst({
+            where: { id: invitation.branchId, businessId: invitation.businessId, isActive: true },
+            select: { id: true },
+          }),
+        ]);
+        if (!role || role.name === 'Owner' || !branch) {
+          throw new ConflictException('The invited role or branch is no longer available');
+        }
         const claim = await tx.staffInvitation.updateMany({
           where: {
             id: invitation.id, acceptedAt: null, revokedAt: null,
@@ -339,6 +353,19 @@ export class StaffBranchesService {
     let user: { id: string; email: string; fullName: string; phone: string | null };
     try {
       user = await this.prisma.$transaction(async (tx) => {
+        const [role, branch] = await Promise.all([
+          tx.businessRole.findFirst({
+            where: { id: invitation.roleId, businessId: invitation.businessId },
+            select: { name: true },
+          }),
+          tx.branch.findFirst({
+            where: { id: invitation.branchId, businessId: invitation.businessId, isActive: true },
+            select: { id: true },
+          }),
+        ]);
+        if (!role || role.name === 'Owner' || !branch) {
+          throw new ConflictException('The invited role or branch is no longer available');
+        }
         const claim = await tx.staffInvitation.updateMany({
           where: {
             id: invitation.id, acceptedAt: null, revokedAt: null,

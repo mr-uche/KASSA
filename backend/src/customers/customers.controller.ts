@@ -18,7 +18,7 @@ export class CustomersController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create a customer in the authenticated business (Owner only)' })
+  @ApiOperation({ summary: 'Create a customer (Owner or role with Manage customers)' })
   create(@Req() req: AuthenticatedRequest, @Body() dto: CreateCustomerDto) {
     return this.customers.create(req.userId, dto);
   }
@@ -34,7 +34,7 @@ export class CustomersController {
   }
 
   @Patch(':customerId')
-  @ApiOperation({ summary: 'Edit a customer record (Owner only)' })
+  @ApiOperation({ summary: 'Edit a customer (Owner or role with Manage customers)' })
   update(
     @Req() req: AuthenticatedRequest,
     @Param('customerId', ParseUUIDPipe) customerId: string,
