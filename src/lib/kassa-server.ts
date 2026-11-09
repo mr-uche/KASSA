@@ -57,10 +57,21 @@ export function validateJsonRequest(request: NextRequest): NextResponse | null {
     try {
       const source = new URL(origin);
       const host = request.headers.get("host");
+      const trustedHttpsHost = process.env.NODE_ENV === "development"
+        ? process.env.KASSA_HTTPS_DEV_HOST?.trim()
+        : undefined;
+      const matchesTrustedHttpsTunnel = Boolean(
+        trustedHttpsHost &&
+        source.protocol === "https:" &&
+        source.host === trustedHttpsHost &&
+        host === trustedHttpsHost
+      );
       sameHostAndScheme =
         source.origin === origin &&
         source.host === host &&
-        source.protocol === request.nextUrl.protocol;
+        // A HTTPS tunnel terminates TLS before proxying HTTP to Next.js.
+        // Allow only the explicitly configured dev tunnel hostname.
+        (source.protocol === request.nextUrl.protocol || matchesTrustedHttpsTunnel);
     } catch {
       // Reject malformed or opaque origins such as "null".
     }

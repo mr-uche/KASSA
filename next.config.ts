@@ -1,9 +1,14 @@
 import type { NextConfig } from "next";
 
+// Optional, exact HTTPS tunnel hostname (without protocol or path) for phone testing.
+// Never allow every trycloudflare.com origin on a development server.
+const httpsDevHost = process.env.KASSA_HTTPS_DEV_HOST?.trim();
+
 const nextConfig: NextConfig = {
-  // Permit the laptop's LAN IP to serve Next.js development assets to mobile browsers.
-  // This applies only to next dev; do not use a wildcard for all origins.
-  allowedDevOrigins: ["10.11.44.8"],
+  allowedDevOrigins: [
+    "10.11.44.8",
+    ...(httpsDevHost ? [httpsDevHost] : []),
+  ],
 };
 
 export default nextConfig;
