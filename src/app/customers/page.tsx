@@ -12,14 +12,14 @@ function FilterDropdown({
 }: { selected: string; options: string[]; onSelect: (value: string) => void }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="relative shrink-0">
+    <div className="relative z-30 shrink-0">
       <button type="button" onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50">
         {selected} <ChevronDown size={14} className={open ? "rotate-180" : ""}/>
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 w-48 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
+        <div className="absolute left-0 top-full z-50 mt-2 w-48 max-w-[calc(100vw-3rem)] rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
           {options.map((option) => (
             <button key={option} type="button" onClick={() => { onSelect(option); setOpen(false); }}
               className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
@@ -199,14 +199,14 @@ function CustomersPageContent() {
           </div>
         </div>
 
-        <div className="mb-4 flex flex-col gap-3 px-8 sm:flex-row">
-          <div className="relative flex-1">
+        <div className="relative z-20 mb-4 flex flex-col gap-3 px-4 sm:px-8 lg:flex-row lg:flex-wrap">
+          <div className="relative w-full min-w-0 lg:min-w-[210px] lg:flex-1">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
             <input value={query} onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name, phone or email"
               className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"/>
           </div>
-          <div className="-mx-4 flex items-center gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <div className="flex w-full flex-wrap items-center gap-3 lg:w-auto">
             <FilterDropdown selected={selectedCustomers}
               options={["All Customers", "With purchases", "No purchases"]}
               onSelect={setSelectedCustomers}/>
