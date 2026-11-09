@@ -86,7 +86,13 @@ function FilterDropdown({
   const [open, setOpen] = useState(false); 
   
   return ( 
-    <div className="relative shrink-0"> 
+    <div className="relative shrink-0">
+      {/* Mobile-native selects are not clipped by horizontal filter scrolling. */}
+      <select aria-label="Select filter" value={selected} onChange={(event) => onSelect(event.target.value)}
+        className="max-w-[170px] shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 sm:hidden">
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+      <div className="hidden sm:block">
       <button 
         type="button" 
         onClick={() => setOpen((prev) => !prev)} 
@@ -115,11 +121,12 @@ function FilterDropdown({
             </button> 
           ))} 
         </div> 
-      )} 
-    </div> 
-  ); 
-} 
-  
+      )}
+      </div>
+    </div>
+  );
+}
+
 function ProductsPageContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -388,7 +395,7 @@ function ProductsPageContent() {
   
       <main className="min-h-screen lg:ml-[198px] "> 
         {/* Mobile header row with menu button */} 
-        <header className="flex min-h-[80px] mb-7 h-20 items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8"> 
+        <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8"> 
          
           {/* Hamburger + Greeting */} 
           <div className="flex min-w-0 items-center gap-3"> 
@@ -401,7 +408,7 @@ function ProductsPageContent() {
               <Menu size={22} /> 
             </button> 
          
-            <h1 className="truncate text-[15px] font-bold text-[#182033] sm:text-[10px] lg:text-[21px]"> 
+            <h1 className="truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]"> 
               Products & Inventory 
             </h1> 
           </div> 
@@ -434,19 +441,19 @@ function ProductsPageContent() {
           </div> 
         </header> 
          
-        <p className="text-gray-500 mb-6 text-sm sm:text-base px-8"> 
+        <p className="mb-6 px-4 pt-6 text-sm text-gray-500 sm:px-6 sm:pt-8 sm:text-base lg:px-8 lg:pt-12"> 
           {activeTab === "Low Stock" 
             ? "Monitor products, categories and stock levels" 
             : "Manage your catalogue, categories and stock levels."} 
         </p> 
  
-        {error && <p role="alert" className="mb-4 px-8 text-sm text-red-700">{error}</p>}
-        {loading && <p role="status" className="mb-4 px-8 text-sm text-gray-500">Loading inventory...</p>}
+        {error && <p role="alert" className="mb-4 px-4 sm:px-6 lg:px-8 text-sm text-red-700">{error}</p>}
+        {loading && <p role="status" className="mb-4 px-4 sm:px-6 lg:px-8 text-sm text-gray-500">Loading inventory...</p>}
 
         {/* Tabs + Action Button */} 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center mb-6 px-8"> 
+        <div className="mb-6 flex min-w-0 flex-col gap-4 px-4 sm:px-6 lg:flex-row lg:items-center lg:px-8"> 
           {/* Tabs */} 
-          <div className="flex flex-1 bg-white rounded-lg border border-gray-200 p-1 overflow-x-auto"> 
+          <div className="flex min-w-0 flex-1 overflow-x-auto rounded-lg border border-gray-200 bg-white p-1"> 
             {tabs.map((tab) => ( 
               <button 
                 key={tab} 
@@ -467,7 +474,7 @@ function ProductsPageContent() {
           </div> 
  
           {/* Action Button */} 
-          <div className="flex justify-center sm:justify-end"> 
+          <div className="flex justify-start lg:justify-end"> 
             <Link 
               href={ 
                 activeTab === "Catalogue" 
@@ -487,7 +494,7 @@ function ProductsPageContent() {
         {/* ================= CATALOGUE TAB ================= */} 
         {activeTab === "Catalogue" && ( 
           <> 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6 px-8"> 
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6 px-4 sm:px-6 lg:px-8"> 
               <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5"> 
                 <p className="text-sm text-gray-500 mb-2"> 
                   Total products 
@@ -532,7 +539,7 @@ function ProductsPageContent() {
             </div> 
  
             {/* Search + Filters */} 
-            <div className="flex flex-col sm:flex-row gap-3 px-8 mb-4"> 
+            <div className="mb-4 flex min-w-0 flex-col gap-3 px-4 sm:px-6 lg:flex-row lg:px-8"> 
               <div className="flex-1 relative"> 
                 <Search 
                   size={16} 
@@ -547,7 +554,7 @@ function ProductsPageContent() {
                 /> 
               </div> 
  
-              <div className="-mx-4 flex gap-3 overflow-visible px-4 sm:mx-0 sm:px-0"> 
+              <div className="flex min-w-0 max-w-full gap-3 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:thin] sm:flex-wrap sm:overflow-visible sm:pb-0"> 
                 <FilterDropdown 
                   selected={selectedCategory} 
                   options={["All Categories", ...categories.map((category) => category.name)]} 
@@ -586,7 +593,7 @@ function ProductsPageContent() {
             </div> 
  
             {/* Catalogue Table */} 
-            <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto mx-8 "> 
+            <div className="mx-4 overflow-x-auto rounded-xl border border-gray-200 bg-white sm:mx-6 lg:mx-8 "> 
               <table className="w-full min-w-[720px] text-sm "> 
                 <thead> 
                   <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase tracking-wide"> 
@@ -680,7 +687,7 @@ function ProductsPageContent() {
               </table>
             </div>
             {barcodeProduct && (
-              <div className="mx-4 mt-5 max-w-xl rounded-xl border border-gray-200 bg-white p-5 sm:mx-8">
+              <div className="mx-4 mt-5 max-w-xl rounded-xl border border-gray-200 bg-white p-5 sm:mx-6 lg:mx-8">
                 <h3 className="text-base font-semibold text-gray-900">Assign product barcode</h3>
                 <p className="mt-1 text-sm text-gray-500">{barcodeProduct.name} · SKU {barcodeProduct.sku}</p>
                 <form onSubmit={(event) => {event.preventDefault();void saveBarcode();}} className="mt-4 space-y-3">
@@ -711,7 +718,7 @@ function ProductsPageContent() {
         {/* ================= CATEGORIES TAB ================= */} 
         {activeTab === "Categories" && ( 
           <> 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 px-8 mb-6"> 
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 px-4 sm:px-6 lg:px-8 mb-6"> 
               <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5"> 
                 <p className="text-sm text-gray-500 mb-2"> 
                   Total categories 
@@ -762,7 +769,7 @@ function ProductsPageContent() {
             </div> 
  
             {/* Category Search */} 
-            <div className="mb-4 px-8"> 
+            <div className="mb-4 px-4 sm:px-6 lg:px-8"> 
               <div className="flex-1 relative"> 
                 <Search 
                   size={16} 
@@ -779,7 +786,7 @@ function ProductsPageContent() {
             </div> 
  
             {/* Categories Table */} 
-            <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto mx-8"> 
+            <div className="mx-4 overflow-x-auto rounded-xl border border-gray-200 bg-white sm:mx-6 lg:mx-8"> 
               <table className="w-full min-w-[560px] text-sm"> 
                 <thead> 
                   <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase tracking-wide"> 
@@ -857,7 +864,7 @@ function ProductsPageContent() {
         {/* ================= LOW STOCK TAB ================= */} 
         {activeTab === "Low Stock" && ( 
           <> 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6 px-8"> 
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6 px-4 sm:px-6 lg:px-8"> 
               <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5"> 
                 <p className="text-sm text-gray-500 mb-2"> 
                   Low-stock products 
@@ -890,7 +897,7 @@ function ProductsPageContent() {
             </div> 
  
             {/* Low Stock Search + Filters */} 
-            <div className="flex flex-col sm:flex-row gap-3 mb-4 px-8"> 
+            <div className="mb-4 flex min-w-0 flex-col gap-3 px-4 sm:px-6 lg:flex-row lg:px-8"> 
               <div className="flex-1 relative"> 
                 <Search 
                   size={16} 
@@ -905,7 +912,7 @@ function ProductsPageContent() {
                 /> 
               </div> 
  
-              <div className="-mx-4 flex gap-3 overflow-visible px-4 sm:mx-0 sm:px-0"> 
+              <div className="flex min-w-0 max-w-full gap-3 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:thin] sm:flex-wrap sm:overflow-visible sm:pb-0"> 
                 <FilterDropdown 
                   selected={selectedCategories} 
                   options={["All categories", ...categories.map((category) => category.name)]} 
@@ -929,7 +936,7 @@ function ProductsPageContent() {
             </div> 
  
             {/* Low Stock Table */} 
-            <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto mx-8"> 
+            <div className="mx-4 overflow-x-auto rounded-xl border border-gray-200 bg-white sm:mx-6 lg:mx-8"> 
               <table className="w-full min-w-[620px] text-sm "> 
                 <thead> 
                   <tr className="border-b border-gray-100 text-left text-xs text-gray-500 uppercase tracking-wide"> 
