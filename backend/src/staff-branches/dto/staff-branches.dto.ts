@@ -61,3 +61,22 @@ export class UpdateStaffDto extends BusinessScopeDto {
   @ApiProperty({ format: 'uuid' }) @IsUUID('4') roleId!: string;
   @ApiProperty({ format: 'uuid' }) @IsUUID('4') branchId!: string;
 }
+
+export class UpdateBranchDto extends BusinessScopeDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty() @MaxLength(120) name?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(30) code?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(250) address?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(80) city?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(80) state?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(30) phone?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+}
+
+export class UpdateRoleDto extends BusinessScopeDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty() @MaxLength(80) name?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(500) description?: string;
+  @ApiPropertyOptional({ type: [String], enum: [...ROLE_PERMISSIONS] })
+  @IsOptional() @IsArray() @ArrayUnique() @ArrayMaxSize(ROLE_PERMISSIONS.length)
+  @IsIn(ROLE_PERMISSIONS, { each: true })
+  permissions?: string[];
+}

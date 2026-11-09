@@ -95,3 +95,21 @@ export function acceptInvitation(token: string) {
 export function registerInvited(token: string, password: string) {
   return kassaPost("/api/auth/register-invite", { token, password });
 }
+
+export async function staffPatch(path: string, body: Record<string, unknown>) {
+  let response: Response;
+  try {
+    response = await fetch("/api/staff-branches/" + path, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      credentials: "same-origin", body: JSON.stringify(body),
+    });
+  } catch { throw new Error("Cannot reach Kassa. Check the connection."); }
+  const result: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = result && typeof result === "object" && "message" in result
+      ? (result as { message: unknown }).message : null;
+    throw new Error(typeof message === "string" ? message :
+      Array.isArray(message) ? message.join(". ") : "Could not save changes");
+  }
+  return result;
+}

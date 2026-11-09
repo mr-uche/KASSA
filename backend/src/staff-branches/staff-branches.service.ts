@@ -8,7 +8,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateBranchDto, CreateInvitationDto, CreateRoleDto, RegisterInvitationDto,
-  UpdateStaffDto,
+  UpdateStaffDto, UpdateBranchDto, UpdateRoleDto,
 } from './dto/staff-branches.dto';
 
 const INVITE_DAYS = 7;
@@ -150,6 +150,73 @@ export class StaffBranchesService {
       });
     } catch (error) {
       failure(error, 'A role with this name already exists');
+    }
+  }
+
+
+  async updateBranch(userId: string, branchId: string, dto: UpdateBranchDto) {
+    await this.owner(userId, dto.businessId);
+    const branch = await this.prisma.branch.findFirst({
+      where: { id: branchId, businessId: dto.businessId },
+      select: { id: true, isActive: true },
+    });
+    if (!branch) throw new NotFoundException('Branch not found in your business');
+    if (branch.isActive && dto.isActive === false) {
+      const members = await this.prisma.businessMembership.count({ where: { branchId, businessId: dto.businessId } });
+      if (members > 0) throw new ConflictException('Reassign active staff before deactivating this branch');
+    }
+    const data: {
+      name?: string; code?: string | null; address?: string | null;
+      city?: string | null; state?: string | null; phone?: string | null; isActive?: boolean;
+    } = {};
+    if (dto.name !== undefined) {
+      const name = tidy(dto.name);
+      if (!name) throw new BadRequestException('Branch name is required');
+      data.name = name;
+    }
+    if (dto.code !== undefined) data.code = dto.code.trim().toUpperCase() || null;
+    if (dto.address !== undefined) data.address = dto.address.trim() || null;
+    if (dto.city !== undefined) data.city = dto.city.trim() || null;
+    if (dto.state !== undefined) data.state = dto.state.trim() || null;
+    if (dto.phone !== undefined) data.phone = dto.phone.trim() || null;
+    if (dto.isActive !== undefined) data.isActive = dto.isActive;
+    if (!Object.keys(data).length) throw new BadRequestException('No changes provided');
+    try {
+      return await this.prisma.branch.update({ where: { id: branch.id }, data });
+    } catch (error) {
+      failure(error, 'A branch with this name or code already exists');
+    }
+  }
+
+  async updateRole(userId: string, roleId: string, dto: UpdateRoleDto) {
+    await this.owner(userId, dto.businessId);
+    const role = await this.prisma.businessRole.findFirst({
+      where: { id: roleId, businessId: dto.businessId },
+      select: { id: true, isSystem: true },
+    });
+    if (!role) throw new NotFoundException('Role not found in this business');
+    if (role.isSystem) throw new ForbiddenException('System roles cannot be changed');
+    const data: { name?: string; description?: string | null; permissions?: string[] } = {};
+    if (dto.name !== undefined) {
+      const name = tidy(dto.name);
+      if (!name || name.toLowerCase() === 'owner') throw new BadRequestException('Invalid role name');
+      const existing = await this.prisma.businessRole.findFirst({
+        where: {
+          businessId: dto.businessId,
+          id: { not: role.id }, name: { equals: name, mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+      if (existing) throw new ConflictException('This role name is already used');
+      data.name = name;
+    }
+    if (dto.description !== undefined) data.description = dto.description.trim() || null;
+    if (dto.permissions !== undefined) data.permissions = dto.permissions;
+    if (!Object.keys(data).length) throw new BadRequestException('No changes provided');
+    try {
+      return await this.prisma.businessRole.update({ where: { id: role.id }, data });
+    } catch (error) {
+      failure(error, 'This role name is already used');
     }
   }
 

@@ -8,7 +8,7 @@ import { AccessTokenGuard, type AuthenticatedRequest } from '../auth/access-toke
 import { StaffBranchesService } from './staff-branches.service';
 import {
   BusinessScopeDto, CreateBranchDto, CreateInvitationDto, CreateRoleDto,
-  InvitationTokenDto, RegisterInvitationDto, UpdateStaffDto,
+  InvitationTokenDto, RegisterInvitationDto, UpdateStaffDto, UpdateBranchDto, UpdateRoleDto,
 } from './dto/staff-branches.dto';
 
 @ApiTags('Staff & Branches')
@@ -33,6 +33,22 @@ export class StaffBranchesController {
   @UseGuards(AccessTokenGuard) @ApiBearerAuth()
   createRole(@Req() req: AuthenticatedRequest, @Body() dto: CreateRoleDto) {
     return this.service.createRole(req.userId, dto);
+  }
+
+  @Patch('branches/:branchId')
+  @UseGuards(AccessTokenGuard) @ApiBearerAuth()
+  updateBranch(@Req() req: AuthenticatedRequest,
+               @Param('branchId', ParseUUIDPipe) id: string,
+               @Body() dto: UpdateBranchDto) {
+    return this.service.updateBranch(req.userId, id, dto);
+  }
+
+  @Patch('roles/:roleId')
+  @UseGuards(AccessTokenGuard) @ApiBearerAuth()
+  updateRole(@Req() req: AuthenticatedRequest,
+             @Param('roleId', ParseUUIDPipe) id: string,
+             @Body() dto: UpdateRoleDto) {
+    return this.service.updateRole(req.userId, id, dto);
   }
 
   @Post('invitations')

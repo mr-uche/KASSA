@@ -12,7 +12,7 @@ function route(segments: string[], method: Method) {
   if (method === "GET" && joined === "invitations/preview") return joined;
   if (method === "POST" && ["branches", "roles", "invitations", "invitations/accept"].includes(joined))
     return joined;
-  if (method === "PATCH" && segments[0] === "members" &&
+  if (method === "PATCH" && ["members", "branches", "roles"].includes(segments[0]) &&
       segments.length === 2 && /^[a-f0-9-]{36}$/i.test(segments[1])) return joined;
   if (method === "POST" && segments[0] === "invitations" &&
       segments[2] === "revoke" && segments.length === 3 &&
