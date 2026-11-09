@@ -347,7 +347,7 @@ export default function ScanProductPage() {
                   onKeyDown={(event) => {
                     // Most USB/Bluetooth scanners emit Enter after the barcode.
                     // Automatically put a matched item into the staging cart.
-                    if (event.key === "Enter" && !event.isComposing) {
+                    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
                       event.preventDefault();
                       void lookUp(event.currentTarget.value, "hardware");
                     }
