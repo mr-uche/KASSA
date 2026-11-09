@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { firstPermittedPath, loadAccess } from "@/lib/kassa-permissions";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import {
   acceptInvitation, previewInvitation, registerInvited, type InvitationPreview,
@@ -54,7 +55,8 @@ function InvitationContent() {
     setError("");
     try {
       await acceptInvitation(token);
-      router.replace("/dashboard");
+      // A sales-only or inventory-only employee should land on an allowed screen.
+      router.replace(firstPermittedPath(await loadAccess()));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to accept invitation.");
     } finally { setSaving(false); }
@@ -68,7 +70,8 @@ function InvitationContent() {
     setError("");
     try {
       await registerInvited(token, password);
-      router.replace("/dashboard");
+      // A sales-only or inventory-only employee should land on an allowed screen.
+      router.replace(firstPermittedPath(await loadAccess()));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to create account.");
     } finally { setSaving(false); }

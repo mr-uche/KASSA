@@ -5,6 +5,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/logo";
 import { kassaPost } from "@/lib/kassa-client";
+import { firstPermittedPath, type BusinessAccess } from "@/lib/kassa-permissions";
 
 const bullets = [
   "One reconciled view of every sale, every channel",
@@ -40,7 +41,7 @@ export default function LoginPage() {
         throw new Error("Signed in, but couldn't load your businesses. Please try again.");
       }
       const businesses: unknown = await response.json();
-      router.replace(Array.isArray(businesses) && businesses.length ? "/dashboard" : "/onboarding");
+      router.replace(Array.isArray(businesses) ? firstPermittedPath(businesses as BusinessAccess[]) : "/onboarding");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to sign in.");
     } finally {

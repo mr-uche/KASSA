@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { REMEMBER_COOKIE, SESSION_COOKIE, forwardToBackend } from "@/lib/kassa-server";
+import { firstPermittedPath, type BusinessAccess } from "@/lib/kassa-permissions";
 
 // The access JWT is short-lived; its expiry is inspected only as an optimization.
 // Actual JWT signature and authorization checks are performed by NestJS.
@@ -55,7 +56,7 @@ async function restoreEntrySession(request: NextRequest, token: string, isFresh:
       // An upstream problem should not silently revoke a remembered session.
       return NextResponse.next();
     }
-    const destination = result.body.length ? "/dashboard" : "/onboarding";
+    const destination = firstPermittedPath(result.body as BusinessAccess[]);
     const response = NextResponse.redirect(new URL(destination, request.url));
     if (isFresh) {
       response.cookies.set(SESSION_COOKIE, token, { ...cookieOptions, maxAge: 900 });

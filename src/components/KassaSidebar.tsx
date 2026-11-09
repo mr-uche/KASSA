@@ -19,7 +19,9 @@ type MenuItem = {
 };
 const menuItems: MenuItem[] = [
   { name: "Home", href: "/dashboard", permission: "View dashboard" },
+  { name: "New Sale", href: "/sales/new", permission: "Manage sales & transactions" },
   { name: "Transactions", href: "/transactions", permission: "Manage sales & transactions" },
+  { name: "Scan Product", href: "/scan", permission: "Manage sales & transactions" },
   { name: "Reports & Analytics", href: "/reports", permission: "View reports & analytics" },
   { name: "Products & Inventory", href: "/products", permission: "Manage products & inventory" },
   { name: "Customers", href: "/customers", permission: "Manage customers" },

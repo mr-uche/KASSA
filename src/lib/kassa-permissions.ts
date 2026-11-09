@@ -47,3 +47,22 @@ export async function loadAccess(): Promise<BusinessAccess[]> {
   }
   return body as BusinessAccess[];
 }
+
+export function firstPermittedPath(businesses: BusinessAccess[]): string {
+  if (!businesses.length) return "/onboarding";
+  const priorities: Array<[KassaPermission | "Owner", string]> = [
+    ["View dashboard", "/dashboard"],
+    ["Manage sales & transactions", "/sales/new"],
+    ["Manage products & inventory", "/products"],
+    ["View reports & analytics", "/reports"],
+    ["Manage customers", "/customers"],
+    ["Owner", "/staff-branches"],
+  ];
+  for (const business of businesses) {
+    for (const [permission, path] of priorities) {
+      if (hasBusinessAccess(business, permission)) return path;
+    }
+  }
+  // A valid business membership can exist with zero extra permissions.
+  return "/dashboard";
+}
