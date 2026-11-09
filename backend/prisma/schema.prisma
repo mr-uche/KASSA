@@ -61,6 +61,20 @@ model User {
   updatedAt       DateTime             @updatedAt
   memberships     BusinessMembership[]
   salesAsCashier  Sale[]               @relation("CashierSales")
+  authSessions    AuthSession[]
+}
+
+model AuthSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Business {

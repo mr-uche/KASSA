@@ -4,6 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AccessTokenGuard, type AuthenticatedRequest } from './access-token.guard';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { RefreshSessionDto } from './dto/refresh-session.dto';
 import { RegisterDto } from './dto/register.dto';
 
 @ApiTags('Authentication')
@@ -23,6 +24,20 @@ export class AuthController {
   @ApiOperation({ summary: 'Log in with email and password' })
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  @Post('refresh')
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @ApiOperation({ summary: 'Renew a short-lived access token using an active remembered session' })
+  refresh(@Body() dto: RefreshSessionDto) {
+    return this.auth.refresh(dto);
+  }
+
+  @Post('logout')
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @ApiOperation({ summary: 'Revoke a remembered session token' })
+  logout(@Body() dto: RefreshSessionDto) {
+    return this.auth.logout(dto);
   }
 
   @Get('me')
