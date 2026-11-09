@@ -17,6 +17,7 @@ export default function AddProductPage() {
   const [form, setForm] = useState({
     name: "",
     sku: "",
+    barcode: "",
     category: "",
     brand: "",
     unit: "",
@@ -114,7 +115,8 @@ export default function AddProductPage() {
     try {
       await kassaPost("/api/inventory/products", {
         businessId: inventoryContext.businessId, branchId: inventoryContext.branchId,
-        name: form.name.trim(), sku: form.sku.trim(), categoryId: form.category,
+        name: form.name.trim(), sku: form.sku.trim(), barcode: form.barcode.trim() || undefined,
+        categoryId: form.category,
         brand: form.brand.trim() || undefined, unit: form.unit.trim() || undefined,
         description: form.description.trim() || undefined,
         sellingPrice: form.sellingPrice.trim(), costPrice: form.costPrice.trim() || undefined,
@@ -249,6 +251,23 @@ export default function AddProductPage() {
                       </p>
                     )}
                   </div>
+                </div>
+
+                {/* Optional GTIN, EAN, UPC or Code 128 barcode printed on the item. */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="product-barcode">
+                    Barcode number (optional)
+                  </label>
+                  <input id="product-barcode" value={form.barcode}
+                    onChange={(event) => handleChange("barcode", event.target.value)}
+                    maxLength={100} autoComplete="off" inputMode="text"
+                    placeholder="Scan or type the packaging barcode"
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Keep leading zeroes. If blank, Kassa can still scan the product using its SKU.
+                    Barcodes must be unique within your business.
+                  </p>
                 </div>
 
                 {/* Brand + Unit */}
@@ -501,7 +520,7 @@ export default function AddProductPage() {
                   type="button"
                   onClick={() => {
                     setSaved(false);
-                    setForm({ name: "", sku: "", category: "", brand: "", unit: "", description: "", sellingPrice: "", costPrice: "", currentStock: "", lowStockThreshold: "" });
+                    setForm({ name: "", sku: "", barcode: "", category: "", brand: "", unit: "", description: "", sellingPrice: "", costPrice: "", currentStock: "", lowStockThreshold: "" });
                   }}
                 >
                   <X

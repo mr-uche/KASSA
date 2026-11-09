@@ -11,6 +11,7 @@ export type InventoryProduct = {
   id: string;
   name: string;
   sku: string;
+  barcode: string | null;
   categoryId: string | null;
   category: string;
   price: string;
