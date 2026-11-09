@@ -14,14 +14,15 @@ import {
 import KassaSidebar from "@/components/KassaSidebar"; 
 import { useSearchParams, useRouter } from "next/navigation"; 
 import Link from "next/link";
-import { formatNaira, getInventoryContext, getInventoryProducts, getInventoryCategories, type InventoryProduct } from "@/lib/inventory-client"; 
+import { formatNaira, getInventoryContext, getInventoryProducts, getInventoryCategories, assignProductBarcode, type InventoryProduct, type InventoryContext } from "@/lib/inventory-client"; 
   
 type Product = {
   id: string;
   categoryId: string | null;
   lowStockThreshold: number;
   name: string; 
-  sku: string; 
+  sku: string;
+  barcode: string | null; 
   category: string; 
   price: string; 
   stock: number; 
@@ -124,6 +125,34 @@ function ProductsPageContent() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [context, setContext] = useState<InventoryContext | null>(null);
+  const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null);
+  const [barcodeValue, setBarcodeValue] = useState("");
+  const [barcodeError, setBarcodeError] = useState("");
+  const [barcodeSaving, setBarcodeSaving] = useState(false);
+
+  function beginBarcodeEdit(product: Product) {
+    setBarcodeProduct(product);
+    setBarcodeValue(product.barcode ?? "");
+    setBarcodeError("");
+  }
+
+  async function saveBarcode() {
+    if (!context || !barcodeProduct || barcodeSaving) return;
+    if (barcodeValue.length > 100) return setBarcodeError("Barcode must be 100 characters or less.");
+    setBarcodeSaving(true);
+    setBarcodeError("");
+    try {
+      const result = await assignProductBarcode(context, barcodeProduct.id, barcodeValue);
+      setProducts((current) => current.map((item) =>
+        item.id === result.id ? { ...item, barcode: result.barcode } : item));
+      setBarcodeProduct(null);
+    } catch (cause) {
+      setBarcodeError(cause instanceof Error ? cause.message : "Unable to save barcode.");
+    } finally {
+      setBarcodeSaving(false);
+    }
+  }
   const [refreshRevision, setRefreshRevision] = useState(0);
   const lowStockProducts: LowStockProduct[] = products
     .filter((product) => product.status !== "In stock")
@@ -221,6 +250,7 @@ function ProductsPageContent() {
         if (cancelled) return;
         setProducts(productList.map((product: InventoryProduct) => ({
           id: product.id, name: product.name, sku: product.sku,
+          barcode: product.barcode,
           categoryId: product.categoryId, lowStockThreshold: product.lowStockThreshold,
           category: product.category, price: formatNaira(product.price),
           stock: product.stock, status: product.status,
@@ -230,6 +260,7 @@ function ProductsPageContent() {
           stockValue: formatNaira(category.stockValue), status: category.status,
         })));
         setSelectedBranch(context.branchName);
+        setContext(context);
         setError("");
       } catch (cause) {
         if (!cancelled) {
@@ -597,7 +628,7 @@ function ProductsPageContent() {
                         </p> 
  
                         <p className="text-gray-500 text-xs"> 
-                          SKU: {p.sku} 
+                          SKU: {p.sku}{p.barcode ? " · Barcode: " + p.barcode : ""}
                         </p> 
                       </td> 
  
@@ -618,14 +649,19 @@ function ProductsPageContent() {
                       </td> 
  
                       <td className="px-6 py-4 whitespace-nowrap"> 
-                        <button
-                          type="button"
-                          onClick={() => router.push(`/products/restock?productId=${encodeURIComponent(p.id)}`)}
-                          aria-label={`Restock ${p.name}`}
-                          title="Restock this product"
-                          className="text-gray-400 hover:text-gray-600">
-                          <MoreHorizontal size={18} /> 
-                        </button> 
+                        <div className="flex items-center gap-3">
+                          <button type="button" onClick={() => beginBarcodeEdit(p)}
+                            aria-label={`Assign barcode for ${p.name}`}
+                            className="whitespace-nowrap text-xs font-medium text-emerald-800 hover:underline">
+                            {p.barcode ? "Edit barcode" : "Assign barcode"}
+                          </button>
+                          <button type="button"
+                            onClick={() => router.push(`/products/restock?productId=${encodeURIComponent(p.id)}`)}
+                            aria-label={`Restock ${p.name}`} title="Restock this product"
+                            className="text-gray-400 hover:text-gray-600">
+                            <MoreHorizontal size={18}/>
+                          </button>
+                        </div> 
                       </td> 
                     </tr> 
                   ))} 
@@ -641,8 +677,34 @@ function ProductsPageContent() {
                     </tr> 
                   )} 
                 </tbody> 
-              </table> 
-            </div> 
+              </table>
+            </div>
+            {barcodeProduct && (
+              <div className="mx-4 mt-5 max-w-xl rounded-xl border border-gray-200 bg-white p-5 sm:mx-8">
+                <h3 className="text-base font-semibold text-gray-900">Assign product barcode</h3>
+                <p className="mt-1 text-sm text-gray-500">{barcodeProduct.name} · SKU {barcodeProduct.sku}</p>
+                <form onSubmit={(event) => {event.preventDefault();void saveBarcode();}} className="mt-4 space-y-3">
+                  <label htmlFor="barcode-editor" className="block text-sm font-medium text-gray-700">
+                    Barcode on product packaging
+                  </label>
+                  <input id="barcode-editor" value={barcodeValue}
+                    onChange={(event) => setBarcodeValue(event.target.value)}
+                    maxLength={100} autoComplete="off" spellCheck={false}
+                    placeholder="Scan or type barcode number"
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm focus:border-emerald-700"/>
+                  <p className="text-xs text-gray-500">Leave blank to remove an old barcode. Keep leading zeroes.</p>
+                  {barcodeError && <p role="alert" className="text-sm text-red-700">{barcodeError}</p>}
+                  <div className="flex flex-wrap gap-3">
+                    <button type="submit" disabled={barcodeSaving || !context}
+                      className="rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+                      {barcodeSaving ? "Saving..." : "Save barcode"}
+                    </button>
+                    <button type="button" onClick={() => setBarcodeProduct(null)}
+                      className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-700">Cancel</button>
+                  </div>
+                </form>
+              </div>
+            )}
           </> 
         )} 
  
