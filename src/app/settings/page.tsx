@@ -268,7 +268,7 @@ function SettingsPageContent() {
       </div>
       <main className="min-h-screen lg:ml-[198px]">
          {/* Mobile header row with menu button */}
-                        <header className="flex min-h-[80px] mb-7 h-20 items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
+                        <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
                 
                           {/* Hamburger + Greeting */}
                           <div className="flex min-w-0 items-center gap-3">
@@ -281,7 +281,7 @@ function SettingsPageContent() {
                               <Menu size={22} />
                             </button>
                 
-                            <h1 className=" truncate text-[15px] font-bold text-[#182033] sm:text-[10px] lg:text-[21px]">
+                            <h1 className=" truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">
                              Settings
                             </h1>
                 
@@ -318,7 +318,7 @@ function SettingsPageContent() {
                         </header>
         
 
-        <div className="flex flex-col md:flex-row gap-4 md:gap-6 px-8">
+        <div className="flex min-w-0 flex-col gap-4 px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:flex-row lg:gap-6 lg:px-8 lg:pb-10 lg:pt-12">
           <aside className="w-full md:w-64 shrink-0">
             <nav className="bg-white rounded-xl border border-gray-200 p-2 overflow-x-auto">
               {navItems.map((item) => (

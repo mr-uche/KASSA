@@ -162,7 +162,7 @@ function CustomersPageContent() {
           </div>
         </header>
 
-        <div className="mb-6 mt-4 flex flex-col gap-4 px-8 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-6 flex flex-col gap-4 px-4 pt-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pt-8 lg:px-8 lg:pt-12">
           <div>
             <h2 className="mb-1 text-lg font-semibold text-gray-900 sm:text-xl">Manage customers</h2>
             <p className="text-sm text-gray-500 sm:text-base">View, search and manage your business-wide customer records.</p>
@@ -173,10 +173,10 @@ function CustomersPageContent() {
           </Link>
         </div>
 
-        {error && <p role="alert" className="mb-4 px-8 text-sm text-red-700">{error}</p>}
-        {loading && <p role="status" className="mb-4 px-8 text-sm text-gray-500">Loading customers...</p>}
+        {error && <p role="alert" className="mb-4 px-4 sm:px-6 lg:px-8 text-sm text-red-700">{error}</p>}
+        {loading && <p role="status" className="mb-4 px-4 sm:px-6 lg:px-8 text-sm text-gray-500">Loading customers...</p>}
 
-        <div className="mb-6 grid grid-cols-2 gap-4 px-8 lg:grid-cols-4">
+        <div className="mb-6 grid grid-cols-2 gap-4 px-4 sm:px-6 lg:px-8 lg:grid-cols-4">
           <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
             <p className="mb-2 text-sm text-gray-500">Total customers</p>
             <p className="text-xl font-semibold text-gray-900 sm:text-2xl">{customers.length}</p>
@@ -199,7 +199,7 @@ function CustomersPageContent() {
           </div>
         </div>
 
-        <div className="relative z-20 mb-4 flex flex-col gap-3 px-4 sm:px-8 lg:flex-row lg:flex-wrap">
+        <div className="relative z-20 mb-4 flex min-w-0 flex-col gap-3 px-4 sm:px-6 lg:flex-row lg:flex-wrap lg:px-8">
           <div className="relative w-full min-w-0 lg:min-w-[210px] lg:flex-1">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
             <input value={query} onChange={(e) => setQuery(e.target.value)}
@@ -223,7 +223,7 @@ function CustomersPageContent() {
           </div>
         </div>
 
-        <div className="mx-8 overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <div className="mx-4 overflow-x-auto rounded-xl border border-gray-200 bg-white sm:mx-6 lg:mx-8">
           <table className="w-full min-w-[820px] text-sm">
             <thead><tr className="border-b border-gray-100 text-left text-xs uppercase text-gray-500">
               <th className="whitespace-nowrap px-6 py-4 font-medium">Customer</th>
@@ -272,7 +272,7 @@ function CustomersPageContent() {
           </table>
         </div>
         {customers.length === 500 && (
-          <p className="px-8 pt-3 text-xs text-amber-700">
+          <p className="px-4 sm:px-6 lg:px-8 pt-3 text-xs text-amber-700">
             Showing the most recent 500 customers. More records require pagination, which will be added later.
           </p>
         )}

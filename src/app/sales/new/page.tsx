@@ -189,7 +189,7 @@ export default function NewSalePage() {
       <main className="min-h-screen lg:ml-[198px]">
 
         {/* Mobile header row with menu button */}
-        <header className="flex min-h-[80px] mb-7 h-20 items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
+        <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
 
           {/* Hamburger + Greeting */}
           <div className="flex min-w-0 items-center gap-3">
@@ -202,7 +202,7 @@ export default function NewSalePage() {
               <Menu size={22} />
             </button>
 
-            <h1 className=" truncate text-[15px] font-bold text-[#182033] sm:text-[10px] lg:text-[21px]">
+            <h1 className=" truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">
              New sale
             </h1>
 
@@ -242,7 +242,7 @@ export default function NewSalePage() {
               Sales / <span className="bg-yellow-100 px-1 rounded">New sale</span>
         </p>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-3">
+        <div className="grid min-w-0 grid-cols-1 gap-6 px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:grid-cols-3 lg:px-8 lg:pb-10 lg:pt-12">
 
           {/* Add products */}
           <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 sm:p-6 ">

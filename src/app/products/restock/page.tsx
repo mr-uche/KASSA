@@ -143,12 +143,12 @@ export default function RestockProductPage() {
           </div>
         </header>
 
-        <p className="text-sm sm:text-base text-gray-500 mb-6 px-8 mt-4">
+        <p className="mb-6 px-4 pt-6 text-sm text-gray-500 sm:px-6 sm:pt-8 sm:text-base lg:px-8 lg:pt-12">
           Update inventory quantities for products that are running low.
         </p>
 
         {/* ================= CONTENT GRID ================= */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-8">
+        <div className="grid grid-cols-1 gap-6 px-4 pb-8 sm:px-6 lg:grid-cols-3 lg:px-8 lg:pb-10">
           {/* ================= FORM ================= */}
           <div className="md:col-span-2 bg-white rounded-xl border border-gray-200 p-4 sm:p-5 md:p-6">
             <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-1">
