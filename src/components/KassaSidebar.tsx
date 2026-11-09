@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname,useRouter } from "next/navigation";
 import { X, LogOut } from "lucide-react";
 
@@ -24,6 +25,47 @@ export default function KassaSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [canViewReports, setCanViewReports] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    async function updateReportsAccess() {
+      try {
+        const response = await fetch("/api/businesses/mine", {
+          cache: "no-store", credentials: "same-origin",
+        });
+        if (!response.ok) {
+          if (active) setCanViewReports(false);
+          return;
+        }
+        const memberships: {
+          id: string;
+          myRole: string;
+          myPermissions?: string[];
+          branches: { id: string }[];
+        }[] = await response.json();
+        const selectedBranch = localStorage.getItem("selectedBranchId") ?? "";
+        const business = memberships.find((item) =>
+          item.branches.some((branch) => branch.id === selectedBranch)
+        ) ?? memberships[0];
+        const allowed = !!business && (
+          business.myRole === "Owner" ||
+          business.myPermissions?.includes("View reports & analytics") === true
+        );
+        if (active) setCanViewReports(allowed);
+      } catch {
+        if (active) setCanViewReports(false);
+      }
+    }
+    void updateReportsAccess();
+    window.addEventListener("branchChanged", updateReportsAccess);
+    window.addEventListener("storage", updateReportsAccess);
+    return () => {
+      active = false;
+      window.removeEventListener("branchChanged", updateReportsAccess);
+      window.removeEventListener("storage", updateReportsAccess);
+    };
+  }, [pathname]);
 
   return (
     <>
@@ -57,7 +99,7 @@ export default function KassaSidebar({
 
         {/* Navigation */}
         <nav className="mt-[48px] flex flex-1 flex-col gap-[4px]">
-          {menuItems.map((item) => {
+          {menuItems.filter((item) => item.href !== "/reports" || canViewReports).map((item) => {
             const active =
               pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
