@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import {
   hasBusinessAccess, loadAccess, selectedBusiness, type KassaPermission,
@@ -23,11 +24,13 @@ export default function KassaAccessGate({
 }) {
   const pathname = usePathname();
   const [status, setStatus] = useState<State>("checking");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     let active = true;
     async function checkAccess() {
+      if (active) setStatus("checking");
       try {
         // Fail closed while loading or if permissions cannot be confirmed.
         const memberships = await loadAccess();
@@ -71,9 +74,13 @@ export default function KassaAccessGate({
   if (status === "granted") return <>{children}</>;
   return (
     <div className="min-h-screen bg-gray-50">
-      <KassaSidebar isOpen={false} onClose={() => {}} />
+      <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="min-h-screen lg:ml-[198px]">
-        <header className="border-b border-gray-200 bg-white px-4 py-6 sm:px-8">
+        <header className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-6 sm:px-8">
+          <button type="button" aria-label="Open menu" onClick={() => setSidebarOpen(true)}
+            className="rounded-md p-1.5 text-gray-600 lg:hidden">
+            <Menu size={22}/>
+          </button>
           <h1 className="text-xl font-bold text-[#182033]">{title}</h1>
         </header>
         <div className="mx-4 mt-8 max-w-xl rounded-xl border border-gray-200 bg-white p-6 sm:mx-8">
@@ -100,9 +107,9 @@ export default function KassaAccessGate({
                   </>
                 )}
               </p>
-              <Link href="/dashboard" className="mt-5 inline-block text-sm font-medium text-emerald-800 hover:underline">
-                Back to dashboard
-              </Link>
+              <p className="mt-4 text-xs text-gray-500">
+                Use the menu to open a screen available to your role.
+              </p>
             </div>
           )}
         </div>
