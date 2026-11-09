@@ -95,3 +95,25 @@ export function formatNaira(value: string | number): string {
 }
 
 export { kassaPost };
+
+export async function assignProductBarcode(context: InventoryContext, productId: string, barcode: string) {
+  let response: Response;
+  try {
+    response = await fetch("/api/inventory/products/" + encodeURIComponent(productId) + "/barcode", {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId: context.businessId, branchId: context.branchId, barcode }),
+    });
+  } catch {
+    throw new Error("Cannot reach Kassa. Check your connection.");
+  }
+  const data: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = data && typeof data === "object" && "message" in data
+      ? (data as { message: unknown }).message : null;
+    throw new Error(typeof message === "string" ? message :
+      Array.isArray(message) ? message.join(". ") : "Unable to save product barcode");
+  }
+  return data as { id: string; name: string; sku: string; barcode: string | null };
+}

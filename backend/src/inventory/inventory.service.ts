@@ -5,7 +5,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { requireBusinessPermission } from '../business-access';
 import {
-  CategoryCreateDto, InventoryScopeQueryDto, ProductCreateDto, RestockDto,
+  CategoryCreateDto, InventoryScopeQueryDto, ProductCreateDto, RestockDto, AssignProductBarcodeDto,
 } from './dto/inventory.dto';
 
 function stockStatus(quantity: number, threshold: number) {
@@ -177,6 +177,28 @@ export class InventoryService {
         throw new ConflictException('A product with this SKU or barcode already exists in the business');
       }
       throw error;
+    }
+  }
+
+  async assignBarcode(userId: string, productId: string, dto: AssignProductBarcodeDto) {
+    await this.requireBranch(userId, dto.businessId, dto.branchId, true);
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, businessId: dto.businessId },
+      select: { id: true },
+    });
+    if (!product) throw new NotFoundException('Product not found in this business');
+    const barcode = dto.barcode.trim();
+    try {
+      return await this.prisma.product.update({
+        where: { id: product.id },
+        data: { barcode: barcode || null },
+        select: { id: true, name: true, sku: true, barcode: true },
+      });
+    } catch (cause: unknown) {
+      if ((cause as { code?: string })?.code === 'P2002') {
+        throw new ConflictException('This barcode is already assigned to a different product');
+      }
+      throw cause;
     }
   }
 

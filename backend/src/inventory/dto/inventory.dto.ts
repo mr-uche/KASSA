@@ -138,3 +138,10 @@ export class RestockDto {
   @MaxLength(500)
   note?: string;
 }
+
+export class AssignProductBarcodeDto extends InventoryScopeQueryDto {
+  @ApiProperty({ example: '8901234567890', description: 'Empty string clears the barcode' })
+  @IsString()
+  @MaxLength(100)
+  barcode!: string;
+}

@@ -5,9 +5,16 @@ import {
 
 type Context = { params: Promise<{ segments: string[] }> };
 
-function resolvePath(segments: string[], method: "GET" | "POST"): string | null {
-  if (segments.length === 1 && ["categories", "products"].includes(segments[0])) {
+function resolvePath(segments: string[], method: "GET" | "POST" | "PATCH"): string | null {
+  if (method !== "PATCH" && segments.length === 1 && ["categories", "products"].includes(segments[0])) {
     return segments[0];
+  }
+  if (
+    method === "PATCH" && segments.length === 3 &&
+    segments[0] === "products" && segments[2] === "barcode" &&
+    /^[a-f0-9-]{36}$/i.test(segments[1])
+  ) {
+    return `products/${segments[1]}/barcode`;
   }
   if (
     method === "POST" && segments.length === 3 &&
@@ -19,7 +26,7 @@ function resolvePath(segments: string[], method: "GET" | "POST"): string | null 
   return null;
 }
 
-async function handler(request: NextRequest, context: Context, method: "GET" | "POST") {
+async function handler(request: NextRequest, context: Context, method: "GET" | "POST" | "PATCH") {
   const token = sessionToken(request);
   if (!token) return unauthorized();
   const { segments } = await context.params;
@@ -27,7 +34,7 @@ async function handler(request: NextRequest, context: Context, method: "GET" | "
   if (!path) return NextResponse.json({ message: "Not found" }, { status: 404 });
 
   let body: unknown;
-  if (method === "POST") {
+  if (method !== "GET") {
     const invalid = validateJsonRequest(request);
     if (invalid) return invalid;
     try {
@@ -40,7 +47,7 @@ async function handler(request: NextRequest, context: Context, method: "GET" | "
   try {
     const query = method === "GET" ? request.nextUrl.searchParams.toString() : "";
     const result = await forwardToBackend(`/inventory/${path}${query ? `?${query}` : ""}`, {
-      method, token, ...(method === "POST" ? { body } : {}),
+      method, token, ...(method !== "GET" ? { body } : {}),
     });
     return NextResponse.json(result.body, { status: result.status });
   } catch {
@@ -54,4 +61,8 @@ export function GET(request: NextRequest, context: Context) {
 
 export function POST(request: NextRequest, context: Context) {
   return handler(request, context, "POST");
+}
+
+export function PATCH(request: NextRequest, context: Context) {
+  return handler(request, context, "PATCH");
 }
