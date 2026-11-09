@@ -7,13 +7,24 @@ import { X, LogOut } from "lucide-react";
 
 import Logo from "@/components/logo";
 
-const menuItems = [
-  { name: "Home", href: "/dashboard" },
-  { name: "Transactions", href: "/transactions" },
-  { name: "Reports & Analytics", href: "/reports" },
-  { name: "Products & Inventory", href: "/products" },
-  { name: "Staff & Branches", href: "/staff-branches" },
-  { name: "Settings", href: "/settings" },
+import {
+  hasBusinessAccess, loadAccess, selectedBusiness,
+  type BusinessAccess, type KassaPermission,
+} from "@/lib/kassa-permissions";
+
+type MenuItem = {
+  name: string;
+  href: string;
+  permission: KassaPermission | "Owner";
+};
+const menuItems: MenuItem[] = [
+  { name: "Home", href: "/dashboard", permission: "View dashboard" },
+  { name: "Transactions", href: "/transactions", permission: "Manage sales & transactions" },
+  { name: "Reports & Analytics", href: "/reports", permission: "View reports & analytics" },
+  { name: "Products & Inventory", href: "/products", permission: "Manage products & inventory" },
+  { name: "Customers", href: "/customers", permission: "Manage customers" },
+  { name: "Staff & Branches", href: "/staff-branches", permission: "Owner" },
+  { name: "Settings", href: "/settings", permission: "Owner" },
 ];
 
 export default function KassaSidebar({
@@ -25,45 +36,30 @@ export default function KassaSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [canViewReports, setCanViewReports] = useState(false);
+  const [business, setBusiness] = useState<BusinessAccess | undefined>(undefined);
 
   useEffect(() => {
     let active = true;
-    async function updateReportsAccess() {
+    async function updateMenu() {
       try {
-        const response = await fetch("/api/businesses/mine", {
-          cache: "no-store", credentials: "same-origin",
-        });
-        if (!response.ok) {
-          if (active) setCanViewReports(false);
-          return;
-        }
-        const memberships: {
-          id: string;
-          myRole: string;
-          myPermissions?: string[];
-          branches: { id: string }[];
-        }[] = await response.json();
-        const selectedBranch = localStorage.getItem("selectedBranchId") ?? "";
-        const business = memberships.find((item) =>
-          item.branches.some((branch) => branch.id === selectedBranch)
-        ) ?? memberships[0];
-        const allowed = !!business && (
-          business.myRole === "Owner" ||
-          business.myPermissions?.includes("View reports & analytics") === true
-        );
-        if (active) setCanViewReports(allowed);
+        const memberships = await loadAccess();
+        if (!active) return;
+        const selectedId = localStorage.getItem("selectedBranchId") ?? "";
+        setBusiness(selectedBusiness(memberships, selectedId));
       } catch {
-        if (active) setCanViewReports(false);
+        if (active) setBusiness(undefined);
       }
     }
-    void updateReportsAccess();
-    window.addEventListener("branchChanged", updateReportsAccess);
-    window.addEventListener("storage", updateReportsAccess);
+    setBusiness(undefined);
+    void updateMenu();
+    window.addEventListener("branchChanged", updateMenu);
+    window.addEventListener("storage", updateMenu);
+    window.addEventListener("focus", updateMenu);
     return () => {
       active = false;
-      window.removeEventListener("branchChanged", updateReportsAccess);
-      window.removeEventListener("storage", updateReportsAccess);
+      window.removeEventListener("branchChanged", updateMenu);
+      window.removeEventListener("storage", updateMenu);
+      window.removeEventListener("focus", updateMenu);
     };
   }, [pathname]);
 
@@ -99,7 +95,7 @@ export default function KassaSidebar({
 
         {/* Navigation */}
         <nav className="mt-[48px] flex flex-1 flex-col gap-[4px]">
-          {menuItems.filter((item) => item.href !== "/reports" || canViewReports).map((item) => {
+          {menuItems.filter((item) => hasBusinessAccess(business, item.permission)).map((item) => {
             const active =
               pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
