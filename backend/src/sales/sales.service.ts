@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { requireBusinessPermission } from '../business-access';
 import { ConfirmCashDto, CreateSaleDto, SalesListQueryDto } from './dto/sales.dto';
 
 function toKobo(value: string): bigint {
@@ -26,21 +27,9 @@ export class SalesService {
   } as const;
 
   private async checkAccess(userId: string, businessId: string, branchId: string, writing = false) {
-    const membership = await this.prisma.businessMembership.findUnique({
-      where: { businessId_userId: { businessId, userId } },
-      select: { branchId: true, role: { select: { name: true } } },
-    });
-    if (!membership) throw new ForbiddenException('Not a member of this business');
-    if (writing && membership.role.name !== 'Owner') {
-      throw new ForbiddenException('Owner permissions are required until staff roles are implemented');
-    }
-    if (membership.role.name !== 'Owner' && membership.branchId !== branchId) {
-      throw new ForbiddenException('You cannot access another branch');
-    }
-    const branch = await this.prisma.branch.findFirst({
-      where: { id: branchId, businessId, isActive: true }, select: { id: true },
-    });
-    if (!branch) throw new NotFoundException('Business branch not found');
+    await requireBusinessPermission(
+      this.prisma, userId, businessId, 'Manage sales & transactions', branchId,
+    );
   }
 
   private serialize(sale: {

@@ -3,6 +3,7 @@ import {
   Injectable, NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { requireBusinessPermission } from '../business-access';
 import {
   CategoryCreateDto, InventoryScopeQueryDto, ProductCreateDto, RestockDto,
 } from './dto/inventory.dto';
@@ -26,15 +27,11 @@ export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async requireMembership(userId: string, businessId: string, write = false) {
-    const membership = await this.prisma.businessMembership.findUnique({
-      where: { businessId_userId: { businessId, userId } },
-      select: { branchId: true, role: { select: { name: true } } },
-    });
-    if (!membership) throw new ForbiddenException('You do not belong to this business');
-    if (write && membership.role.name !== 'Owner') {
-      throw new ForbiddenException('Only business owners can manage inventory at this stage');
-    }
-    return membership;
+    // Read and write inventory operations use the configured role permission.
+    // Non-owners remain restricted to their assigned branch.
+    return requireBusinessPermission(
+      this.prisma, userId, businessId, 'Manage products & inventory',
+    );
   }
 
   private async requireBranch(userId: string, businessId: string, branchId: string, write = false) {

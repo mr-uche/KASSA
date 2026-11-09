@@ -2,6 +2,7 @@ import {
   BadRequestException, ForbiddenException, Injectable, NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { requireBusinessPermission } from '../business-access';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customers.dto';
 
 @Injectable()
@@ -9,13 +10,9 @@ export class CustomersService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async requireOwner(userId: string, businessId: string) {
-    const membership = await this.prisma.businessMembership.findUnique({
-      where: { businessId_userId: { businessId, userId } },
-      select: { role: { select: { name: true } } },
-    });
-    if (!membership || membership.role.name !== 'Owner') {
-      throw new ForbiddenException('Only business owners may access customer records at this stage');
-    }
+    await requireBusinessPermission(
+      this.prisma, userId, businessId, 'Manage customers',
+    );
   }
 
   private normalizedName(value: string): string {
