@@ -232,17 +232,6 @@ export class StaffBranchesService {
     };
   }
 
-  private async claimInvitation(tx: Parameters<Parameters<PrismaService['$transaction']>[0]>[0], invitationId: string) {
-    const claim = await tx.staffInvitation.updateMany({
-      where: {
-        id: invitationId, acceptedAt: null, revokedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      data: { acceptedAt: new Date() },
-    });
-    if (claim.count !== 1) throw new ConflictException('Invitation already used or expired');
-  }
-
   async accept(userId: string, token: string) {
     const invitation = await this.requireInvitation(token);
     const user = await this.prisma.user.findUnique({
@@ -253,7 +242,14 @@ export class StaffBranchesService {
     }
     try {
       await this.prisma.$transaction(async (tx) => {
-        await this.claimInvitation(tx, invitation.id);
+        const claim = await tx.staffInvitation.updateMany({
+          where: {
+            id: invitation.id, acceptedAt: null, revokedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          data: { acceptedAt: new Date() },
+        });
+        if (claim.count !== 1) throw new ConflictException('Invitation already used or expired');
         await tx.businessMembership.create({
           data: {
             businessId: invitation.businessId, userId,
@@ -276,7 +272,14 @@ export class StaffBranchesService {
     let user: { id: string; email: string; fullName: string; phone: string | null };
     try {
       user = await this.prisma.$transaction(async (tx) => {
-        await this.claimInvitation(tx, invitation.id);
+        const claim = await tx.staffInvitation.updateMany({
+          where: {
+            id: invitation.id, acceptedAt: null, revokedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          data: { acceptedAt: new Date() },
+        });
+        if (claim.count !== 1) throw new ConflictException('Invitation already used or expired');
         const created = await tx.user.create({
           data: {
             email: invitation.email, fullName: invitation.fullName, passwordHash,

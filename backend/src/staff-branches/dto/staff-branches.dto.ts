@@ -31,7 +31,7 @@ export class CreateBranchDto extends BusinessScopeDto {
 export class CreateRoleDto extends BusinessScopeDto {
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(80) name!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(500) description?: string;
-  @ApiProperty({ type: [String], enum: ROLE_PERMISSIONS })
+  @ApiProperty({ type: [String], enum: [...ROLE_PERMISSIONS] })
   @IsArray() @ArrayUnique() @ArrayMaxSize(ROLE_PERMISSIONS.length)
   @IsIn(ROLE_PERMISSIONS, { each: true })
   permissions!: string[];
