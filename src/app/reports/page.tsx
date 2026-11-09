@@ -5,13 +5,13 @@ import { Bell, Download, Menu, RefreshCw } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import { formatNaira, inventoryFetch } from "@/lib/inventory-client";
 import {
-  fetchAnalytics, type AnalyticsReport, type ReportChannel, type ReportGranularity,
+  fetchAnalytics, ReportsAccessError, type AnalyticsReport, type ReportChannel, type ReportGranularity,
 } from "@/lib/reports-client";
 
 type RangeTab = "Daily" | "Weekly" | "Monthly" | "Custom range";
 type QuickRange = "Last 30 days" | "This quarter" | "Year to date" | "Custom dates";
 type Branch = { id: string; name: string; isActive: boolean };
-type Membership = { id: string; name: string; myRole: string; branches: Branch[] };
+type Membership = { id: string; name: string; myRole: string; myPermissions?: string[]; branches: Branch[] };
 const rangeTabs: RangeTab[] = ["Daily", "Weekly", "Monthly", "Custom range"];
 const channelOrder: ReportChannel[] = [
   "BANK_TRANSFER", "POS", "CASH", "USSD", "CARD", "WALLET",
@@ -259,6 +259,7 @@ export default function ReportsPage() {
   const [report, setReport] = useState<AnalyticsReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [accessDenied, setAccessDenied] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const dates = useMemo(() => getDates(range, quick, customFrom, customTo),
     [range, quick, customFrom, customTo]);
@@ -277,9 +278,19 @@ export default function ReportsPage() {
         const selected = localStorage.getItem("selectedBranchId") ?? "";
         const business = data.find((item) => item.branches.some((branch) => branch.id === selected)) ?? data[0];
         setMemberships(data);
+        const isOwner = business.myRole === "Owner";
+        const allowed = isOwner ||
+          business.myPermissions?.includes("View reports & analytics") === true;
+        setAccessDenied(!allowed);
+        if (!allowed) {
+          setBusinessId("");
+          setReport(null);
+          setLoading(false);
+          return;
+        }
         setBusinessId(business.id);
-        setOwner(business.myRole === "Owner");
-        setBranchId(business.myRole === "Owner" ? "all" : business.branches[0]?.id ?? "all");
+        setOwner(isOwner);
+        setBranchId(isOwner ? "all" : business.branches[0]?.id ?? "all");
       } catch (cause) {
         if (active) { setError(cause instanceof Error ? cause.message : "Unable to load branches."); setLoading(false); }
       }
@@ -308,6 +319,7 @@ export default function ReportsPage() {
       setReport(data);
     } catch (cause) {
       setReport(null);
+      if (cause instanceof ReportsAccessError) setAccessDenied(true);
       setError(cause instanceof Error ? cause.message : "Unable to load analytics.");
     } finally {
       setLoading(false);
@@ -333,7 +345,11 @@ export default function ReportsPage() {
     }).then((result) => {
       if (active) { setReport(result); setError(""); }
     }).catch((cause) => {
-      if (active) { setReport(null); setError(cause instanceof Error ? cause.message : "Unable to load analytics."); }
+      if (active) {
+        setReport(null);
+        if (cause instanceof ReportsAccessError) setAccessDenied(true);
+        setError(cause instanceof Error ? cause.message : "Unable to load analytics.");
+      }
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [businessId, branchId, dates.from, dates.to, dates.granularity, reloadKey]);
@@ -373,6 +389,29 @@ export default function ReportsPage() {
   const metrics = report?.summary;
   const change = metrics?.salesChangePercent == null ? "No comparable prior-period sales" :
     (metrics.salesChangePercent >= 0 ? "+" : "") + metrics.salesChangePercent.toFixed(2) + "% vs preceding period";
+
+  // A direct visit to /reports must be blocked visibly, not just show empty
+  // report controls. Backend permissions are still the final authority.
+  if (accessDenied) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
+        <main className="min-h-screen lg:ml-[198px]">
+          <div className="border-b border-gray-200 bg-white px-6 py-6">
+            <h1 className="text-xl font-bold text-[#182033]">Reports &amp; Analytics</h1>
+          </div>
+          <div role="alert" className="mx-4 mt-8 max-w-xl rounded-xl border border-gray-200 bg-white p-6 sm:mx-8">
+            <h2 className="mb-2 text-lg font-semibold text-gray-900">Access restricted</h2>
+            <p className="text-sm leading-6 text-gray-600">
+              Your role does not include <strong>View reports &amp; analytics</strong>.
+              Ask your business owner to enable this permission in
+              Staff &amp; Branches → Roles &amp; Permissions.
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50">
