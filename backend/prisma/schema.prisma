@@ -97,6 +97,7 @@ model Business {
   sales       Sale[]
   payments    Payment[]
   staffDrafts  StaffOnboardingDraft[]
+  staffInvitations StaffInvitation[]
 }
 
 model StaffOnboardingDraft {
@@ -120,6 +121,7 @@ model BusinessRole {
   isSystem    Boolean              @default(false)
   business    Business             @relation(fields: [businessId], references: [id])
   members     BusinessMembership[]
+  invitations StaffInvitation[]
 
   @@unique([businessId, name])
 }
@@ -153,8 +155,34 @@ model Branch {
   stock      StockBalance[]
   movements  StockMovement[]
   sales      Sale[]
+  code       String?
+  city       String?
+  state      String?
+  invitations StaffInvitation[]
 
   @@unique([businessId, name])
+  @@unique([businessId, code])
+}
+
+model StaffInvitation {
+  id         String        @id @default(uuid()) @db.Uuid
+  businessId String        @db.Uuid
+  roleId     String        @db.Uuid
+  branchId   String        @db.Uuid
+  email      String
+  fullName   String
+  message    String?
+  tokenHash  String        @unique
+  createdAt  DateTime      @default(now())
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+  business   Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  role       BusinessRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  branch     Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, email])
+  @@index([expiresAt])
 }
 
 model Category {
