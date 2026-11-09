@@ -8,6 +8,9 @@ import Link from "next/link";
 import { getInventoryContext, type InventoryContext, type InventoryProduct } from "@/lib/inventory-client";
 import { hasBusinessAccess, loadAccess } from "@/lib/kassa-permissions";
 import { listCheckoutProducts, type PaymentMethod } from "@/lib/sales-client";
+import {
+  readScopedCart, writeScopedCart, SCAN_CART_KEY, SALE_CART_KEY,
+} from "@/lib/scan-client";
 import { listCustomers, type CustomerRecord } from "@/lib/customers-client";
 
 type Product = InventoryProduct;
@@ -29,6 +32,7 @@ export default function NewSalePage() {
   const [query, setQuery] = useState("");
 
   const [sale, setSale] = useState<SaleItem[]>([]);
+  const [cartReady, setCartReady] = useState(false);
 
   const [paymentMethod, setPaymentMethod] = useState("Transfer");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -80,6 +84,25 @@ export default function NewSalePage() {
         if (cancelled) return;
         setProducts(productsResult);
         setCustomers(customerRecords);
+        // Preserve an in-progress sale when the cashier opens the scanner.
+        // Merge scanner items by product ID; never combine products from
+        // different businesses/branches, and never exceed live branch stock.
+        const remembered = readScopedCart(SALE_CART_KEY, context);
+        const scanned = readScopedCart(SCAN_CART_KEY, context);
+        const quantities = new Map<string, number>();
+        for (const item of [...remembered, ...scanned]) {
+          quantities.set(item.productId, (quantities.get(item.productId) ?? 0) + item.quantity);
+        }
+        const resumed: SaleItem[] = [];
+        for (const product of productsResult) {
+          const qty = Math.min(quantities.get(product.id) ?? 0, product.stock);
+          if (qty > 0) resumed.push({
+            id: product.id, name: product.name, price: Number(product.price), qty,
+          });
+        }
+        setSale(resumed);
+        window.sessionStorage.removeItem(SCAN_CART_KEY);
+        setCartReady(true);
         setCanManageCustomers(permittedCustomers);
         setCanManageInventory(permittedInventory);
         if (!permittedCustomers) setSelectedCustomerId("");
@@ -95,6 +118,12 @@ export default function NewSalePage() {
     void loadProducts();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!inventoryContext || !cartReady) return;
+    writeScopedCart(SALE_CART_KEY, inventoryContext,
+      sale.map((item) => ({ productId: item.id, quantity: item.qty })));
+  }, [sale, inventoryContext, cartReady]);
 
   const filterTabs = ["All", ...Array.from(new Set(products.map((p) => p.category).filter(Boolean)))];
   const filtered = products.filter((p) =>
@@ -145,6 +174,8 @@ export default function NewSalePage() {
       customerName: customers.find((customer) => customer.id === selectedCustomerId)?.fullName ?? "Walk-in customer",
       previewItems: sale,
     }));
+    sessionStorage.removeItem(SALE_CART_KEY);
+    sessionStorage.removeItem(SCAN_CART_KEY);
     router.push("/sales/checkout");
   }
 
