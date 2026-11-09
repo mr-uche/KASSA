@@ -148,7 +148,7 @@ export default function SettingsPage() {
     if (!context || loading || saving) return;
     setSaving(true); setError(""); setSuccess("");
     try {
-      const updated = await updateBusinessSettings(context.businessId, { payoutSchedule: schedule });
+      const updated = await updateBusinessSettings(context.businessId, { payoutSchedule: schedule, branchId: context.branchId });
       setSettings(updated);
       setSchedule(updated.payoutSchedule);
       setSuccess("Payout preference saved. Transfers are not enabled until payment verification is connected.");

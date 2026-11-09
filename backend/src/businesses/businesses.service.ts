@@ -59,6 +59,9 @@ export class BusinessesService {
     if (!includesBusiness && !includesBranch) {
       throw new BadRequestException('No supported settings were provided');
     }
+    if (dto.businessName !== undefined && !dto.businessName.trim()) {
+      throw new BadRequestException('Business name cannot be blank');
+    }
     if (includesBranch && !dto.branchId) {
       throw new BadRequestException('A branch must be selected to update its contact details');
     }

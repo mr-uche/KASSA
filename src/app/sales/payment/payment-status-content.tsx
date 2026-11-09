@@ -15,6 +15,8 @@ export default function PaymentStatusContent() {
   const [sale, setSale] = useState<SavedSale | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshed, setRefreshed] = useState(false);
   const [cashReceived, setCashReceived] = useState(false);
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -33,6 +35,18 @@ export default function PaymentStatusContent() {
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [saleId]);
+
+  async function refreshStatus() {
+    if (!saleId || refreshing) return;
+    setRefreshing(true); setRefreshed(false); setError("");
+    try {
+      const current = await getSale(saleId);
+      setSale(current);
+      setRefreshed(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to refresh payment status.");
+    } finally { setRefreshing(false); }
+  }
 
   async function handleCashConfirmation() {
     if (!sale || sale.status !== "PENDING_PAYMENT" || sale.payments[0]?.channel !== "CASH" ||
@@ -78,7 +92,7 @@ export default function PaymentStatusContent() {
                     ? "This sale has been saved as paid and the stock deduction was recorded."
                     : cash
                       ? "Record payment only after you have physically received the cash."
-                      : "The sale is saved as pending. Electronic payment verification is not connected yet."}
+                      : "This sale is pending. Kassa has not connected a payment provider for automated transfer, card, POS, USSD or wallet verification. No funds have been verified by Kassa."}
                 </p>
                 <div className="mt-5 grid grid-cols-2 gap-4 border-t border-gray-100 pt-5 text-sm">
                   <span className="text-gray-500">Reference</span>
@@ -107,6 +121,20 @@ export default function PaymentStatusContent() {
                     className="mt-5 w-full rounded-lg bg-emerald-800 py-3 text-sm font-semibold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50">
                     {submitting ? "Recording cash payment..." : "Confirm cash received"}
                   </button>
+                </section>
+              )}
+              {!cash && sale.status === "PENDING_PAYMENT" && (
+                <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+                  <h3 className="text-sm font-semibold text-amber-900">Electronic payment processing is not connected</h3>
+                  <p className="mt-2 text-sm leading-6 text-amber-800">
+                    A saved pending sale is not proof of payment. Do not issue a paid receipt or release goods as paid
+                    until you have independent confirmation from the payment provider. Kassa cannot verify this payment yet.
+                  </p>
+                  <button type="button" onClick={() => void refreshStatus()} disabled={refreshing}
+                    className="mt-4 rounded-lg border border-amber-300 bg-white px-4 py-2.5 text-sm font-semibold text-amber-900 disabled:opacity-50">
+                    {refreshing ? "Checking..." : "Reload saved status"}
+                  </button>
+                  {refreshed && <p role="status" className="mt-2 text-xs text-amber-800">Latest saved payment status loaded from Kassa.</p>}
                 </section>
               )}
               {sale.status === "PAID" && (
