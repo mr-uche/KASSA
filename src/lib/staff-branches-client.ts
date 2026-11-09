@@ -1,4 +1,4 @@
-import { inventoryFetch, getInventoryContext, kassaPost } from "@/lib/inventory-client";
+import { inventoryFetch, kassaPost } from "@/lib/inventory-client";
 
 export type StaffRecord = {
   id: string;
@@ -33,8 +33,27 @@ export type InvitationPreview = {
 };
 
 export async function staffContext() {
-  const context = await getInventoryContext();
-  return { businessId: context.businessId, branchName: context.branchName, myRole: context.myRole };
+  // Management must remain accessible even when all branches are inactive,
+  // so owners can reactivate an existing branch or create a new one.
+  const businesses = await inventoryFetch<{
+    id: string; myRole: string;
+    branches: { id: string; name: string; isActive: boolean }[];
+  }[]>("/api/businesses/mine");
+  const owners = businesses.filter((business) => business.myRole === "Owner");
+  if (!owners.length) throw new Error("Only a business owner can manage staff and branches.");
+  const selectedBranchId = typeof window !== "undefined"
+    ? localStorage.getItem("selectedBranchId") ?? "" : "";
+  const selectedBusiness = owners.find((business) =>
+    business.branches.some((branch) => branch.id === selectedBranchId))
+    ?? owners[0];
+  const branch = selectedBusiness.branches.find((item) => item.id === selectedBranchId)
+    ?? selectedBusiness.branches.find((item) => item.isActive)
+    ?? selectedBusiness.branches[0];
+  return {
+    businessId: selectedBusiness.id,
+    branchName: branch?.name ?? "No branches",
+    myRole: selectedBusiness.myRole,
+  };
 }
 export function getStaffSummary(businessId: string) {
   return inventoryFetch<StaffSummary>(
