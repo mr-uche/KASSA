@@ -68,6 +68,10 @@ async function restoreEntrySession(request: NextRequest, token: string, isFresh:
 }
 
 export async function proxy(request: NextRequest) {
+  // Public invitation previews must be accessible before sign-in.
+  if (request.nextUrl.pathname === "/api/staff-branches/invitations/preview") {
+    return NextResponse.next();
+  }
   const isEntryRoute = entryRoutes.has(request.nextUrl.pathname);
   const accessToken = request.cookies.get(SESSION_COOKIE)?.value;
 
@@ -143,5 +147,6 @@ export const config = {
     "/api/customers/:path*",
     "/api/inventory/:path*",
     "/api/sales/:path*",
+    "/api/staff-branches/:path*",
   ],
 };

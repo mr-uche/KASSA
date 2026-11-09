@@ -7,7 +7,7 @@ type RouteContext = { params: Promise<{ action: string }> };
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
   const { action } = await params;
-  if (action !== "register" && action !== "login") {
+  if (!["register", "login", "register-invite"].includes(action)) {
     return NextResponse.json({ message: "Not found" }, { status: 404 });
   }
   const invalid = validateJsonRequest(request);
@@ -21,7 +21,9 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   }
 
   try {
-    const { status, body } = await forwardToBackend(`/auth/${action}`, { method: "POST", body: input });
+    const backendPath = action === "register-invite"
+      ? "/staff-branches/invitations/register" : "/auth/" + action;
+    const { status, body } = await forwardToBackend(backendPath, { method: "POST", body: input });
     if (status < 200 || status >= 300) {
       return NextResponse.json(body, { status });
     }
