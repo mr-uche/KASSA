@@ -344,6 +344,14 @@ export default function ScanProductPage() {
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input id="scanner-code" type="text" value={code}
                   onChange={(event) => setCode(event.target.value)} maxLength={100}
+                  onKeyDown={(event) => {
+                    // Most USB/Bluetooth scanners emit Enter after the barcode.
+                    // Automatically put a matched item into the staging cart.
+                    if (event.key === "Enter" && !event.isComposing) {
+                      event.preventDefault();
+                      void lookUp(event.currentTarget.value, "hardware");
+                    }
+                  }}
                   placeholder="Scan barcode or type SKU"
                   autoComplete="off" spellCheck={false}
                   className="min-w-0 flex-1 rounded-lg border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"/>

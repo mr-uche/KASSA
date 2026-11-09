@@ -63,7 +63,12 @@ export function writeScopedCart(key: string, context: Pick<InventoryContext, "bu
 export function addScannedItem(context: InventoryContext, product: ScannedProduct): number {
   if (product.stock < 1) throw new Error("This product is out of stock in your branch.");
   const existing = readScopedCart(SCAN_CART_KEY, context);
+  const stagedElsewhere = readScopedCart(SALE_CART_KEY, context)
+    .find((item) => item.productId === product.id)?.quantity ?? 0;
   const current = existing.find((item) => item.productId === product.id);
+  if ((current?.quantity ?? 0) + stagedElsewhere >= product.stock) {
+    throw new Error("The total scanned quantity already equals the available stock.");
+  }
   if (current) {
     if (current.quantity >= product.stock) {
       throw new Error("The scanned quantity already equals the available stock.");
