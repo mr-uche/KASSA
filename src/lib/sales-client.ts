@@ -1,4 +1,4 @@
-import { inventoryFetch, kassaPost, type InventoryContext } from "@/lib/inventory-client";
+import { inventoryFetch, kassaPost, type InventoryContext, type InventoryProduct } from "@/lib/inventory-client";
 
 export type PaymentMethod = "CASH" | "BANK_TRANSFER" | "POS" | "CARD" | "USSD" | "WALLET";
 export type SaleDraft = {
@@ -60,4 +60,12 @@ export function saleStatusLabel(status: SavedSale["status"]) {
   if (status === "PAID") return "Success";
   if (status === "PENDING_PAYMENT" || status === "DRAFT") return "Pending";
   return status === "CANCELLED" ? "Cancelled" : status === "REFUNDED" ? "Refunded" : "Partial refund";
+}
+
+export function listCheckoutProducts(context: InventoryContext): Promise<InventoryProduct[]> {
+  const search = new URLSearchParams({
+    businessId: context.businessId,
+    branchId: context.branchId,
+  });
+  return inventoryFetch<InventoryProduct[]>("/api/sales/catalog?" + search.toString());
 }

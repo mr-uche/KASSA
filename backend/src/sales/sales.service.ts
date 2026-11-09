@@ -57,6 +57,41 @@ export class SalesService {
     };
   }
 
+  // Minimal checkout catalogue: no supplier cost, private product notes,
+  // restocking permissions or customer records are exposed to cashiers.
+  async catalog(userId: string, query: SalesListQueryDto) {
+    await this.checkAccess(userId, query.businessId, query.branchId);
+    const products = await this.prisma.product.findMany({
+      where: { businessId: query.businessId },
+      select: {
+        id: true, name: true, sku: true, categoryId: true,
+        sellingPrice: true, lowStockThreshold: true,
+        category: { select: { name: true } },
+        stock: {
+          where: { branchId: query.branchId },
+          select: { quantity: true },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+    return products.map((product) => {
+      const quantity = product.stock[0]?.quantity ?? 0;
+      return {
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        categoryId: product.categoryId,
+        category: product.category?.name ?? 'Uncategorised',
+        price: product.sellingPrice.toString(),
+        costPrice: null,
+        stock: quantity,
+        lowStockThreshold: product.lowStockThreshold,
+        status: quantity === 0 ? 'Out of stock'
+          : quantity <= product.lowStockThreshold ? 'Low stock' : 'In stock',
+      };
+    });
+  }
+
   async create(userId: string, dto: CreateSaleDto) {
     await this.checkAccess(userId, dto.businessId, dto.branchId, true);
     const ids = dto.items.map((line) => line.productId);
