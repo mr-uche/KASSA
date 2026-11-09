@@ -331,6 +331,12 @@ export default function StaffBranchPage() {
               <h2 className="mb-1 text-lg font-semibold text-gray-900">Invite Staff</h2>
               <p className="mb-5 text-sm text-gray-500">Enter details, choose the role, and assign an active branch.</p>
               <div className="space-y-5">
+                {assignableRoles.length === 0 && (
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                    Create a staff role first in Roles &amp; Permissions.
+                    {" "}<Link href="/staff-branches/roles/add" className="font-semibold underline">Add role</Link>
+                  </p>
+                )}
                 <label className="block text-sm font-medium text-gray-700">Full name *
                   <input value={inviteForm.fullName} onChange={(e) => setField("fullName", e.target.value)}
                     placeholder="e.g. Sarah Okafor" maxLength={120}
