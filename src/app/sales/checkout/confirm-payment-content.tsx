@@ -147,7 +147,7 @@ export default function ConfirmPaymentContent() {
         </header>
 
         {/* Page content */}
-        <div className="px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
+        <div className="px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-10 lg:pt-12">
           <p className="mb-8 text-sm text-gray-500 sm:text-base">
             Review the order before saving it. Cash receipt or provider verification is required to complete payment.
           </p>

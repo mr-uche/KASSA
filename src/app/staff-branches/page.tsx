@@ -274,11 +274,11 @@ export default function StaffBranchPage() {
           </div>
         </header>
 
-        <p className="mb-5 mt-4 px-4 text-sm text-gray-500 sm:px-8 sm:text-base">Manage your team, branches, and access permissions.</p>
-        {loading && <p className="mb-3 px-4 text-sm text-gray-500 sm:px-8">Loading records...</p>}
-        {error && <p role="alert" className="mb-4 px-4 text-sm text-red-700 sm:px-8">{error}</p>}
+        <p className="mb-5 px-4 pt-6 text-sm text-gray-500 sm:px-6 sm:pt-8 sm:text-base lg:px-8 lg:pt-12">Manage your team, branches, and access permissions.</p>
+        {loading && <p className="mb-3 px-4 text-sm text-gray-500 sm:px-6 lg:px-8">Loading records...</p>}
+        {error && <p role="alert" className="mb-4 px-4 text-sm text-red-700 sm:px-6 lg:px-8">{error}</p>}
         {inviteLink && (
-          <div className="mx-4 mb-5 rounded-xl border border-emerald-200 bg-white p-4 sm:mx-8">
+          <div className="mx-4 mb-5 rounded-xl border border-emerald-200 bg-white p-4 sm:mx-6 lg:mx-8">
             <p className="font-semibold text-emerald-800">Invitation created — share the link securely</p>
             <p className="mb-3 text-xs text-gray-500">No invitation email has been sent. This link expires after 7 days and will disappear after you leave the page.</p>
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -291,7 +291,7 @@ export default function StaffBranchPage() {
           </div>
         )}
 
-        <div className="mb-6 flex flex-col gap-3 px-4 sm:flex-row sm:items-center sm:px-8">
+        <div className="mb-6 flex flex-col gap-3 px-4 sm:flex-row sm:items-center sm:px-6 lg:px-8">
           <div className="flex flex-1 overflow-x-auto rounded-lg border border-gray-200 bg-white p-1">
             {tabs.map((item) => (
               <button key={item} onClick={() => { setTab(item); setInviteFormOpen(false); setEditing(null); }}
@@ -315,7 +315,7 @@ export default function StaffBranchPage() {
         </div>
 
         {!inviteFormOpen && (
-          <div className={"mb-6 grid grid-cols-2 gap-4 px-4 sm:px-8 " + (tab === "Roles & Permissions" ? "lg:grid-cols-4" : "sm:grid-cols-3")}>
+          <div className={"mb-6 grid grid-cols-2 gap-4 px-4 sm:px-6 lg:px-8 " + (tab === "Roles & Permissions" ? "lg:grid-cols-4" : "sm:grid-cols-3")}>
             {totals.map(([label, count]) => (
               <div key={label} className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
                 <p className="mb-2 text-sm text-gray-500">{label}</p>
@@ -326,7 +326,7 @@ export default function StaffBranchPage() {
         )}
 
         {tab === "Staff" && inviteFormOpen && (
-          <div className="mx-4 grid max-w-5xl gap-6 sm:mx-8 lg:grid-cols-3">
+          <div className="mx-4 grid max-w-5xl gap-6 sm:mx-6 lg:mx-8 lg:grid-cols-3">
             <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6 lg:col-span-2">
               <h2 className="mb-1 text-lg font-semibold text-gray-900">Invite Staff</h2>
               <p className="mb-5 text-sm text-gray-500">Enter details, choose the role, and assign an active branch.</p>
@@ -387,7 +387,7 @@ export default function StaffBranchPage() {
         )}
 
         {tab === "Staff" && !inviteFormOpen && (
-          <section className="px-4 sm:px-8">
+          <section className="px-4 sm:px-6 lg:px-8">
             <h2 className="mb-1 text-xl font-semibold text-gray-900">Staff</h2>
             <p className="mb-4 text-sm text-gray-500">Manage staff members and their access.</p>
             <div className="relative z-10 mb-4 flex flex-col gap-3 sm:flex-row">
@@ -448,7 +448,7 @@ export default function StaffBranchPage() {
         )}
 
         {tab === "Branches" && (
-          <section className="px-4 sm:px-8">
+          <section className="px-4 sm:px-6 lg:px-8">
             <h2 className="mb-1 text-xl font-semibold text-gray-900">Branches</h2>
             <p className="mb-4 text-sm text-gray-500">Manage your business locations and branch activity.</p>
             <div className="relative z-10 mb-4 flex flex-col gap-3 sm:flex-row">
@@ -518,7 +518,7 @@ export default function StaffBranchPage() {
         )}
 
         {tab === "Roles & Permissions" && (
-          <section className="px-4 sm:px-8">
+          <section className="px-4 sm:px-6 lg:px-8">
             <h2 className="mb-1 text-xl font-semibold text-gray-900">Roles &amp; permissions</h2>
             <p className="mb-4 text-sm text-gray-500">Control what each role can view, create, edit, and manage.</p>
             <div className="relative z-10 mb-4 flex flex-col gap-3 sm:flex-row">

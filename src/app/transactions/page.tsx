@@ -69,6 +69,12 @@ function FilterDropdown({
  
   return (
     <div className="relative shrink-0">
+      <select aria-label="Select transaction filter" value={selected}
+        onChange={(event) => onSelect(event.target.value)}
+        className="max-w-[170px] shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 sm:hidden">
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+      <div className="hidden sm:block">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
@@ -95,6 +101,7 @@ function FilterDropdown({
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -286,7 +293,7 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
             </div>
 
             {/* Filter row: horizontal scroll on mobile instead of wrapping/overflow */}
-            <div className="-mx-4 flex gap-[10px] overflow-visible px-4 sm:mx-0 sm:flex-wrap sm:gap-[15px] sm:overflow-visible sm:px-0">
+            <div className="flex min-w-0 max-w-full gap-3 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:thin] sm:flex-wrap sm:gap-[15px] sm:overflow-visible sm:pb-0">
               <FilterDropdown
                 selected={selectedChannels}
                 options={["All Channels", "Transfer", "Cash", "POS", "USSD", "Card", "Kassa Wallet"]}

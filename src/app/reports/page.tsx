@@ -400,7 +400,7 @@ export default function ReportsPage() {
           <div className="border-b border-gray-200 bg-white px-6 py-6">
             <h1 className="text-xl font-bold text-[#182033]">Reports &amp; Analytics</h1>
           </div>
-          <div role="alert" className="mx-4 mt-8 max-w-xl rounded-xl border border-gray-200 bg-white p-6 sm:mx-8">
+          <div role="alert" className="mx-4 mt-8 max-w-xl rounded-xl border border-gray-200 bg-white p-6 sm:mx-6 lg:mx-8">
             <h2 className="mb-2 text-lg font-semibold text-gray-900">Access restricted</h2>
             <p className="text-sm leading-6 text-gray-600">
               Your role does not include <strong>View reports &amp; analytics</strong>.
@@ -441,7 +441,7 @@ export default function ReportsPage() {
           </div>
         </header>
 
-        <div className="mb-6 mt-4 flex flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+        <div className="mb-6 flex flex-col gap-3 px-4 pt-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pt-8 lg:px-8 lg:pt-12">
           <div className="flex max-w-full overflow-x-auto rounded-lg border border-gray-200 bg-white p-1">
             {rangeTabs.map((item) => (
               <button key={item} onClick={() => setRange(item)}
@@ -465,7 +465,7 @@ export default function ReportsPage() {
         </div>
 
         {range === "Custom range" && (
-          <div className="relative z-10 mb-5 flex flex-wrap items-end gap-3 px-4 sm:px-8">
+          <div className="relative z-10 mb-5 flex flex-wrap items-end gap-3 px-4 sm:px-6 lg:px-8">
             <label className="block text-xs text-gray-600">Quick range
               <select value={quick} onChange={(e) => setQuick(e.target.value as QuickRange)}
                 className="mt-1 block rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm">
@@ -493,16 +493,16 @@ export default function ReportsPage() {
           </div>
         )}
 
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-2 px-4 text-xs text-gray-500 sm:px-8">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2 px-4 text-xs text-gray-500 sm:px-6 lg:px-8">
           <span>Showing {dates.label}: {dates.from} – {dates.to} · {selectedBranch} · Africa/Lagos time</span>
           {report && <span>Updated {new Date(report.scope.generatedAt).toLocaleString("en-NG")}</span>}
         </div>
-        {loading && <p role="status" className="mb-4 px-4 text-sm text-gray-600 sm:px-8">Loading real sales reports...</p>}
-        {error && <p role="alert" className="mb-4 px-4 text-sm text-red-700 sm:px-8">{error}</p>}
+        {loading && <p role="status" className="mb-4 px-4 text-sm text-gray-600 sm:px-6 lg:px-8">Loading real sales reports...</p>}
+        {error && <p role="alert" className="mb-4 px-4 text-sm text-red-700 sm:px-6 lg:px-8">{error}</p>}
 
         {report && (
           <>
-            <div className="mb-6 grid grid-cols-2 gap-4 px-4 sm:px-8 lg:grid-cols-4">
+            <div className="mb-6 grid grid-cols-2 gap-4 px-4 sm:px-6 lg:px-8 lg:grid-cols-4">
               <SummaryCard label="Confirmed sales" value={formatMoney(metrics?.paidSales ?? "0")}
                 sub={change}/>
               <SummaryCard label="Avg transaction value" value={formatMoney(metrics?.averageSale ?? "0")}
@@ -518,18 +518,18 @@ export default function ReportsPage() {
                   ? metrics?.topBranch ? metrics.topBranch.sharePct.toFixed(1) + "% of confirmed revenue" : "No confirmed branch revenue"
                   : String(metrics?.pendingTransactions ?? 0) + " pending sales"}/>
             </div>
-            <div className="mb-6 grid grid-cols-2 gap-4 px-4 sm:px-8 lg:grid-cols-3">
+            <div className="mb-6 grid grid-cols-2 gap-4 px-4 sm:px-6 lg:px-8 lg:grid-cols-3">
               <SummaryCard label="Paid transactions" value={String(metrics?.paidTransactions ?? 0)}/>
               <SummaryCard label="Pending sales" value={String(metrics?.pendingTransactions ?? 0)}
                 sub="Not included in confirmed sales"/>
               <SummaryCard label="Previous period sales" value={formatMoney(metrics?.previousPaidSales ?? "0")}/>
             </div>
 
-            <div className="mb-6 grid grid-cols-1 gap-6 px-4 sm:px-8 lg:grid-cols-3">
+            <div className="mb-6 grid grid-cols-1 gap-6 px-4 sm:px-6 lg:px-8 lg:grid-cols-3">
               <StackedTrendChart report={report}/>
               <ChannelBreakdown report={report}/>
             </div>
-            <div className="mb-6 grid grid-cols-1 gap-6 px-4 sm:px-8 xl:grid-cols-2">
+            <div className="mb-6 grid grid-cols-1 gap-6 px-4 sm:px-6 lg:px-8 xl:grid-cols-2">
               <TablePanel title="Sales by staff member">
                 <table className="w-full min-w-[450px] text-left text-sm">
                   <thead><tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-500">
@@ -567,7 +567,7 @@ export default function ReportsPage() {
                 </table>
               </TablePanel>
             </div>
-            <div className="mb-6 px-4 sm:px-8">
+            <div className="mb-6 px-4 sm:px-6 lg:px-8">
               <TablePanel title="Top-selling products (confirmed sales)">
                 <table className="w-full min-w-[440px] text-left text-sm">
                   <thead><tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-500">
@@ -586,7 +586,7 @@ export default function ReportsPage() {
                 </table>
               </TablePanel>
             </div>
-            <p className="mb-8 px-4 text-xs leading-6 text-gray-500 sm:px-8">
+            <p className="mb-8 px-4 text-xs leading-6 text-gray-500 sm:px-6 lg:px-8">
               Confirmed gross sales are not profit or bank-settled funds. Only paid sales with a successful payment
               count as revenue; unverified electronic payments stay pending. The report groups transactions by
               sale creation date in Africa/Lagos, using each sale&apos;s current status. Failed payment rate excludes
