@@ -95,11 +95,19 @@ export async function proxy(request: NextRequest) {
         : NextResponse.redirect(new URL("/login?session=unavailable", request.url));
   }
 
+  // A bad or revoked token is different from a temporary backend/database failure.
+  // Preserve the long-lived cookie on 5xx, 429, or unexpected upstream responses.
+  if (result.status === 401 || result.status === 403) {
+    return invalidSession(request, isEntryRoute);
+  }
   if (result.status !== 200 ||
       !result.body || typeof result.body !== "object" ||
       !("accessToken" in result.body) ||
       typeof result.body.accessToken !== "string") {
-    return invalidSession(request, isEntryRoute);
+    return isEntryRoute ? NextResponse.next() :
+      request.nextUrl.pathname.startsWith("/api/")
+        ? NextResponse.json({ message: "Session renewal is temporarily unavailable." }, { status: 503 })
+        : NextResponse.redirect(new URL("/login?session=unavailable", request.url));
   }
 
   const freshToken = result.body.accessToken;
