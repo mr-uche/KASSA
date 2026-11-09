@@ -43,6 +43,19 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ message: "Remembered session could not be started." }, { status: 502 });
     }
 
+    // On a successful new login, revoke any previously remembered session
+    // for this browser, including when the checkbox is now unchecked.
+    const previousRememberToken = request.cookies.get(REMEMBER_COOKIE)?.value;
+    if (previousRememberToken) {
+      try {
+        await forwardToBackend("/auth/logout", {
+          method: "POST", body: { refreshToken: previousRememberToken },
+        });
+      } catch {
+        // Clearing the old cookie still prevents using that session locally.
+      }
+    }
+
     const response = NextResponse.json(safeBody, { status });
     const settings = {
       httpOnly: true as const,
