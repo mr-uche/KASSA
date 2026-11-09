@@ -117,6 +117,7 @@ export class InventoryService {
         id: product.id,
         name: product.name,
         sku: product.sku,
+        barcode: product.barcode,
         categoryId: product.categoryId,
         category: product.category?.name ?? 'Uncategorised',
         price: product.sellingPrice.toString(),
@@ -146,6 +147,7 @@ export class InventoryService {
             categoryId: category.id,
             name: dto.name.trim(),
             sku: dto.sku.trim(),
+            barcode: dto.barcode?.trim() || null,
             brand: dto.brand?.trim() || null,
             unit: dto.unit?.trim() || null,
             description: dto.description?.trim() || null,
@@ -172,7 +174,7 @@ export class InventoryService {
       });
     } catch (error: unknown) {
       if ((error as { code?: string })?.code === 'P2002') {
-        throw new ConflictException('A product with this SKU already exists in the business');
+        throw new ConflictException('A product with this SKU or barcode already exists in the business');
       }
       throw error;
     }

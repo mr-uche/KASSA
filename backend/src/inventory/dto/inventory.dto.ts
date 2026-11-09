@@ -58,6 +58,12 @@ export class ProductCreateDto {
   @MaxLength(100)
   sku!: string;
 
+  @ApiPropertyOptional({ example: '8901234567890', description: 'Barcode / GTIN printed on the product' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  barcode?: string;
+
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   categoryId!: string;

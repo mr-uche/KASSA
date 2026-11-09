@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AccessTokenGuard, type AuthenticatedRequest } from '../auth/access-token.guard';
-import { ConfirmCashDto, CreateSaleDto, SalesListQueryDto } from './dto/sales.dto';
+import { ConfirmCashDto, CreateSaleDto, SalesListQueryDto, ScanLookupQueryDto } from './dto/sales.dto';
 import { SalesService } from './sales.service';
 
 @ApiTags('Sales') @ApiBearerAuth() @UseGuards(AccessTokenGuard) @Controller('sales')
@@ -20,6 +20,11 @@ export class SalesController {
   catalog(@Req() request: AuthenticatedRequest, @Query() query: SalesListQueryDto) {
     return this.sales.catalog(request.userId, query);
   }
+  @Get('lookup') @ApiOperation({ summary: 'Find a product by barcode or SKU for authorised cashiers' })
+  lookup(@Req() request: AuthenticatedRequest, @Query() query: ScanLookupQueryDto) {
+    return this.sales.lookupProduct(request.userId, query);
+  }
+
   @Get(':saleId') @ApiOperation({ summary: 'View sale with items and payment status' })
   one(@Req() request: AuthenticatedRequest, @Param('saleId', ParseUUIDPipe) id: string) {
     return this.sales.getOne(request.userId, id);

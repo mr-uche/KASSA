@@ -29,3 +29,11 @@ export class ConfirmCashDto {
   @ApiProperty({ example: true, description: 'Explicit confirmation of physical cash receipt' })
   @IsIn([true]) cashReceived!: true;
 }
+
+export class ScanLookupQueryDto extends SalesListQueryDto {
+  @ApiProperty({ description: 'Exact barcode or SKU, as a string to preserve leading zeroes', example: '8901234567890' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  code!: string;
+}

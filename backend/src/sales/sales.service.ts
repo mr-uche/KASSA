@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { requireBusinessPermission } from '../business-access';
-import { ConfirmCashDto, CreateSaleDto, SalesListQueryDto } from './dto/sales.dto';
+import { ConfirmCashDto, CreateSaleDto, SalesListQueryDto, ScanLookupQueryDto } from './dto/sales.dto';
 
 function toKobo(value: string): bigint {
   if (!/^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(value)) throw new BadRequestException('Invalid product price');
@@ -64,7 +64,7 @@ export class SalesService {
     const products = await this.prisma.product.findMany({
       where: { businessId: query.businessId },
       select: {
-        id: true, name: true, sku: true, categoryId: true,
+        id: true, name: true, sku: true, barcode: true, categoryId: true,
         sellingPrice: true, lowStockThreshold: true,
         category: { select: { name: true } },
         stock: {
@@ -80,6 +80,7 @@ export class SalesService {
         id: product.id,
         name: product.name,
         sku: product.sku,
+        barcode: product.barcode,
         categoryId: product.categoryId,
         category: product.category?.name ?? 'Uncategorised',
         price: product.sellingPrice.toString(),
@@ -90,6 +91,45 @@ export class SalesService {
           : quantity <= product.lowStockThreshold ? 'Low stock' : 'In stock',
       };
     });
+  }
+
+  async lookupProduct(userId: string, query: ScanLookupQueryDto) {
+    // Permission and active assigned-branch checks apply before any lookup.
+    await this.checkAccess(userId, query.businessId, query.branchId);
+    const code = query.code.trim();
+    if (!code || code.length > 100) throw new BadRequestException('Enter a valid product barcode or SKU');
+    // Match case-insensitive SKUs, exact barcodes (including leading zeroes).
+    const matches = await this.prisma.product.findMany({
+      where: {
+        businessId: query.businessId,
+        OR: [
+          { barcode: code },
+          { sku: { equals: code, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true, name: true, sku: true, barcode: true, sellingPrice: true,
+        lowStockThreshold: true,
+        category: { select: { name: true } },
+        stock: {
+          where: { branchId: query.branchId },
+          select: { quantity: true },
+        },
+      },
+      take: 2,
+    });
+    if (!matches.length) throw new NotFoundException('No product matches this barcode or SKU in your business');
+    if (matches.length > 1) throw new ConflictException('More than one product matches this code. Resolve the duplicate SKU/barcode first');
+    const product = matches[0];
+    const quantity = product.stock[0]?.quantity ?? 0;
+    return {
+      id: product.id, name: product.name, sku: product.sku, barcode: product.barcode,
+      category: product.category?.name ?? 'Uncategorised',
+      price: product.sellingPrice.toString(),
+      stock: quantity,
+      status: quantity === 0 ? 'Out of stock'
+        : quantity <= product.lowStockThreshold ? 'Low stock' : 'In stock',
+    };
   }
 
   async create(userId: string, dto: CreateSaleDto) {
