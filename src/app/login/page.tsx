@@ -29,6 +29,12 @@ export default function LoginPage() {
     setError("");
     try {
       await kassaPost("/api/auth/login", { email, password, rememberMe });
+      // Invitations return staff to the one-time acceptance screen after login.
+      const next = new URLSearchParams(window.location.search).get("next");
+      if (next && next.startsWith("/staff-invite?token=") && !next.includes("//")) {
+        router.replace(next);
+        return;
+      }
       const response = await fetch("/api/businesses/mine", { cache: "no-store" });
       if (!response.ok) {
         throw new Error("Signed in, but couldn't load your businesses. Please try again.");
