@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 import {
   ArrowLeft, Bell, Camera, CameraOff, CheckCircle2, Keyboard, Menu,
   ScanBarcode, ShoppingCart, Video, Zap,
@@ -17,7 +18,7 @@ import {
 type CameraState = "idle" | "starting" | "scanning";
 type Source = "camera" | "hardware" | "manual";
 
-type ScannerControls = { stop(): void };
+type ScannerControls = { stop(): void; switchTorch?(enabled: boolean): Promise<void> };
 
 export default function ScanProductPage() {
   const router = useRouter();
@@ -25,6 +26,9 @@ export default function ScanProductPage() {
   const [context, setContext] = useState<InventoryContext | null>(null);
   const [loadingContext, setLoadingContext] = useState(true);
   const [cameraState, setCameraState] = useState<CameraState>("idle");
+  const [detectedCode, setDetectedCode] = useState("");
+  const [torchAvailable, setTorchAvailable] = useState(false);
+  const [torchEnabled, setTorchEnabled] = useState(false);
   const [code, setCode] = useState("");
   const [found, setFound] = useState<ScannedProduct | null>(null);
   const [busy, setBusy] = useState(false);
@@ -50,6 +54,8 @@ export default function ScanProductPage() {
       video.srcObject = null;
     }
     setCameraState("idle");
+    setTorchAvailable(false);
+    setTorchEnabled(false);
   }, []);
 
   const lookUp = useCallback(async (raw: string, source: Source) => {
@@ -200,6 +206,7 @@ export default function ScanProductPage() {
     if (!context || cameraState !== "idle") return;
     setError("");
     setNotice("");
+    setDetectedCode("");
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       setError("Camera access requires HTTPS or localhost in a supported browser. You can still use a USB/Bluetooth scanner.");
       return;
@@ -211,14 +218,38 @@ export default function ScanProductPage() {
     try {
       const { BrowserMultiFormatReader } = await import("@zxing/browser");
       if (generation !== cameraEpoch.current) return;
-      const reader = new BrowserMultiFormatReader();
+      // Focus the decoder on actual shop/product codes and scan HD video where available.
+      // TRY_HARDER improves small and tightly printed 1D barcodes.
+      const hints = new Map<DecodeHintType, BarcodeFormat[] | boolean>();
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.EAN_13, BarcodeFormat.EAN_8,
+        BarcodeFormat.UPC_A, BarcodeFormat.UPC_E,
+        BarcodeFormat.CODE_128, BarcodeFormat.CODE_39,
+        BarcodeFormat.CODE_93, BarcodeFormat.ITF,
+        BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX,
+      ]);
+      hints.set(DecodeHintType.TRY_HARDER, true);
+      const reader = new BrowserMultiFormatReader(hints, {
+        delayBetweenScanAttempts: 180,
+        delayBetweenScanSuccess: 400,
+      });
       const controls = await reader.decodeFromConstraints(
-        { audio: false, video: { facingMode: { ideal: "environment" } } },
+        {
+          audio: false,
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        },
         video,
         (result, _error, cameraControls) => {
           if (!result || generation !== cameraEpoch.current || inFlight.current) return;
+          const scanned = result.getText().trim();
+          if (!scanned) return;
+          setDetectedCode(scanned);
           cameraControls.stop();
-          lookupRef.current(result.getText(), "camera");
+          lookupRef.current(scanned, "camera");
         },
       );
       if (generation !== cameraEpoch.current) {
@@ -226,6 +257,14 @@ export default function ScanProductPage() {
         return;
       }
       controlsRef.current = controls;
+      const stream = video.srcObject;
+      const track = stream instanceof MediaStream ? stream.getVideoTracks()[0] : undefined;
+      try {
+        const capabilities = track?.getCapabilities?.();
+        setTorchAvailable(Boolean(controls.switchTorch && capabilities && "torch" in capabilities));
+      } catch {
+        setTorchAvailable(false);
+      }
       setCameraState("scanning");
     } catch (cause) {
       if (generation !== cameraEpoch.current) return;
@@ -238,6 +277,18 @@ export default function ScanProductPage() {
           ? "No compatible camera was found. Try an external barcode scanner or manual entry."
           : "Camera could not start. Close other apps using the camera and try again.";
       setError(text);
+    }
+  }
+
+  async function toggleTorch() {
+    const controls = controlsRef.current;
+    if (!controls?.switchTorch) return;
+    try {
+      await controls.switchTorch(!torchEnabled);
+      setTorchEnabled((value) => !value);
+    } catch {
+      setTorchAvailable(false);
+      setError("Flashlight control is not supported on this camera.");
     }
   }
 
@@ -311,9 +362,17 @@ export default function ScanProductPage() {
                 )}
               </div>
               <p className="mt-4 text-center text-sm text-white">
-                {cameraState === "scanning" ? "Align the barcode inside the frame" : "Camera scanning"}
+                {cameraState === "scanning" ? "Hold the barcode steady, sharp and well lit" : "Camera scanning"}
               </p>
-              <p className="mt-1 text-center text-xs text-gray-400">Uses the camera only after you select Start Camera.</p>
+              <p className="mt-1 text-center text-xs leading-5 text-gray-400">
+                Use the rear camera. Fill most of the frame with the bars, keep the white edges visible,
+                and move the phone slowly closer or farther away until the lines are in focus.
+              </p>
+              {detectedCode && (
+                <p className="mt-3 break-all rounded-lg bg-emerald-950 px-3 py-2 text-center text-sm text-emerald-100" role="status">
+                  Barcode read: <strong>{detectedCode}</strong>
+                </p>
+              )}
               <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
                 {cameraState === "idle" ? (
                   <button type="button" onClick={() => void startCamera()}
@@ -325,6 +384,12 @@ export default function ScanProductPage() {
                   <button type="button" onClick={stopCamera}
                     className="flex items-center gap-2 rounded-lg border border-white/40 px-5 py-3 text-sm font-medium text-white">
                     <CameraOff size={18}/> Stop Camera
+                  </button>
+                )}
+                {cameraState === "scanning" && torchAvailable && (
+                  <button type="button" onClick={() => void toggleTorch()}
+                    className="flex items-center gap-2 rounded-lg border border-white/40 px-4 py-3 text-sm text-white">
+                    <Zap size={17}/> {torchEnabled ? "Flashlight off" : "Flashlight on"}
                   </button>
                 )}
                 <Link href="/scan/product-code"
@@ -402,7 +467,10 @@ export default function ScanProductPage() {
                 sends Enter after each barcode, a successful match is automatically added to the sale.
                 Repeated scans increase quantity, subject to available stock.
               </p>
-              <p className="mt-3 text-xs text-gray-500">No barcode matched? Check the product SKU or the Barcode Number entered when it was created.</p>
+              <p className="mt-3 text-xs leading-5 text-gray-500">
+                A printed retail barcode must also be saved against the product in Products &amp; Inventory.
+                Detecting a code does not automatically create a matching product.
+              </p>
             </div>
             {cartCount > 0 && (
               <button type="button" onClick={() => {stopCamera();router.push("/sales/new");}}
