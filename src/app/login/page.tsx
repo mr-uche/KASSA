@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { useRouter } from "next/navigation";
 import Logo from "@/components/logo";
 import { kassaPost } from "@/lib/kassa-client";
 import { firstPermittedPath, type BusinessAccess } from "@/lib/kassa-permissions";
@@ -14,7 +13,6 @@ const bullets = [
 ];
 
 export default function LoginPage() {
-  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,18 +28,51 @@ export default function LoginPage() {
     setError("");
     try {
       await kassaPost("/api/auth/login", { email, password, rememberMe });
+      // A Route Handler sets an HttpOnly cookie; verify the browser actually
+      // returned it before navigating to a protected page. This is especially
+      // useful on phones visiting the development server by its LAN IP.
+      const sessionResponse = await fetch("/api/auth/me", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      if (sessionResponse.status === 401) {
+        throw new Error(
+          "Your password was accepted, but this browser did not keep the sign-in session. " +
+          "Allow cookies for this site and open Kassa through the same address each time. " +
+          "For local HTTP testing, run npm run dev rather than a production build."
+        );
+      }
+      if (!sessionResponse.ok) {
+        throw new Error(
+          "Signed in, but your session could not be verified. Check that the Kassa backend is running."
+        );
+      }
+
       // Invitations return staff to the one-time acceptance screen after login.
       const next = new URLSearchParams(window.location.search).get("next");
       if (next && next.startsWith("/staff-invite?token=") && !next.includes("//")) {
-        router.replace(next);
+        // A full navigation avoids reusing pre-login Router Cache state.
+        window.location.replace(next);
         return;
       }
-      const response = await fetch("/api/businesses/mine", { cache: "no-store" });
+
+      const response = await fetch("/api/businesses/mine", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
       if (!response.ok) {
-        throw new Error("Signed in, but couldn't load your businesses. Please try again.");
+        const reason = response.status === 401
+          ? "Your login session was not accepted by the server."
+          : "Signed in, but couldn't load your businesses. Check your backend connection.";
+        throw new Error(reason);
       }
       const businesses: unknown = await response.json();
-      router.replace(Array.isArray(businesses) ? firstPermittedPath(businesses as BusinessAccess[]) : "/onboarding");
+      const destination = Array.isArray(businesses)
+        ? firstPermittedPath(businesses as BusinessAccess[])
+        : "/onboarding";
+      // Re-request the landing page from the server, carrying the new cookie.
+      // router.replace() can reuse an unauthenticated pre-login client route.
+      window.location.replace(destination);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to sign in.");
     } finally {
