@@ -89,7 +89,7 @@ export class BusinessesService {
       where: { userId },
       select: {
         branchId: true,
-        role: { select: { name: true } },
+        role: { select: { name: true, permissions: true } },
         business: {
           select: {
             id: true, name: true, type: true, createdAt: true,
@@ -104,6 +104,11 @@ export class BusinessesService {
         ? membership.business.branches
         : membership.business.branches.filter((branch) => branch.id === membership.branchId),
       myRole: membership.role.name,
+      // Expose only the current user's own role permissions so the UI can
+      // hide unavailable navigation; API authorization remains authoritative.
+      myPermissions: Array.isArray(membership.role.permissions)
+        ? membership.role.permissions.filter((permission): permission is string => typeof permission === 'string')
+        : [],
     }));
   }
 }
