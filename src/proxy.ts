@@ -148,5 +148,6 @@ export const config = {
     "/api/inventory/:path*",
     "/api/sales/:path*",
     "/api/staff-branches/:path*",
+    "/api/reports/:path*",
   ],
 };
