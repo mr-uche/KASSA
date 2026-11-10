@@ -109,7 +109,8 @@ export function downloadSaleReceiptPdf(
   const test = successful.provider === "PAYSTACK_TEST";
   const lines: ReceiptLine[] = [];
   const add = (text: string, bold = false, size = 10) => {
-    wrap(text).forEach((segment) => lines.push({ text: segment, bold, size }));
+    wrap(text, size >= 14 ? 55 : size >= 12 ? 66 : 78)
+      .forEach((segment) => lines.push({ text: segment, bold, size }));
   };
   const pair = (label: string, value: string) => {
     add(label + ": " + value);
@@ -138,7 +139,7 @@ export function downloadSaleReceiptPdf(
     const nameLines = wrap(item.name, 49);
     const qty = String(item.quantity).padStart(5);
     const price = money(item.lineTotal).padStart(19);
-    add(nameLines[0].padEnd(49) + qty + price);
+    lines.push({ text: nameLines[0].padEnd(49) + qty + price });
     nameLines.slice(1).forEach((name) => add(name));
   });
   add(rule);
