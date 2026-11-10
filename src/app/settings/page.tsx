@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCircle2, Loader2, Menu, ShieldAlert } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
+import Logo from "@/components/logo";
 import { getInventoryContext } from "@/lib/inventory-client";
 import {
   getBusinessSettings, updateBusinessSettings, type BusinessSettings,
@@ -268,10 +269,11 @@ export default function SettingsPage() {
     <div className="min-h-screen overflow-x-hidden bg-gray-50">
       <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
       <main className="min-h-screen lg:ml-[198px]">
-        <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 py-4 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-30 flex min-h-[80px] items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 py-4 sm:px-6 lg:static lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <button type="button" aria-label="Open menu" onClick={() => setSidebarOpen(true)}
               className="rounded-md p-1.5 text-gray-700 hover:bg-gray-100 lg:hidden"><Menu size={22}/></button>
+            <Logo width={88} height={24} className="lg:hidden"/>
             <h1 className="truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">Settings</h1>
           </div>
           <div className="flex shrink-0 items-center gap-3">
@@ -283,13 +285,15 @@ export default function SettingsPage() {
         </header>
 
         <div className="flex min-w-0 flex-col gap-4 px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:flex-row lg:gap-6 lg:px-8 lg:pb-10 lg:pt-12">
-          <nav aria-label="Settings sections" className="w-full shrink-0 lg:w-64">
-            <div className="rounded-xl border border-gray-200 bg-white p-2">
+          <nav aria-label="Settings sections" className="w-full min-w-0 shrink-0 overflow-x-auto pb-1 lg:w-64 lg:overflow-visible lg:pb-0">
+            <div className="flex w-max gap-1 rounded-xl border border-gray-200 bg-white p-2 lg:w-full lg:flex-col">
               {navigation.map((item) => (
-                <button type="button" key={item} onClick={() => { setSection(item); setError(""); setSuccess(""); }}
-                  className={"w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors " +
-                    (section === item ? "bg-emerald-50 text-emerald-800" :
-                      item === "Delete Account" ? "text-red-600 hover:bg-red-50" : "text-gray-600 hover:bg-gray-50")}>
+                <button type="button" key={item} aria-pressed={section === item}
+                  onClick={() => { setSection(item); setError(""); setSuccess(""); }}
+                  className={"shrink-0 whitespace-nowrap rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors lg:w-full lg:whitespace-normal " +
+                    (section === item
+                      ? item === "Delete Account" ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-800"
+                      : item === "Delete Account" ? "text-red-600 hover:bg-red-50" : "text-gray-600 hover:bg-gray-50")}>
                   {item}
                 </button>
               ))}
