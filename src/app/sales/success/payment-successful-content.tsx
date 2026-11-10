@@ -7,6 +7,7 @@ import { CheckCircle2, Clock3, Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import { getSale, type SavedSale } from "@/lib/sales-client";
 import { formatNaira } from "@/lib/inventory-client";
+import SaleReceipt from "@/components/sales/SaleReceipt";
 
 export default function PaymentSuccessfulContent() {
   const params = useSearchParams();
@@ -61,10 +62,9 @@ export default function PaymentSuccessfulContent() {
                 <p className="mt-5 text-2xl font-bold text-emerald-700">{formatNaira(sale.total)}</p>
                 <p className="mt-2 break-all text-xs text-gray-500">Sale reference: {sale.reference}</p>
                 {paid && (
-                  <Link href={"/sales/receipt?saleId=" + encodeURIComponent(sale.id)}
-                    className="mt-6 flex items-center justify-center rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white">
-                    {testPayment ? "View TEST receipt" : "View receipt"}
-                  </Link>
+                  <p className="mt-4 text-sm font-medium text-emerald-800">
+                    Your receipt is ready below.
+                  </p>
                 )}
                 {!paid && (
                   <Link href={"/sales/payment?saleId=" + encodeURIComponent(sale.id)}
@@ -76,6 +76,7 @@ export default function PaymentSuccessfulContent() {
             )}
             <Link href="/transactions" className="mt-5 inline-flex text-sm font-medium text-emerald-700">Transaction history</Link>
           </section>
+          {sale && paid && <div className="mt-6"><SaleReceipt sale={sale} /></div>}
         </div>
       </main>
     </div>
