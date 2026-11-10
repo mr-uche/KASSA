@@ -65,6 +65,28 @@ export default function KassaSidebar({
     };
   }, [pathname]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const mobileViewport = window.matchMedia("(max-width: 1023px)");
+    const previousOverflow = document.body.style.overflow;
+    const syncScrollLock = () => {
+      document.body.style.overflow = mobileViewport.matches ? "hidden" : previousOverflow;
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    syncScrollLock();
+    document.addEventListener("keydown", closeOnEscape);
+    mobileViewport.addEventListener("change", syncScrollLock);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+      mobileViewport.removeEventListener("change", syncScrollLock);
+    };
+  }, [isOpen, onClose]);
+
   return (
     <>
       {/* Mobile backdrop */}
