@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcryptjs';
 import { createHash, randomBytes } from 'node:crypto';
@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshSessionDto } from './dto/refresh-session.dto';
 import { RegisterDto } from './dto/register.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
 
 const ACCESS_TOKEN_SECONDS = 15 * 60;
 const REMEMBER_DAYS = 30;
@@ -98,7 +99,8 @@ export class AuthService {
         user: { select: { id: true, email: true, fullName: true, phone: true } },
       },
     });
-    if (!session || session.revokedAt || session.expiresAt.getTime() <= Date.now()) {
+    if (!session || session.revokedAt || session.expiresAt.getTime() <= Date.now() ||
+        session.user.email.startsWith('deleted_')) {
       throw new UnauthorizedException('Remembered session has expired or was revoked');
     }
     // Do not extend the session's absolute expiry during refresh.
@@ -116,6 +118,41 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
     return { message: 'Signed out' };
+  }
+
+  async deleteAccount(userId: string, dto: DeleteAccountDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, passwordHash: true, isPlatformAdmin: true },
+    });
+    if (!user || user.email.startsWith('deleted_') ||
+        !(await compare(dto.password, user.passwordHash))) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+    if (user.isPlatformAdmin) {
+      throw new ForbiddenException('Platform administrator accounts require a separate managed deletion process');
+    }
+
+    // Retain the pseudonymous user row for referential integrity of financial
+    // transactions, membership history, and audit records; never erase businesses.
+    // The previous email is freed for a future independent registration.
+    const disabledHash = await hash(randomBytes(48).toString('hex'), 12);
+    await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.user.updateMany({
+        where: { id: userId, email: user.email, passwordHash: user.passwordHash },
+        data: {
+          email: 'deleted_' + userId + '@accounts.invalid',
+          passwordHash: disabledHash,
+          fullName: 'Deleted Kassa user',
+          phone: null,
+        },
+      });
+      if (claim.count !== 1) throw new ConflictException('Account changed during deletion; please retry');
+      // Purge persisted remembered sessions; AccessTokenGuard rejects existing
+      // access tokens by the deleted_ tombstone email immediately.
+      await tx.authSession.deleteMany({ where: { userId } });
+    });
+    return { closed: true, message: 'Your login is permanently closed. Financial and business records may be retained.' };
   }
 
   async getProfile(id: string) {

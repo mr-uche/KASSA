@@ -9,7 +9,7 @@ export type ApiResult = { status: number; body: unknown };
 
 export async function forwardToBackend(
   path: string,
-  options: { method?: "GET" | "POST" | "PATCH"; body?: unknown; token?: string } = {},
+  options: { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown; token?: string } = {},
 ): Promise<ApiResult> {
   const response = await fetch(`${BACKEND_URL}/api/v1${path}`, {
     method: options.method ?? "GET",

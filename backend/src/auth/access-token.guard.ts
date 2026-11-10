@@ -24,9 +24,9 @@ export class AccessTokenGuard implements CanActivate {
       if (payload.scope !== 'access' || !payload.sub) throw new Error('Invalid token scope');
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
-        select: { id: true },
+        select: { id: true, email: true },
       });
-      if (!user) throw new Error('User no longer exists');
+      if (!user || user.email.startsWith('deleted_')) throw new Error('Account is closed');
       request.userId = user.id;
       return true;
     } catch {

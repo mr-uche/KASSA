@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AccessTokenGuard, type AuthenticatedRequest } from './access-token.guard';
@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshSessionDto } from './dto/refresh-session.dto';
 import { RegisterDto } from './dto/register.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -38,6 +39,18 @@ export class AuthController {
   @ApiOperation({ summary: 'Revoke a remembered session token' })
   logout(@Body() dto: RefreshSessionDto) {
     return this.auth.logout(dto);
+  }
+
+  @Delete('me')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { ttl: 60_000, limit: 3 } })
+  @ApiOperation({
+    summary: 'Permanently close own Kassa login, anonymize personal profile and revoke all sessions',
+    description: 'Financial records and merchant businesses remain for accounting. Requires current password and exact confirmation phrase.',
+  })
+  deleteAccount(@Req() req: AuthenticatedRequest, @Body() dto: DeleteAccountDto) {
+    return this.auth.deleteAccount(req.userId, dto);
   }
 
   @Get('me')
