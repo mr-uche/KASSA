@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Menu } from "lucide-react";
+import { Bell, Loader2, Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import {
   createCustomer, getCustomer, getCustomerBusiness, updateCustomer,
@@ -104,20 +104,29 @@ export default function CustomerEditor({ customerId }: CustomerEditorProps) {
     <div className="min-h-screen bg-gray-50">
       <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="lg:ml-[198px]">
-        <header className="flex h-[80px] items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
+        <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
             <button type="button" onClick={() => setSidebarOpen(true)}
-              className="shrink-0 rounded-md p-1.5 text-gray-600 transition hover:bg-gray-100 lg:hidden"
-              aria-label="Open menu"><Menu size={22} /></button>
-            <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
+              className="shrink-0 rounded-md p-1.5 text-[#374151] transition hover:bg-[#F3F4F6] lg:hidden"
+              aria-label="Open menu">
+              <Menu size={22} />
+            </button>
+            <h1 className="truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">
               {editing ? "Edit Customer" : "Add Customer"}
             </h1>
           </div>
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="hidden items-center rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 sm:flex">
-              {branchName}
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:gap-5">
+            <div className="hidden w-[130px] sm:block sm:w-[150px] lg:w-[162px]">
+              <div className="flex h-[34px] w-full items-center justify-between rounded-[9px] border border-[#D8DCE3] bg-white px-3 text-[12px] text-[#374151] sm:text-[13px]">
+                <span className="truncate">{branchName}</span>
+              </div>
             </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-800">
+            <button type="button" aria-label="Notifications"
+              className="relative flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[#F8F9FA]">
+              <Bell size={17} className="text-[#98A1AE]" />
+              <span className="absolute right-[8px] top-[6px] h-[7px] w-[7px] rounded-full bg-[#E54848]" />
+            </button>
+            <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[#E5F5F0] text-[12px] font-semibold text-[#08745F]">
               AO
             </div>
           </div>
