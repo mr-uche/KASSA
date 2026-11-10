@@ -46,6 +46,11 @@ export default function TransactionDetailsPage() {
                     <p className="text-xs font-medium uppercase text-gray-500">Sale reference</p>
                     <h2 className="mt-1 break-all text-lg font-semibold text-gray-900">{sale.reference}</h2>
                     <p className="mt-1 text-xs text-gray-500">{new Date(sale.createdAt).toLocaleString("en-NG")}</p>
+                    {sale.payments.some((payment) => payment.provider === "PAYSTACK_TEST") && (
+                      <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs font-semibold text-amber-900">
+                        Paystack TEST payment — no real funds collected
+                      </p>
+                    )}
                   </div>
                   <span className={sale.status === "PAID"
                     ? "rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700"
@@ -58,6 +63,12 @@ export default function TransactionDetailsPage() {
                   <span className="text-gray-500">Cashier</span><span className="text-right font-medium">{sale.cashier}</span>
                   <span className="text-gray-500">Payment channel</span><span className="text-right font-medium">{sale.payments[0]?.channel.replaceAll("_", " ") ?? "None"}</span>
                   <span className="text-gray-500">Payment status</span><span className="text-right font-medium">{sale.payments[0]?.status ?? "None"}</span>
+                  {sale.payments[0]?.providerReference && (
+                    <>
+                      <span className="text-gray-500">Paystack reference</span>
+                      <span className="break-all text-right font-medium">{sale.payments[0].providerReference}</span>
+                    </>
+                  )}
                   <span className="text-gray-500">Total</span><span className="text-right text-lg font-bold text-emerald-700">{formatNaira(sale.total)}</span>
                 </div>
               </section>

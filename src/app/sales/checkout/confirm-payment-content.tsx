@@ -346,8 +346,9 @@ export default function ConfirmPaymentContent() {
                 {submitting ? "Saving sale..." : "Create pending sale • " + formatNaira(total)}
               </button>
 
-              <p className="text-center text-xs text-gray-400">
+              <p className="text-center text-xs text-gray-500">
                 Creating a sale does not verify payment or issue a receipt.
+                Card, bank transfer and USSD can proceed to Paystack's TEST checkout on the next screen.
               </p>
             </div>
           </div>

@@ -41,6 +41,7 @@ export default function ReceiptContent() {
   }, [id]);
 
   const paid = sale?.status === "PAID" && sale.payments.some((payment) => payment.status === "SUCCEEDED");
+  const testPayment = sale?.payments.some((payment) => payment.provider === "PAYSTACK_TEST") ?? false;
   return (
     <div className="min-h-screen bg-gray-50">
       <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -67,7 +68,17 @@ export default function ReceiptContent() {
                 <div className="mb-6 border-b border-gray-100 pb-6 text-center">
                   <h2 className="text-xl font-bold text-gray-900">{businessName}</h2>
                   {branchName && <p className="mt-1 text-sm text-gray-500">{branchName}</p>}
-                  <p className="mt-3 text-sm font-medium text-emerald-700">PAYMENT RECEIPT</p>
+                  <p className="mt-3 text-sm font-medium text-emerald-700">
+                    {testPayment ? "PAYSTACK TEST RECEIPT" : "PAYMENT RECEIPT"}
+                  </p>
+                  {testPayment && (
+                    <div className="mt-4 border-2 border-amber-500 bg-amber-50 p-3 text-sm font-bold uppercase tracking-wide text-amber-900">
+                      TEST TRANSACTION — NO REAL MONEY RECEIVED
+                      <p className="mt-1 text-xs font-medium normal-case tracking-normal">
+                        For integration testing only. Not valid proof of payment or settlement.
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3 border-b border-gray-100 pb-5 text-sm">
                   <span className="text-gray-500">Receipt reference</span><span className="break-all text-right font-medium">{sale.reference}</span>
@@ -79,6 +90,12 @@ export default function ReceiptContent() {
                   <span className="text-gray-500">Payment method</span><span className="text-right font-medium">
                     {sale.payments[0]?.channel.replaceAll("_", " ") ?? "Unknown"}
                   </span>
+                  {testPayment && (
+                    <>
+                      <span className="text-gray-500">Paystack test reference</span>
+                      <span className="break-all text-right font-medium">{sale.payments[0]?.providerReference}</span>
+                    </>
+                  )}
                 </div>
                 <div className="mt-5 w-full overflow-x-auto print:overflow-visible">
                 <table className="w-full min-w-[350px] text-sm print:min-w-0">

@@ -28,6 +28,7 @@ export default function PaymentSuccessfulContent() {
   }, [id]);
 
   const paid = sale?.status === "PAID" && sale.payments.some((p) => p.status === "SUCCEEDED");
+  const testPayment = sale?.payments.some((payment) => payment.provider === "PAYSTACK_TEST") ?? false;
   return (
     <div className="min-h-screen bg-gray-50">
       <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -46,6 +47,11 @@ export default function PaymentSuccessfulContent() {
                 <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
                   {paid ? <CheckCircle2 size={34} className="text-emerald-700" /> : <Clock3 size={34} className="text-amber-600" />}
                 </div>
+                {testPayment && (
+                  <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
+                    PAYSTACK TEST TRANSACTION — No real money received.
+                  </p>
+                )}
                 <h2 className="text-xl font-semibold text-gray-900">{paid ? "Payment confirmed" : "Payment not yet verified"}</h2>
                 <p className="mt-3 text-sm text-gray-500">
                   {paid
@@ -57,7 +63,7 @@ export default function PaymentSuccessfulContent() {
                 {paid && (
                   <Link href={"/sales/receipt?saleId=" + encodeURIComponent(sale.id)}
                     className="mt-6 flex items-center justify-center rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white">
-                    View receipt
+                    {testPayment ? "View TEST receipt" : "View receipt"}
                   </Link>
                 )}
                 {!paid && (
