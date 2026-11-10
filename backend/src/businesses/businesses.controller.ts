@@ -1,7 +1,10 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AccessTokenGuard, type AuthenticatedRequest } from '../auth/access-token.guard';
 import { BusinessesService } from './businesses.service';
+import { BusinessExportService } from './business-export.service';
+import { ExportBusinessDto } from './dto/export-business.dto';
 import { OnboardingDto } from './dto/onboarding.dto';
 import { UpdateBusinessSettingsDto } from './dto/update-business-settings.dto';
 
@@ -10,7 +13,7 @@ import { UpdateBusinessSettingsDto } from './dto/update-business-settings.dto';
 @UseGuards(AccessTokenGuard)
 @Controller('businesses')
 export class BusinessesController {
-  constructor(private readonly businesses: BusinessesService) {}
+  constructor(private readonly businesses: BusinessesService, private readonly exports: BusinessExportService) {}
 
   @Post('onboarding')
   @ApiOperation({ summary: 'Create a business and its first branches, with the caller as owner' })
@@ -22,6 +25,15 @@ export class BusinessesController {
   @ApiOperation({ summary: 'List only businesses to which the current user belongs' })
   mine(@Req() req: AuthenticatedRequest) {
     return this.businesses.myBusinesses(req.userId);
+  }
+
+  @Post(':businessId/export')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @ApiOperation({ summary: 'Owner-only export of real business data, with explicit maximum size' })
+  exportBusiness(@Req() req: AuthenticatedRequest,
+                 @Param('businessId', ParseUUIDPipe) businessId: string,
+                 @Body() dto: ExportBusinessDto) {
+    return this.exports.export(req.userId, businessId, dto);
   }
 
   @Get(':businessId/settings')
