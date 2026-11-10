@@ -7,6 +7,7 @@ import { CheckCircle2, Clock3, Menu, ShieldCheck, AlertTriangle } from "lucide-r
 import KassaSidebar from "@/components/KassaSidebar";
 import { confirmCash, getSale, type SavedSale } from "@/lib/sales-client";
 import { formatNaira } from "@/lib/inventory-client";
+import SaleReceipt from "@/components/sales/SaleReceipt";
 import {
   startPaystackTestCheckout, verifyPaystackTestPayment,
 } from "@/lib/paystack-client";
@@ -181,6 +182,8 @@ export default function PaymentStatusContent() {
                 </div>
               </section>
 
+              {paid && <SaleReceipt sale={sale} />}
+
               {cash && sale.status === "PENDING_PAYMENT" && (
                 <section className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
                   <h3 className="font-semibold text-gray-900">Confirm cash received</h3>
@@ -242,12 +245,7 @@ export default function PaymentStatusContent() {
                 </section>
               )}
 
-              {paid && (
-                <Link href={"/sales/receipt?saleId=" + encodeURIComponent(sale.id)}
-                  className="flex items-center justify-center rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white">
-                  {testPayment ? "View TEST receipt" : "View verified receipt"}
-                </Link>
-              )}
+
               {!paid && (
                 <button type="button" onClick={() => void refreshStatus()} disabled={refreshing || verifying}
                   className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 disabled:opacity-50">
