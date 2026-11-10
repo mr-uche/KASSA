@@ -141,22 +141,25 @@ function CustomersPageContent() {
           <div className="flex min-w-0 items-center gap-3">
             <button type="button" onClick={() => setSidebarOpen(true)}
               className="shrink-0 rounded-md p-1.5 text-[#374151] transition hover:bg-[#F3F4F6] lg:hidden"
-              aria-label="Open menu"><Menu size={22}/></button>
+              aria-label="Open menu">
+              <Menu size={22} />
+            </button>
             <h1 className="truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">
               Customers
             </h1>
           </div>
-          <div className="flex shrink-0 items-center gap-3 sm:gap-5">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:gap-5">
             <div className="hidden w-[130px] sm:block sm:w-[150px] lg:w-[162px]">
-              <div className="flex h-[34px] w-full items-center rounded-[9px] border border-[#D8DCE3] bg-white px-3 text-[12px] text-[#374151]">
+              <div className="flex h-[34px] w-full items-center justify-between rounded-[9px] border border-[#D8DCE3] bg-white px-3 text-[12px] text-[#374151] sm:text-[13px]">
                 <span className="truncate">All branches</span>
               </div>
             </div>
             <button type="button" aria-label="Notifications"
-              className="relative flex h-[36px] w-[36px] items-center justify-center rounded-full bg-[#F8F9FA]">
-              <Bell size={17} className="text-[#98A1AE]"/>
+              className="relative flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[#F8F9FA]">
+              <Bell size={17} className="text-[#98A1AE]" />
+              <span className="absolute right-[8px] top-[6px] h-[7px] w-[7px] rounded-full bg-[#E54848]" />
             </button>
-            <div className="flex h-[36px] w-[36px] items-center justify-center rounded-full bg-[#E5F5F0] text-[12px] font-semibold text-[#08745F]">
+            <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[#E5F5F0] text-[12px] font-semibold text-[#08745F]">
               AO
             </div>
           </div>
