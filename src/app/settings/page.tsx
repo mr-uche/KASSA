@@ -8,11 +8,15 @@ import { getInventoryContext } from "@/lib/inventory-client";
 import {
   getBusinessSettings, updateBusinessSettings, type BusinessSettings,
 } from "@/lib/business-settings";
+import {
+  reconcilePaystackTestPayments, type PaystackReconciliation,
+} from "@/lib/paystack-client";
 
 const navigation = [
   "Business profile",
   "Subscription & Billing",
   "Payout Preferences",
+  "Payments & Reconciliation",
   "Notifications",
   "Data Export",
   "Delete Account",
@@ -67,6 +71,8 @@ export default function SettingsPage() {
   const [schedule, setSchedule] = useState<"INSTANT" | "DAILY" | "WEEKLY">("DAILY");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
+  const [reconciled, setReconciled] = useState<PaystackReconciliation | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [notifications, setNotifications] = useState<NotificationPreferences>(defaultNotifications);
@@ -157,6 +163,18 @@ export default function SettingsPage() {
     } finally { setSaving(false); }
   }
 
+  async function runReconciliation() {
+    if (!context || loading || reconciling) return;
+    setReconciling(true); setReconciled(null); setError(""); setSuccess("");
+    try {
+      const summary = await reconcilePaystackTestPayments(context.businessId, context.branchId);
+      setReconciled(summary);
+      setSuccess("Finished verifying up to five pending Paystack test payments against Paystack.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to reconcile Paystack test payments.");
+    } finally { setReconciling(false); }
+  }
+
   function toggleNotification(key: NotificationKey) {
     const next = { ...notifications, [key]: !notifications[key] };
     setNotifications(next);
@@ -242,7 +260,7 @@ export default function SettingsPage() {
                 <section className={cardClass}>
                   <h3 className="text-base font-semibold text-gray-900">Payment setup</h3>
                   <p className="mt-2 text-sm leading-6 text-gray-600">
-                    Cash receipt confirmation is available. Electronic payment processing, verification and subscription billing still need a payment provider connection.
+                    Cash confirmation is supported. Paystack hosted checkout, webhooks and verification are available in test mode for cards, bank transfer and USSD only. Subscription billing and real-money settlements are not enabled.
                   </p>
                   <Link href="/sales/new" className="mt-3 inline-block text-sm font-semibold text-emerald-800 hover:underline">Go to New Sale</Link>
                 </section>
@@ -293,6 +311,49 @@ export default function SettingsPage() {
                   </button>
                 </section>
               </>
+            )}
+
+            {section === "Payments & Reconciliation" && (
+              <section className={cardClass}>
+                <h2 className="text-lg font-semibold text-gray-900">Paystack test payment reconciliation</h2>
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  Owner-only verification of up to five pending Paystack test payments in the selected branch.
+                  Kassa checks Paystack directly and finalizes each verified sale at most once.
+                  Payments with insufficient stock remain flagged for manual review.
+                </p>
+                <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
+                  TEST MODE — no real funds move. This checks customer payments, not merchant bank settlements.
+                </p>
+                <p className="mt-3 text-sm text-gray-600">Selected branch: <strong>{settings?.branchName || "Not loaded"}</strong></p>
+                <button type="button" onClick={() => void runReconciliation()}
+                  disabled={loading || !context || reconciling}
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">
+                  {reconciling && <Loader2 size={16} className="animate-spin"/>}
+                  {reconciling ? "Checking Paystack..." : "Reconcile pending test payments"}
+                </button>
+                {reconciled && (
+                  <div className="mt-5 space-y-3" role="status">
+                    <p className="text-sm font-semibold text-gray-900">
+                      Checked: {reconciled.checked} · Completed sales: {reconciled.paid} · Needs review: {reconciled.needsReview}
+                    </p>
+                    {reconciled.checked === 0 && (
+                      <p className="text-sm text-gray-500">No pending Paystack test payments were found for this branch.</p>
+                    )}
+                    <div className="space-y-2">
+                      {reconciled.results.map((entry) => (
+                        <div key={entry.reference} className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+                          <p className="break-all font-semibold text-gray-900">{entry.reference}</p>
+                          <p className="mt-1 text-gray-600">
+                            Provider: {entry.providerStatus} · Sale: {entry.saleStatus ?? "Not finalized"}
+                          </p>
+                          {entry.needsAttention && <p className="mt-1 font-semibold text-red-700">Manual stock reconciliation required.</p>}
+                          {entry.error && <p className="mt-1 text-red-700">{entry.error}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
             )}
 
             {section === "Notifications" && (
