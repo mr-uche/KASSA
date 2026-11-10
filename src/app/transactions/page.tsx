@@ -16,7 +16,7 @@ import { listSales, saleStatusLabel, type SavedSale } from "@/lib/sales-client";
 type TransactionRow = {
   id: string; reference: string; customer: string; cashier: string;
   channel: string; items: string; amount: string; status: string;
-  time: string; createdAt: string; total: number;
+  time: string; createdAt: string; total: number; testMode: boolean;
 };
 const channelLabels: Record<string, string> = {
   CASH: "Cash", BANK_TRANSFER: "Transfer", POS: "POS", CARD: "Card",
@@ -32,6 +32,7 @@ function toTransactionRow(sale: SavedSale): TransactionRow {
     amount: formatNaira(sale.total), status,
     time: new Date(sale.createdAt).toLocaleString("en-NG"),
     createdAt: sale.createdAt, total: Number(sale.total),
+    testMode: payment?.provider === "PAYSTACK_TEST",
   };
 }
 
@@ -205,15 +206,15 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
     if (selected7Days === "This year") return date.getFullYear() === now.getFullYear();
     return true;
   });
-  const successful = filteredTransactions.filter((row) => row.status === "Success");
+  const successful = filteredTransactions.filter((row) => row.status === "Success" && !row.testMode);
   const received = successful.reduce((total, row) => total + row.total, 0);
   const pending = filteredTransactions.filter((row) => row.status === "Pending").length;
   const failed = filteredTransactions.filter((row) => row.status === "Failed").length;
 
   function exportTransactions() {
-    const rows = [["Reference", "Customer", "Cashier", "Channel", "Items", "Amount (NGN)", "Status", "Created At"],
+    const rows = [["Reference", "Customer", "Cashier", "Channel", "Items", "Amount (NGN)", "Status", "Created At", "Test transaction"],
       ...filteredTransactions.map((row) => [row.reference, row.customer, row.cashier, row.channel,
-        row.items, String(row.total), row.status, row.createdAt])];
+        row.items, String(row.total), row.status, row.createdAt, row.testMode ? "YES" : "NO"])];
     const safe = (value: string) => {
       const text = /^[=+@-]/.test(value) ? "'" + value : value;
       return '"' + text.replaceAll('"', '""') + '"';
@@ -404,6 +405,11 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
 
                     <td className="whitespace-nowrap px-4 sm:px-[23px]">
                       <StatusBadge status={transaction.status} />
+                      {transaction.testMode && (
+                        <span className="ml-2 inline-block rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-900">
+                          TEST
+                        </span>
+                      )}
                     </td>
 
                     <td className="whitespace-nowrap px-4 text-[13px] text-[#687386] sm:px-[23px]">

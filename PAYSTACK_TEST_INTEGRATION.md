@@ -82,3 +82,12 @@ The backend's build script runs the signature tests before NestJS compiles. Test
 - [Webhooks and signed requests](https://paystack.com/docs/payments/webhooks/)
 - [Verify Payments](https://paystack.com/docs/payments/verify-payments/)
 - [Test Payments](https://paystack.com/docs/payments/test-payments/)
+
+## 7. Financial reporting separation
+
+Paystack TEST transactions are still recorded and labelled in transaction history and test receipts, but do **not** contribute to:
+- Dashboard "Total sales today"
+- Transactions "Total received" and "Successful" summary cards
+- Backend Reports & Analytics revenue, sales charts, channel totals, top products and branch/staff earnings.
+
+Test transactions may still affect **test inventory quantities** during a verified simulated checkout. Do not use live merchant inventory for test scenarios.

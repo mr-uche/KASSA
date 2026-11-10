@@ -95,6 +95,12 @@ export class ReportsService {
         WHERE sale."businessId" = ${query.businessId}::uuid
           AND sale."createdAt" >= ${start} AND sale."createdAt" < ${end}
           ${branchClause}
+          -- Tests must never inflate real revenue, paid counts, or failure rates.
+          AND NOT EXISTS (
+            SELECT 1 FROM "Payment" test_payment
+            WHERE test_payment."saleId" = sale."id"
+              AND test_payment."provider" = 'PAYSTACK_TEST'
+          )
       `;
     }
     const current = base(from, until);
@@ -159,6 +165,7 @@ export class ReportsService {
           AND sale."status" = 'PAID'
           AND EXISTS (
             SELECT 1 FROM "Payment" p WHERE p."saleId" = sale."id" AND p."status" = 'SUCCEEDED'
+              AND COALESCE(p."provider", '') <> 'PAYSTACK_TEST'
           )
         GROUP BY item."productId"
         ORDER BY SUM(item."lineTotal") DESC
@@ -236,6 +243,7 @@ export class ReportsService {
       })),
       notes: [
         'Only PAID sales with a SUCCEEDED payment count as revenue.',
+        'Paystack TEST payments are excluded from financial and revenue analytics.',
         'Sales are grouped by their creation date in Africa/Lagos, using current payment status.',
         'Pending electronic payments are excluded from received revenue.',
         'Failed payment rate excludes pending attempts; N/A means no completed attempts.',

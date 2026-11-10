@@ -137,7 +137,9 @@ export default function DashboardPage() {
 
   const today = new Date().toDateString();
   const salesToday = sales
-    .filter((sale) => sale.status === "PAID" && new Date(sale.createdAt).toDateString() === today)
+    .filter((sale) => sale.status === "PAID" &&
+      !sale.payments.some((payment) => payment.provider === "PAYSTACK_TEST") &&
+      new Date(sale.createdAt).toDateString() === today)
     .reduce((sum, sale) => sum + Number(sale.total), 0);
   const failedPayments = sales.filter((sale) => sale.payments.some((p) => p.status === "FAILED")).length;
   const transactions = sales.slice(0, 6).map((sale) => ({
@@ -147,6 +149,7 @@ export default function DashboardPage() {
     channel: channelLabels[sale.payments[0]?.channel ?? ""] ?? "Unknown",
     amount: formatNaira(sale.total),
     status: saleStatusLabel(sale.status),
+    testMode: sale.payments.some((payment) => payment.provider === "PAYSTACK_TEST"),
     time: new Date(sale.createdAt).toLocaleString("en-NG"),
   }));
 
@@ -438,6 +441,9 @@ export default function DashboardPage() {
 
                       <td className="px-4 sm:px-6">
                         <StatusBadge status={transaction.status} />
+                        {transaction.testMode && (
+                          <span className="ml-2 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-1 text-[10px] font-bold text-amber-900">TEST</span>
+                        )}
                       </td>
 
                       <td className="whitespace-nowrap px-4 text-[13px] text-[#687386] sm:px-6">
