@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import {
@@ -90,6 +91,11 @@ export default function KassaAccessGate({
             <div role="alert">
               <h2 className="mb-2 text-lg font-semibold text-gray-900">Access could not be verified</h2>
               <p className="text-sm text-gray-600">{message}</p>
+              {message.toLowerCase().includes("sign in again") && (
+                <Link href="/login" className="mt-4 inline-flex rounded-lg border border-emerald-700 px-4 py-2 text-sm font-medium text-emerald-800">
+                  Sign in again
+                </Link>
+              )}
               <button type="button" onClick={() => window.location.reload()}
                 className="mt-4 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-medium text-white">
                 Retry
