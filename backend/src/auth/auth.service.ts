@@ -100,7 +100,7 @@ export class AuthService {
       },
     });
     if (!session || session.revokedAt || session.expiresAt.getTime() <= Date.now() ||
-        session.(user.email.startsWith('deleted_') && user.email.endsWith('@accounts.invalid'))) {
+        (session.user.email.startsWith('deleted_') && session.user.email.endsWith('@accounts.invalid'))) {
       throw new UnauthorizedException('Remembered session has expired or was revoked');
     }
     // Do not extend the session's absolute expiry during refresh.
