@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import Logo from "@/components/logo";
 import { kassaPost } from "@/lib/kassa-client";
@@ -19,11 +19,40 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
+  const signingInRef = useRef(false);
+
+  // A returning user with an active Remember Me cookie should not have
+  // to enter their password again. /api/auth/me refreshes expired access
+  // cookies through the server-side proxy when the remembered session is valid.
+  useEffect(() => {
+    let active = true;
+    async function restoreSession() {
+      try {
+        const existing = await fetch("/api/auth/me", {
+          cache: "no-store", credentials: "same-origin",
+        });
+        if (!existing.ok || !active || signingInRef.current) return;
+        const response = await fetch("/api/businesses/mine", {
+          cache: "no-store", credentials: "same-origin",
+        });
+        if (!response.ok || !active || signingInRef.current) return;
+        const businesses: unknown = await response.json();
+        if (Array.isArray(businesses) && active && !signingInRef.current) {
+          window.location.replace(firstPermittedPath(businesses as BusinessAccess[]));
+        }
+      } catch {
+        // A backend outage should not prevent manual login from being shown.
+      }
+    }
+    void restoreSession();
+    return () => { active = false; };
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting) return;
 
+    signingInRef.current = true;
     setSubmitting(true);
     setError("");
     try {
@@ -76,6 +105,7 @@ export default function LoginPage() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to sign in.");
     } finally {
+      signingInRef.current = false;
       setSubmitting(false);
     }
   }

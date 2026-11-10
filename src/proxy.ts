@@ -1,154 +1,102 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { REMEMBER_COOKIE, SESSION_COOKIE, forwardToBackend } from "@/lib/kassa-server";
-import { firstPermittedPath, type BusinessAccess } from "@/lib/kassa-permissions";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  REMEMBER_COOKIE, SESSION_COOKIE, forwardToBackend,
+} from "@/lib/kassa-server";
 
-// The access JWT is short-lived; its expiry is inspected only as an optimization.
-// Actual JWT signature and authorization checks are performed by NestJS.
-function aboutToExpire(token: string | undefined): boolean {
+// This is only an optimization to decide *when* to ask the backend to refresh.
+// JWT claims read here are never used to authorize a request. NestJS still
+// verifies signature, audience, issuer, scope, user existence and permissions.
+export function accessTokenNeedsRefresh(token: string | undefined, nowMs = Date.now()): boolean {
   if (!token) return true;
   try {
-    const payload = token.split(".")[1];
-    if (!payload) return true;
-    const raw = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = raw.padEnd(Math.ceil(raw.length / 4) * 4, "=");
-    const data: unknown = JSON.parse(atob(padded));
-    const exp = data && typeof data === "object" && "exp" in data
-      ? (data as { exp?: unknown }).exp : undefined;
-    return typeof exp !== "number" || exp * 1000 <= Date.now() + 30_000;
+    const parts = token.split(".");
+    if (parts.length !== 3 || !parts.every(Boolean)) return true;
+    const payload: unknown = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+    if (!payload || typeof payload !== "object" || !("exp" in payload)) return true;
+    const exp = (payload as { exp: unknown }).exp;
+    if (typeof exp !== "number" || !Number.isSafeInteger(exp)) return true;
+    return exp * 1000 <= nowMs + 45_000;
   } catch {
     return true;
   }
 }
 
-const entryRoutes = new Set(["/", "/login", "/sign-up"]);
-const cookieOptions = {
-  httpOnly: true as const,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
-  path: "/",
-};
-
-function clearSessionCookies(response: NextResponse) {
-  response.cookies.delete(SESSION_COOKIE);
-  response.cookies.delete(REMEMBER_COOKIE);
-  return response;
-}
-
-function invalidSession(request: NextRequest, isEntryRoute: boolean) {
-  if (isEntryRoute) return clearSessionCookies(NextResponse.next());
-  const isApi = request.nextUrl.pathname.startsWith("/api/");
-  const response = isApi
-    ? NextResponse.json({ message: "Your session has expired. Please sign in." }, { status: 401 })
-    : NextResponse.redirect(new URL("/login", request.url));
-  return clearSessionCookies(response);
-}
-
-// Opening the app at '/', '/login', or '/sign-up' must not show a login form to
-// someone whose cookie is still valid. Query the backend to VERIFY that cookie
-// and choose between Dashboard and Onboarding (without trusting JWT claims).
-async function restoreEntrySession(request: NextRequest, token: string, isFresh: boolean) {
-  try {
-    const result = await forwardToBackend("/businesses/mine", { token });
-    if (result.status === 401 || result.status === 403) {
-      return invalidSession(request, true);
-    }
-    if (result.status !== 200 || !Array.isArray(result.body)) {
-      // An upstream problem should not silently revoke a remembered session.
-      return NextResponse.next();
-    }
-    const destination = firstPermittedPath(result.body as BusinessAccess[]);
-    const response = NextResponse.redirect(new URL(destination, request.url));
-    if (isFresh) {
-      response.cookies.set(SESSION_COOKIE, token, { ...cookieOptions, maxAge: 900 });
-    }
-    return response;
-  } catch {
-    // Keep the remembered session when Supabase or NestJS is temporarily offline.
-    return NextResponse.next();
-  }
+function isCredentialCreation(pathname: string) {
+  return pathname === "/api/auth/login" ||
+    pathname === "/api/auth/register" ||
+    pathname === "/api/auth/register-invite" ||
+    pathname === "/api/auth/logout";
 }
 
 export async function proxy(request: NextRequest) {
-  // Public invitation previews must be accessible before sign-in.
-  if (request.nextUrl.pathname === "/api/staff-branches/invitations/preview") {
-    return NextResponse.next();
-  }
-  const isEntryRoute = entryRoutes.has(request.nextUrl.pathname);
-  const accessToken = request.cookies.get(SESSION_COOKIE)?.value;
-
-  if (!aboutToExpire(accessToken) && accessToken) {
-    if (isEntryRoute) return restoreEntrySession(request, accessToken, false);
+  const remembered = request.cookies.get(REMEMBER_COOKIE)?.value;
+  if (!remembered || isCredentialCreation(request.nextUrl.pathname) ||
+      !accessTokenNeedsRefresh(request.cookies.get(SESSION_COOKIE)?.value)) {
     return NextResponse.next();
   }
 
-  const rememberToken = request.cookies.get(REMEMBER_COOKIE)?.value;
-  if (!rememberToken) {
-    return isEntryRoute ? NextResponse.next() : invalidSession(request, false);
-  }
-
-  let result: { status: number; body: unknown };
   try {
-    result = await forwardToBackend("/auth/refresh", {
+    // A remembered token is opaque and never exposed to browser JavaScript.
+    // Validation and revocation happen in NestJS against the stored SHA-256
+    // session hash and 30-day fixed expiry.
+    const result = await forwardToBackend("/auth/refresh", {
       method: "POST",
-      body: { refreshToken: rememberToken },
+      body: { refreshToken: remembered },
     });
+    if (result.status === 200 && result.body && typeof result.body === "object" &&
+        !Array.isArray(result.body)) {
+      const body = result.body as Record<string, unknown>;
+      const token = body.accessToken;
+      const expiresInSeconds = body.expiresInSeconds;
+      if (typeof token === "string" && token.length > 30 &&
+          typeof expiresInSeconds === "number" && expiresInSeconds > 0 &&
+          !accessTokenNeedsRefresh(token, Date.now() - 45_000)) {
+        // Update the *upstream request* immediately, so this same API
+        // handler can already authenticate without a second request.
+        request.cookies.set(SESSION_COOKIE, token);
+        const response = NextResponse.next({ request: { headers: new Headers(request.headers) } });
+        response.cookies.set(SESSION_COOKIE, token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: Math.min(Math.floor(expiresInSeconds), 900),
+        });
+        return response;
+      }
+    }
+    if (result.status === 401) {
+      // A revoked/expired remembered session must never cause repeated retry
+      // traffic. Clear both credentials in the browser and the API request.
+      request.cookies.delete(REMEMBER_COOKIE);
+      request.cookies.delete(SESSION_COOKIE);
+      const response = NextResponse.next({ request: { headers: new Headers(request.headers) } });
+      response.cookies.delete(REMEMBER_COOKIE);
+      response.cookies.delete(SESSION_COOKIE);
+      return response;
+    }
   } catch {
-    // Temporary connectivity failures must not destroy a valid remembered session.
-    return isEntryRoute ? NextResponse.next() :
-      request.nextUrl.pathname.startsWith("/api/")
-        ? NextResponse.json({ message: "Unable to renew session; try again shortly." }, { status: 502 })
-        : NextResponse.redirect(new URL("/login?session=unavailable", request.url));
+    // If Render is temporarily unreachable, do not destroy an otherwise
+    // valid remembered login. A later request can retry the refresh.
   }
-
-  // A bad or revoked token is different from a temporary backend/database failure.
-  // Preserve the long-lived cookie on 5xx, 429, or unexpected upstream responses.
-  if (result.status === 401 || result.status === 403) {
-    return invalidSession(request, isEntryRoute);
-  }
-  if (result.status !== 200 ||
-      !result.body || typeof result.body !== "object" ||
-      !("accessToken" in result.body) ||
-      typeof result.body.accessToken !== "string") {
-    return isEntryRoute ? NextResponse.next() :
-      request.nextUrl.pathname.startsWith("/api/")
-        ? NextResponse.json({ message: "Session renewal is temporarily unavailable." }, { status: 503 })
-        : NextResponse.redirect(new URL("/login?session=unavailable", request.url));
-  }
-
-  const freshToken = result.body.accessToken;
-  if (isEntryRoute) {
-    return restoreEntrySession(request, freshToken, true);
-  }
-
-  // Pass the renewed access cookie to the current API/page request immediately,
-  // as well as to the browser for subsequent requests.
-  request.cookies.set(SESSION_COOKIE, freshToken);
-  const response = NextResponse.next({ request: { headers: request.headers } });
-  response.cookies.set(SESSION_COOKIE, freshToken, { ...cookieOptions, maxAge: 900 });
-  return response;
+  return NextResponse.next();
 }
 
+// Next.js 16's Proxy runs before API route handlers and protected pages.
+// Authentication/authorization themselves always remain inside NestJS.
 export const config = {
   matcher: [
-    "/",
-    "/login",
-    "/sign-up",
+    "/api/:path*",
     "/dashboard/:path*",
     "/onboarding/:path*",
-    "/customers/:path*",
     "/products/:path*",
+    "/customers/:path*",
     "/reports/:path*",
     "/sales/:path*",
     "/scan/:path*",
     "/settings/:path*",
     "/staff-branches/:path*",
+    "/staff-invite/:path*",
     "/transactions/:path*",
-    "/api/auth/me",
-    "/api/businesses/:path*",
-    "/api/customers/:path*",
-    "/api/inventory/:path*",
-    "/api/sales/:path*",
-    "/api/staff-branches/:path*",
-    "/api/reports/:path*",
   ],
 };
