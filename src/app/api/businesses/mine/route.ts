@@ -1,14 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { forwardToBackend, sessionToken, unauthorized, upstreamError } from "@/lib/kassa-server";
+import { NextRequest } from "next/server";
+import { authenticatedRead } from "@/lib/kassa-server";
 
+// Access gate, menu and onboarding depend on this read. Attempt one safe
+// refresh when an expired access cookie would otherwise cause a false logout.
 export async function GET(request: NextRequest) {
-  const token = sessionToken(request);
-  if (!token) return unauthorized();
-  try {
-    const { status, body } = await forwardToBackend("/businesses/mine", { token });
-    // Return the merchant memberships supplied by NestJS.
-    return NextResponse.json(body, { status });
-  } catch {
-    return upstreamError();
-  }
+  return authenticatedRead(request, "/businesses/mine");
 }
