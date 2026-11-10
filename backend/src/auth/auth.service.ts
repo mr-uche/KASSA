@@ -100,7 +100,7 @@ export class AuthService {
       },
     });
     if (!session || session.revokedAt || session.expiresAt.getTime() <= Date.now() ||
-        session.user.email.startsWith('deleted_')) {
+        session.(user.email.startsWith('deleted_') && user.email.endsWith('@accounts.invalid'))) {
       throw new UnauthorizedException('Remembered session has expired or was revoked');
     }
     // Do not extend the session's absolute expiry during refresh.
@@ -125,7 +125,7 @@ export class AuthService {
       where: { id: userId },
       select: { id: true, email: true, passwordHash: true, isPlatformAdmin: true },
     });
-    if (!user || user.email.startsWith('deleted_') ||
+    if (!user || (user.email.startsWith('deleted_') && user.email.endsWith('@accounts.invalid')) ||
         !(await compare(dto.password, user.passwordHash))) {
       throw new UnauthorizedException('Current password is incorrect');
     }

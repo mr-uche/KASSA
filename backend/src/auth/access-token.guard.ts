@@ -26,7 +26,7 @@ export class AccessTokenGuard implements CanActivate {
         where: { id: payload.sub },
         select: { id: true, email: true },
       });
-      if (!user || user.email.startsWith('deleted_')) throw new Error('Account is closed');
+      if (!user || (user.email.startsWith('deleted_') && user.email.endsWith('@accounts.invalid'))) throw new Error('Account is closed');
       request.userId = user.id;
       return true;
     } catch {

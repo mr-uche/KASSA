@@ -173,7 +173,8 @@ export class BusinessExportService {
           this.prisma.sale.count({ where: { businessId, ...recent } }),
           this.prisma.sale.aggregate({
             where: { businessId, ...recent, status: 'PAID',
-              payments: { some: { status: 'SUCCEEDED', provider: { not: 'PAYSTACK_TEST' } } } },
+              payments: { some: { status: 'SUCCEEDED',
+                OR: [{ provider: null }, { provider: { not: 'PAYSTACK_TEST' } }] } } },
             _count: { _all: true }, _sum: { total: true },
           }),
           this.prisma.sale.count({ where: { businessId, ...recent, status: 'PENDING_PAYMENT' } }),
