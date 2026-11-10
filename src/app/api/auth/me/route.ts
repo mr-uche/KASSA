@@ -1,13 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { forwardToBackend, sessionToken, unauthorized, upstreamError } from "@/lib/kassa-server";
+import { NextRequest } from "next/server";
+import { authenticatedRead } from "@/lib/kassa-server";
 
+// If a short-lived JWT has expired, this also restores it from a valid
+// HttpOnly Remember Me cookie without exposing the refresh token to the client.
 export async function GET(request: NextRequest) {
-  const token = sessionToken(request);
-  if (!token) return unauthorized();
-  try {
-    const { status, body } = await forwardToBackend("/auth/me", { token });
-    return NextResponse.json(body, { status });
-  } catch {
-    return upstreamError();
-  }
+  return authenticatedRead(request, "/auth/me");
 }
