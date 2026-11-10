@@ -81,3 +81,73 @@ export function validateJsonRequest(request: NextRequest): NextResponse | null {
   }
   return null;
 }
+
+/**
+ * Read-only authenticated requests used by login restoration and access gates.
+ *
+ * Proxy refreshes the access token before it expires, but it is not guaranteed
+ * to complete during a slow backend wake-up. As a second line of defence,
+ * recover from an expired/missing access token here using the HttpOnly remembered
+ * cookie. The refreshed access token is returned only as an HttpOnly cookie.
+ */
+export async function authenticatedRead(
+  request: NextRequest,
+  path: string,
+): Promise<NextResponse> {
+  const oldAccess = sessionToken(request);
+  const remembered = request.cookies.get(REMEMBER_COOKIE)?.value;
+  try {
+    if (oldAccess) {
+      const initial = await forwardToBackend(path, { token: oldAccess });
+      if (initial.status !== 401) {
+        return NextResponse.json(initial.body, { status: initial.status });
+      }
+    } else if (!remembered) {
+      return unauthorized();
+    }
+
+    if (!remembered) {
+      return unauthorized();
+    }
+
+    const refresh = await forwardToBackend("/auth/refresh", {
+      method: "POST",
+      body: { refreshToken: remembered },
+    });
+    if (refresh.status === 401) {
+      const response = NextResponse.json(
+        { message: "Your remembered session has expired or was revoked. Please sign in again." },
+        { status: 401 },
+      );
+      response.cookies.delete(SESSION_COOKIE);
+      response.cookies.delete(REMEMBER_COOKIE);
+      return response;
+    }
+    const payload = refresh.body;
+    const freshToken = payload && typeof payload === "object" && !Array.isArray(payload)
+      ? (payload as Record<string, unknown>).accessToken : null;
+    if (refresh.status !== 200 || typeof freshToken !== "string" || freshToken.length < 30) {
+      return NextResponse.json(
+        { message: "Could not restore your session right now. Please retry; your remembered login was kept." },
+        { status: 503 },
+      );
+    }
+
+    const retried = await forwardToBackend(path, { token: freshToken });
+    const response = NextResponse.json(retried.body, { status: retried.status });
+    // A successful refresh does not grant access: NestJS still checks the new
+    // signed access JWT and per-business permissions on the actual read.
+    response.cookies.set(SESSION_COOKIE, freshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 900,
+    });
+    return response;
+  } catch {
+    // Temporary upstream errors must never erase an otherwise valid 30-day
+    // remembered session. Clear it only after an explicit 401 from refresh.
+    return upstreamError();
+  }
+}
