@@ -74,3 +74,36 @@ select:not([multiple]):not([size]):not(.kassa-select-custom-icon) {
   background-position: right 1rem center;
   background-size: 1rem 1rem;
 }
+
+
+/* When printing a verified sale, print its actual receipt rather than the
+   payment status, navigation, dashboard, or download buttons around it. */
+@media print {
+  @page {
+    size: auto;
+    margin: 14mm;
+  }
+
+  body:has(#kassa-receipt-document) * {
+    visibility: hidden !important;
+  }
+
+  body:has(#kassa-receipt-document) #kassa-receipt-document,
+  body:has(#kassa-receipt-document) #kassa-receipt-document * {
+    visibility: visible !important;
+  }
+
+  body:has(#kassa-receipt-document) #kassa-receipt-document {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
