@@ -11,6 +11,10 @@ import {
 import {
   reconcilePaystackTestPayments, type PaystackReconciliation,
 } from "@/lib/paystack-client";
+import {
+  getBusinessExport, downloadBusinessExport,
+  type ExportDateRange, type ExportFormat, type ExportSection,
+} from "@/lib/data-export";
 
 const navigation = [
   "Business profile",
@@ -46,6 +50,15 @@ const notificationRows: { key: NotificationKey; title: string; description: stri
   { key: "channelSms", title: "SMS", description: "SMS alert preference" },
 ];
 
+const exportOptions: { key: ExportSection; label: string }[] = [
+  { key: "transactions", label: "Transactions" },
+  { key: "productsInventory", label: "Products & Inventory" },
+  { key: "customers", label: "Customers" },
+  { key: "staff", label: "Staff" },
+  { key: "branches", label: "Branches" },
+  { key: "reportsAnalytics", label: "Reports & Analytics" },
+];
+
 const fieldClass = "w-full min-w-0 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100 disabled:bg-gray-50";
 const cardClass = "rounded-xl border border-gray-200 bg-white p-4 sm:p-6";
 
@@ -76,6 +89,17 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [notifications, setNotifications] = useState<NotificationPreferences>(defaultNotifications);
+  const [exportSelections, setExportSelections] = useState<Record<ExportSection, boolean>>({
+    transactions: true, productsInventory: true, customers: true,
+    staff: true, branches: true, reportsAnalytics: true,
+  });
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("CSV");
+  const [exportDateRange, setExportDateRange] = useState<ExportDateRange>("ALL");
+  const [exporting, setExporting] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deletePhrase, setDeletePhrase] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [accountClosed, setAccountClosed] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -173,6 +197,64 @@ export default function SettingsPage() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to reconcile Paystack test payments.");
     } finally { setReconciling(false); }
+  }
+
+  async function runExport() {
+    if (!context || exporting || loading) return;
+    const sections = exportOptions.map((item) => item.key).filter((key) => exportSelections[key]);
+    if (!sections.length) {
+      setError("Select at least one section to export.");
+      return;
+    }
+    setExporting(true); setError(""); setSuccess("");
+    try {
+      const snapshot = await getBusinessExport(context.businessId, sections, exportDateRange);
+      downloadBusinessExport(snapshot, exportFormat);
+      setSuccess("Downloaded your " + exportFormat + " export with " +
+        snapshot.datasets.reduce((sum, dataset) => sum + dataset.rows.length, 0) +
+        " records. Store the file securely.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not export business data.");
+    } finally { setExporting(false); }
+  }
+
+  async function closeAccount() {
+    if (deleting || accountClosed || deletePhrase !== "DELETE ACCOUNT" || !deletePassword) return;
+    const approved = window.confirm(
+      "Permanently close your Kassa login? You will lose access immediately. Financial and business records may be retained for audit. This cannot be undone.",
+    );
+    if (!approved) return;
+    setDeleting(true); setError(""); setSuccess("");
+    try {
+      const response = await fetch("/api/account/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ password: deletePassword, confirmation: deletePhrase }),
+        cache: "no-store",
+      });
+      const result: unknown = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = result && typeof result === "object" && "message" in result
+          ? (result as { message: unknown }).message : null;
+        throw new Error(typeof message === "string" ? message :
+          Array.isArray(message) ? message.join(". ") : "Account closure failed.");
+      }
+      if (!result || typeof result !== "object" ||
+          !("closed" in result) || result.closed !== true) {
+        throw new Error("Account closure was not confirmed by Kassa.");
+      }
+      setAccountClosed(true);
+      setDeletePassword(""); setDeletePhrase("");
+      try {
+        localStorage.removeItem("selectedBranchId");
+        localStorage.removeItem("selectedBranch");
+        localStorage.removeItem("kassa_local_notification_preferences");
+      } catch { /* Already signed out server-side */ }
+      window.location.assign("/login?accountClosed=1");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not close account.");
+    } finally { setDeleting(false); }
   }
 
   function toggleNotification(key: NotificationKey) {
@@ -378,27 +460,114 @@ export default function SettingsPage() {
               <section className={cardClass}>
                 <h2 className="text-lg font-semibold text-gray-900">Data export</h2>
                 <p className="mt-2 text-sm leading-6 text-gray-600">
-                  Account-wide CSV, PDF and XLSX exports aren't connected yet.
-                  No export request is being processed, and no example download is shown as a real file.
+                  Download real records belonging to this business. The file is prepared
+                  securely by Kassa, and it is not shared with other merchants.
                 </p>
-                <Link href="/reports" className="mt-5 inline-flex rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-gray-50">
-                  View your actual reports
-                </Link>
+                <p className="mt-3 text-xs text-amber-800">
+                  Exports can contain private customer and staff details. Store them securely.
+                  For complete exports, each selected section must contain at most 5,000 records;
+                  larger sections will return an error instead of exporting incomplete data.
+                </p>
+                <fieldset className="mt-5">
+                  <legend className="text-sm font-semibold text-gray-900">Select data</legend>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {exportOptions.map((item) => (
+                      <label key={item.key}
+                        className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-700">
+                        <input type="checkbox" className="h-4 w-4 accent-emerald-700"
+                          checked={exportSelections[item.key]}
+                          onChange={() => setExportSelections((current) => ({
+                            ...current, [item.key]: !current[item.key],
+                          }))}/>
+                        {item.label}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Export format
+                    <select className={fieldClass + " mt-2"} value={exportFormat}
+                      onChange={(event) => setExportFormat(event.target.value as ExportFormat)}>
+                      <option value="CSV">CSV</option>
+                      <option value="XLSX">Excel (XLSX)</option>
+                      <option value="PDF">PDF</option>
+                    </select>
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">
+                    Date range
+                    <select className={fieldClass + " mt-2"} value={exportDateRange}
+                      onChange={(event) => setExportDateRange(event.target.value as ExportDateRange)}>
+                      <option value="ALL">All available data</option>
+                      <option value="LAST_30_DAYS">Last 30 days</option>
+                      <option value="LAST_90_DAYS">Last 90 days</option>
+                      <option value="THIS_YEAR">This year</option>
+                    </select>
+                  </label>
+                </div>
+                <p className="mt-3 text-xs text-gray-500">
+                  Date filtering applies to transactions and newly created customers.
+                  Products, current stock, staff and branches represent the present business snapshot.
+                  Financial test-mode transactions are labelled separately.
+                </p>
+                <button type="button" onClick={() => void runExport()}
+                  disabled={loading || !context || exporting}
+                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">
+                  {exporting && <Loader2 size={16} className="animate-spin"/>}
+                  {exporting ? "Preparing export..." : "Export selected data"}
+                </button>
               </section>
             )}
 
             {section === "Delete Account" && (
               <section className={cardClass}>
                 <h2 className="flex items-center gap-2 text-lg font-semibold text-red-700">
-                  <ShieldAlert size={20}/> Account deletion
+                  <ShieldAlert size={20}/> Permanently close your account
                 </h2>
-                <p className="mt-3 text-sm leading-6 text-gray-600">
-                  Permanent account deletion requires an authenticated backend deletion workflow and a retention review for financial records.
-                  That workflow has not been implemented. Kassa will not falsely report your account as deleted.
+                <p className="mt-3 text-sm leading-6 text-gray-700">
+                  This closes your own Kassa login, revokes your sessions and removes your
+                  identifying profile details. You will be signed out immediately and cannot
+                  restore the account.
                 </p>
-                <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                  No deletion has been performed. Your account and business records remain unchanged.
-                </p>
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                  <strong>Important:</strong> Business records and historical financial transactions
+                  are preserved for accounting and audit integrity. Closing your login does
+                  not automatically delete merchant businesses, staff, customers or sales.
+                  If you manage a team, arrange access for another owner before closure.
+                </div>
+                <div className="mt-5 space-y-4">
+                  <label className="block text-sm font-semibold text-gray-800">
+                    Enter your current password to confirm your identity
+                    <input type="password" autoComplete="current-password"
+                      className={fieldClass + " mt-2"} value={deletePassword}
+                      onChange={(event) => setDeletePassword(event.target.value)}
+                      maxLength={128} disabled={deleting || accountClosed}/>
+                  </label>
+                  <label className="block text-sm font-semibold text-gray-800">
+                    Type DELETE ACCOUNT exactly
+                    <input className={fieldClass + " mt-2"} value={deletePhrase}
+                      placeholder="DELETE ACCOUNT" autoComplete="off"
+                      onChange={(event) => setDeletePhrase(event.target.value)}
+                      disabled={deleting || accountClosed}/>
+                  </label>
+                </div>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <button type="button" onClick={() => { setSection("Business profile"); setDeletePassword(""); setDeletePhrase(""); }}
+                    disabled={deleting} className="rounded-lg border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 disabled:opacity-50">
+                    Cancel
+                  </button>
+                  <button type="button" onClick={() => void closeAccount()}
+                    disabled={!deletePassword || deletePhrase !== "DELETE ACCOUNT" || deleting || accountClosed}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">
+                    {deleting && <Loader2 size={16} className="animate-spin"/>}
+                    {deleting ? "Closing account..." : "Permanently close my Kassa account"}
+                  </button>
+                </div>
+                {accountClosed && (
+                  <p role="status" className="mt-4 text-sm font-medium text-gray-600">
+                    Your account has been closed. Redirecting to sign-in.
+                  </p>
+                )}
               </section>
             )}
           </div>
