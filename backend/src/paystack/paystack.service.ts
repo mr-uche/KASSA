@@ -367,9 +367,9 @@ export class PaystackService {
     }));
     return {
       testMode: true, checked: results.length,
-      paid: results.filter((item) => item.providerStatus === 'success' && item.saleStatus === 'PAID').length,
+      paid: results.filter((item) => item.providerStatus === 'success' && 'saleStatus' in item && item.saleStatus === 'PAID').length,
       needsReview: results.filter((item) => item.providerStatus === 'verification_error' ||
-        item.needsAttention).length,
+        ('needsAttention' in item && item.needsAttention)).length,
       results,
     };
   }
