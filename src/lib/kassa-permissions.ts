@@ -29,23 +29,45 @@ export function hasBusinessAccess(
 }
 
 export async function loadAccess(): Promise<BusinessAccess[]> {
-  let response: Response;
-  try {
-    response = await fetch("/api/businesses/mine", {
-      cache: "no-store",
-      credentials: "same-origin",
-    });
-  } catch {
-    throw new Error("Could not connect to Kassa. Please check your connection.");
+  // A sleeping or temporarily unreachable backend can take a moment to wake
+  // up. Retry only transient failures, never 401/403 permission errors.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let response: Response;
+    try {
+      response = await fetch("/api/businesses/mine", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+    } catch {
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 800));
+        continue;
+      }
+      throw new Error("Could not connect to Kassa. Your remembered session has not been cleared; please retry.");
+    }
+    if ([502, 503, 504].includes(response.status) && attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 800));
+      continue;
+    }
+
+    const body: unknown = await response.json().catch(() => null);
+    if (response.status === 401) {
+      throw new Error("Your login session has expired or is no longer valid. Please sign in again.");
+    }
+    if (response.status === 403) {
+      throw new Error("Your account does not have permission to access this business.");
+    }
+    if (!response.ok) {
+      throw new Error(response.status >= 500
+        ? "Kassa could not reach the backend right now. Your remembered login has not been cleared; please retry."
+        : "Unable to check your business access right now.");
+    }
+    if (!Array.isArray(body)) {
+      throw new Error("Received an invalid permissions response.");
+    }
+    return body as BusinessAccess[];
   }
-  const body: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error("Unable to check your business access right now.");
-  }
-  if (!Array.isArray(body)) {
-    throw new Error("Received an invalid permissions response.");
-  }
-  return body as BusinessAccess[];
+  throw new Error("Unable to check business access right now. Please retry.");
 }
 
 export function firstPermittedPath(businesses: BusinessAccess[]): string {
