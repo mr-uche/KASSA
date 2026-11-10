@@ -419,25 +419,32 @@ export default function ReportsPage() {
       <main className="min-h-screen lg:ml-[198px]">
         <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
-            <button onClick={() => setSidebarOpen(true)} aria-label="Open menu"
-              className="shrink-0 rounded-md p-1.5 text-gray-600 lg:hidden">
-              <Menu size={22}/>
+            <button type="button" onClick={() => setSidebarOpen(true)}
+              className="shrink-0 rounded-md p-1.5 text-[#374151] transition hover:bg-[#F3F4F6] lg:hidden"
+              aria-label="Open menu">
+              <Menu size={22} />
             </button>
             <h1 className="truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">
               Reports &amp; Analytics
             </h1>
           </div>
-          <div className="flex shrink-0 items-center gap-3 sm:gap-5">
-            <div className="hidden sm:block">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:gap-5">
+            <div className="hidden w-[130px] sm:block sm:w-[150px] lg:w-[162px]">
               <label className="sr-only" htmlFor="report-branch">Report branch</label>
-              <select id="report-branch" value={branchId} onChange={(e) => setBranchId(e.target.value)}
-                className="h-[34px] w-[150px] rounded-[9px] border border-[#D8DCE3] bg-white px-2 text-xs text-[#374151] lg:w-[162px]">
-                {owner && <option value="all">All branches</option>}
-                {selectableBranches.map((branch) => <option value={branch.id} key={branch.id}>{branch.name}{!branch.isActive ? " (inactive)" : ""}</option>)}
-              </select>
+                <select id="report-branch" value={branchId} onChange={(e) => setBranchId(e.target.value)}
+                  className="h-[34px] w-full rounded-[9px] border border-[#D8DCE3] bg-white pl-3 pr-11 text-[12px] text-[#374151] sm:text-[13px]">
+                  {owner && <option value="all">All branches</option>}
+                  {selectableBranches.map((branch) => <option value={branch.id} key={branch.id}>{branch.name}{!branch.isActive ? " (inactive)" : ""}</option>)}
+                </select>
             </div>
-            <span aria-label="Notifications" className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-50"><Bell size={17} className="text-gray-400"/></span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-xs font-semibold text-emerald-800">AO</div>
+            <button type="button" aria-label="Notifications"
+              className="relative flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[#F8F9FA]">
+              <Bell size={17} className="text-[#98A1AE]" />
+              <span className="absolute right-[8px] top-[6px] h-[7px] w-[7px] rounded-full bg-[#E54848]" />
+            </button>
+            <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[#E5F5F0] text-[12px] font-semibold text-[#08745F]">
+              AO
+            </div>
           </div>
         </header>
 
