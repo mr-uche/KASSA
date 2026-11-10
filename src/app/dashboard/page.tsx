@@ -213,7 +213,7 @@ export default function DashboardPage() {
                 onClick={() => setBranchOpen((open) => !open)}
                 aria-haspopup="listbox"
                 aria-expanded={branchOpen}
-                className="flex h-[34px] w-full items-center justify-between rounded-[9px] border border-[#D8DCE3] bg-white px-3 text-[12px] text-[#374151] transition hover:bg-[#F8FAFA] sm:text-[13px]"
+                className="flex h-[34px] w-full items-center justify-between rounded-[9px] border border-[#D8DCE3] bg-white pl-3 pr-4 text-[12px] text-[#374151] transition hover:bg-[#F8FAFA] sm:text-[13px]"
               >
                 <span className="truncate">{selectedBranch}</span>
                 <ChevronDown

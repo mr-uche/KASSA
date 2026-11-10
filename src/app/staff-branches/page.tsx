@@ -28,10 +28,10 @@ function FilterSelect({ value, choices, onChange }: {
   return (
     <div className="relative w-full shrink-0 sm:w-auto">
       <select value={value} onChange={(e) => onChange(e.target.value)}
-        className="w-full appearance-none rounded-lg border border-gray-200 bg-white py-2.5 pl-4 pr-9 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-700">
+        className="kassa-select-custom-icon w-full appearance-none rounded-lg border border-gray-200 bg-white py-2.5 pl-4 pr-11 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-700">
         {choices.map((option) => <option key={option} value={option}>{option}</option>)}
       </select>
-      <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"/>
+      <ChevronDown size={14} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-500"/>
     </div>
   );
 }
