@@ -15,6 +15,7 @@ const modern = 't=' + timestamp + ',v1=whk_other:invalid,v1=whk_sample1:' + sign
 
 test('accepts modern signed raw body with timestamp and multiple v1 signatures', () => {
   assert.equal(verifyPaystackSignature(body, modern, undefined, newKey, oldKey, timestamp), true);
+  assert.equal(verifyPaystackSignature(body, modern.replace(',v1=', ', v1='), undefined, newKey, oldKey, timestamp), true);
 });
 
 test('rejects old and future signatures outside 300 second window', () => {

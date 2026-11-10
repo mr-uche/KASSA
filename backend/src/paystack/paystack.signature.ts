@@ -19,7 +19,7 @@ export function verifyPaystackSignature(
 ): boolean {
   if (modernHeader) {
     if (!webhookSecret?.startsWith('whsec_')) return false;
-    const parts = modernHeader.split(',');
+    const parts = modernHeader.split(',').map((part) => part.trim());
     const timestampPart = parts.find((part) => part.startsWith('t='));
     const timestamp = timestampPart?.slice(2) ?? '';
     if (!/^\d{10,11}$/.test(timestamp) ||
