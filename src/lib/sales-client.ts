@@ -38,6 +38,8 @@ export type SavedSale = {
     channel: PaymentMethod;
     status: "PENDING" | "SUCCEEDED" | "FAILED" | "REFUNDED" | "CANCELLED";
     confirmedAt: string | null;
+    provider?: string | null;
+    providerReference?: string | null;
   }[];
 };
 

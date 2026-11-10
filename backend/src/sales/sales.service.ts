@@ -23,7 +23,7 @@ export class SalesService {
     items: { select: {
       id: true, productId: true, productNameSnapshot: true, quantity: true, unitPrice: true, lineTotal: true,
     } },
-    payments: { select: { id: true, reference: true, channel: true, status: true, confirmedAt: true } },
+    payments: { select: { id: true, reference: true, channel: true, status: true, confirmedAt: true, provider: true, providerReference: true } },
   } as const;
 
   private async checkAccess(userId: string, businessId: string, branchId: string, writing = false) {
@@ -38,7 +38,7 @@ export class SalesService {
     currency: string; createdAt: Date; cashier: { fullName: string } | null;
     customerId: string | null; customer: { fullName: string } | null;
     items: { id: string; productId: string; productNameSnapshot: string; quantity: number; unitPrice: { toString(): string }; lineTotal: { toString(): string } }[];
-    payments: { id: string; reference: string; channel: string; status: string; confirmedAt: Date | null }[];
+    payments: { id: string; reference: string; channel: string; status: string; confirmedAt: Date | null; provider: string | null; providerReference: string | null }[];
   }) {
     return {
       id: sale.id, reference: sale.reference, businessId: sale.businessId, branchId: sale.branchId,
@@ -53,6 +53,7 @@ export class SalesService {
       payments: sale.payments.map((payment) => ({
         id: payment.id, reference: payment.reference, channel: payment.channel,
         status: payment.status, confirmedAt: payment.confirmedAt?.toISOString() ?? null,
+        provider: payment.provider, providerReference: payment.providerReference,
       })),
     };
   }
