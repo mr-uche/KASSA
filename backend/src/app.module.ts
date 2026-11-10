@@ -11,6 +11,7 @@ import { CustomersModule } from './customers/customers.module';
 import { StaffBranchesModule } from './staff-branches/staff-branches.module';
 import { ReportsModule } from './reports/reports.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { PaystackModule } from './paystack/paystack.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { PrismaModule } from './prisma/prisma.module';
     BusinessesModule,
     InventoryModule,
     SalesModule,
+    PaystackModule,
     CustomersModule,
     StaffBranchesModule,
     ReportsModule,
