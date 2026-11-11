@@ -17,6 +17,19 @@ type MenuItem = {
   href: string;
   permission: KassaPermission | "Owner";
 };
+const offlineItems = [
+  { name: "Home", section: "home" },
+  { name: "New Sale", section: "new-sale" },
+  { name: "Transactions", section: "transactions" },
+  { name: "Scan Product", section: "scan" },
+  { name: "Reports & Analytics", section: "reports" },
+  { name: "Products & Inventory", section: "products" },
+  { name: "Customers", section: "customers" },
+  { name: "Staff & Branches", section: "staff" },
+  { name: "Settings", section: "settings" },
+  { name: "Offline Backup", section: "backup" },
+];
+
 const menuItems: MenuItem[] = [
   { name: "Home", href: "/dashboard", permission: "View dashboard" },
   { name: "New Sale", href: "/sales/new", permission: "Manage sales & transactions" },
@@ -32,17 +45,44 @@ const menuItems: MenuItem[] = [
 export default function KassaSidebar({
   isOpen,
   onClose,
+  offlineMode = false,
+  activeOfflineSection = "new-sale",
+  onOfflineNavigate,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  offlineMode?: boolean;
+  activeOfflineSection?: string;
+  onOfflineNavigate?: (section: string) => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const [business, setBusiness] = useState<BusinessAccess | undefined>(undefined);
+  const [isOffline, setIsOffline] = useState(offlineMode);
+  const offlineNavigation = offlineMode || isOffline;
+
+  useEffect(() => {
+    if (offlineMode) {
+      setIsOffline(true);
+      return;
+    }
+    const update = () => setIsOffline(!navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, [offlineMode]);
 
   useEffect(() => {
     let active = true;
     async function updateMenu() {
+      if (offlineMode || !navigator.onLine) {
+        if (active) setBusiness(undefined);
+        return;
+      }
       try {
         const memberships = await loadAccess();
         if (!active) return;
@@ -57,13 +97,17 @@ export default function KassaSidebar({
     window.addEventListener("branchChanged", updateMenu);
     window.addEventListener("storage", updateMenu);
     window.addEventListener("focus", updateMenu);
+    window.addEventListener("online", updateMenu);
+    window.addEventListener("offline", updateMenu);
     return () => {
       active = false;
       window.removeEventListener("branchChanged", updateMenu);
       window.removeEventListener("storage", updateMenu);
       window.removeEventListener("focus", updateMenu);
+      window.removeEventListener("online", updateMenu);
+      window.removeEventListener("offline", updateMenu);
     };
-  }, [pathname]);
+  }, [pathname, offlineMode]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -117,53 +161,69 @@ export default function KassaSidebar({
           </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="mt-[48px] flex flex-1 flex-col gap-[4px]">
-          {menuItems.filter((item) => hasBusinessAccess(business, item.permission)).map((item) => {
-            const active =
-              pathname === item.href ||
-              (item.href !== "/dashboard" && pathname.startsWith(item.href));
-
+        {/* Online links are role-filtered. Offline links stay within the
+            local workspace and cannot authorize cloud operations. */}
+        <nav className="mt-[48px] flex flex-1 flex-col gap-[4px] overflow-y-auto">
+          {offlineNavigation ? offlineItems.map((item) => {
+            const active = activeOfflineSection === item.section ||
+              (!offlineMode && pathname === "/offline-sales" && item.section === "new-sale");
             return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={onClose}
-                className={`relative mx-0 flex h-[44px] items-center px-[14px] text-[14px] transition ${
-                  active
-                    ? "rounded-r-[8px] bg-[#075C4D] font-semibold"
-                    : "text-white/90 hover:bg-[#075C4D]/60"
-                }`}
-              >
-                {active && (
-                  <span className="mr-[9px] h-[5px] w-[5px] rounded-full bg-[#B7E5D5]" />
-                )}
-                {!active && <span className="w-[5px] mr-[9px]" />}
+              <a key={item.name} href={"/offline-sales?section=" + encodeURIComponent(item.section)}
+                onClick={(event) => {
+                  if (onOfflineNavigate) {
+                    event.preventDefault();
+                    onOfflineNavigate(item.section);
+                  }
+                  onClose();
+                }}
+                className={`relative mx-0 flex min-h-[44px] items-center px-[14px] text-[14px] transition ${active
+                  ? "rounded-r-[8px] bg-[#075C4D] font-semibold"
+                  : "text-white/90 hover:bg-[#075C4D]/60"}`}>
+                {active ? <span className="mr-[9px] h-[5px] w-[5px] rounded-full bg-[#B7E5D5]" />
+                  : <span className="mr-[9px] w-[5px]" />}
+                {item.name}
+              </a>
+            );
+          }) : menuItems.filter((item) => hasBusinessAccess(business, item.permission)).map((item) => {
+            const active = pathname === item.href ||
+              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            return (
+              <Link key={item.name} href={item.href} onClick={onClose}
+                className={`relative mx-0 flex min-h-[44px] items-center px-[14px] text-[14px] transition ${active
+                  ? "rounded-r-[8px] bg-[#075C4D] font-semibold"
+                  : "text-white/90 hover:bg-[#075C4D]/60"}`}>
+                {active ? <span className="mr-[9px] h-[5px] w-[5px] rounded-full bg-[#B7E5D5]" />
+                  : <span className="mr-[9px] w-[5px]" />}
                 {item.name}
               </Link>
             );
           })}
         </nav>
 
-        {/* Log out */} 
-        <button type="button" onClick={async () => {
-          try {
-            const response = await fetch("/api/auth/logout", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: "{}",
-            });
-            if (!response.ok) return;
-            router.replace("/login");
-            router.refresh();
-          } catch {
-            // Keep the current session if the logout request fails.
-          }
-        }} 
-        className="mx-4 mb-5 flex h-[44px] w-[calc(100%-2rem)] items-center gap-3 rounded-[8px] px-[14px] text-[14px] text-white/90 transition hover:bg-[#075C4D]" > 
-        <LogOut size={18} />
-        <span>Log out</span> 
-        </button>
+        {offlineNavigation ? (
+          <div className="mx-4 mb-5 rounded-lg bg-white/10 px-3 py-2 text-xs leading-5 text-white/90">
+            Offline mode · Sign out when you reconnect. Lock this device when unattended.
+          </div>
+        ) : (
+          <button type="button" onClick={async () => {
+                    try {
+                      const response = await fetch("/api/auth/logout", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: "{}",
+                      });
+                      if (!response.ok) return;
+                      router.replace("/login");
+                      router.refresh();
+                    } catch {
+                      // Keep the current session if the logout request fails.
+                    }
+                  }} 
+                  className="mx-4 mb-5 flex h-[44px] w-[calc(100%-2rem)] items-center gap-3 rounded-[8px] px-[14px] text-[14px] text-white/90 transition hover:bg-[#075C4D]" > 
+                  <LogOut size={18} />
+                  <span>Log out</span> 
+                  </button>
+        )}
       </aside>
     </>
   );
