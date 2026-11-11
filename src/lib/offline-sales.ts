@@ -211,9 +211,16 @@ async function syncUnconfirmedSales(): Promise<void> {
       if (response.ok && details.status === "PAID" && typeof details.reference === "string") {
         await updateSale({ ...current, status: "synced", cloudReference: details.reference, lastError: undefined });
       } else {
-        const code = typeof details.code === "string" ? details.code : "";
-        const message = typeof details.message === "string"
-          ? details.message : "Cloud sync could not complete; this sale was kept on the device.";
+        // NestJS serializes ConflictException({code,message}) inside the
+        // top-level "message" property. Handle either shape reliably.
+        const nested = details.message && typeof details.message === "object"
+          && !Array.isArray(details.message)
+          ? details.message as Record<string, unknown> : null;
+        const code = typeof details.code === "string" ? details.code
+          : typeof nested?.code === "string" ? nested.code : "";
+        const message = typeof details.message === "string" ? details.message
+          : typeof nested?.message === "string" ? nested.message
+            : "Cloud sync could not complete; this sale was kept on the device.";
         const conflict = response.status === 400 || response.status === 403 ||
           (response.status === 409 && code !== "OFFLINE_RETRY_LATER");
         await updateSale({ ...current, status: conflict ? "needs_attention" : "pending", lastError: message });
