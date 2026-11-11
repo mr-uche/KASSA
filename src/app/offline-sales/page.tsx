@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import KassaSidebar from "@/components/KassaSidebar";
 import { Download, Menu, Printer, RefreshCw, ShoppingCart, Upload, Wifi, WifiOff } from "lucide-react";
 import { createEncryptedOfflineBackup, restoreEncryptedOfflineBackup } from "@/lib/offline-backup";
 import { getInventoryContext } from "@/lib/inventory-client";
@@ -14,12 +15,26 @@ import {
   type OfflineWorkspace,
 } from "@/lib/offline-sales";
 
+type OfflineSection = "home" | "new-sale" | "transactions" | "scan" | "reports" |
+  "products" | "customers" | "staff" | "settings" | "backup";
+const OFFLINE_TITLES: Record<OfflineSection, string> = {
+  home: "Home", "new-sale": "New Sale", transactions: "Transactions",
+  scan: "Scan Product", reports: "Reports & Analytics", products: "Products & Inventory",
+  customers: "Customers", staff: "Staff & Branches", settings: "Settings",
+  backup: "Offline Backup & Recovery",
+};
+function parseSection(value: string | null): OfflineSection {
+  return value && value in OFFLINE_TITLES ? value as OfflineSection : "new-sale";
+}
+
 const money = (value: string) => "₦" + Number(value).toLocaleString("en-NG", {
   minimumFractionDigits: 2, maximumFractionDigits: 2,
 });
 
 export default function OfflineSalesPage() {
   const [workspace, setWorkspace] = useState<OfflineWorkspace | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [section, setSection] = useState<OfflineSection>("new-sale");
   const [savedSales, setSavedSales] = useState<OfflineSale[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [search, setSearch] = useState("");
@@ -33,6 +48,17 @@ export default function OfflineSalesPage() {
   const [backupPassphrase, setBackupPassphrase] = useState("");
   const [backupFile, setBackupFile] = useState<File | null>(null);
   const [backupWorking, setBackupWorking] = useState(false);
+
+  useEffect(() => {
+    setSection(parseSection(new URLSearchParams(window.location.search).get("section")));
+  }, []);
+
+  const navigate = (choice: string) => {
+    const next = parseSection(choice);
+    setSection(next);
+    setSidebarOpen(false);
+    window.history.replaceState(window.history.state, "", "/offline-sales?section=" + next);
+  };
 
   const refreshDevice = useCallback(async () => {
     const active = await getOfflineWorkspace();
@@ -178,6 +204,26 @@ export default function OfflineSalesPage() {
     synced: savedSales.filter((sale) => sale.status === "synced").length,
   };
   const selectedReceipt = savedSales.find((sale) => sale.id === receiptId);
+  const localCash = savedSales.reduce((sum, sale) => sum + Number(sale.total), 0);
+  const pendingCash = savedSales.filter((sale) => sale.status !== "synced")
+    .reduce((sum, sale) => sum + Number(sale.total), 0);
+
+  function scanOfflineProduct() {
+    if (!workspace || !workspaceFresh(workspace)) {
+      setMessage("Prepare a valid offline catalogue while connected before scanning.");
+      return;
+    }
+    const code = search.trim().toLowerCase();
+    const product = workspace.products.find((item) =>
+      item.barcode?.toLowerCase() === code || item.sku.toLowerCase() === code);
+    if (!product) {
+      setMessage("This barcode or SKU is not in the cached product catalogue.");
+      return;
+    }
+    add(product.id, 1);
+    setSearch("");
+    setMessage("Scanned " + product.name + " into the local cash sale.");
+  }
 
 
   async function downloadBackup() {
@@ -273,12 +319,18 @@ export default function OfflineSalesPage() {
 
   return (
     <div className="min-h-screen bg-[#F7F8FA] text-gray-900">
+      <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}
+        offlineMode activeOfflineSection={section} onOfflineNavigate={navigate} />
+      <div className="min-h-screen lg:ml-[198px]">
       <header className="flex min-h-[80px] flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-8">
         <div className="flex items-center gap-3">
-          <Link href="/sales/new" aria-label="Back to New Sale" className="rounded-md p-2 hover:bg-gray-100">
+          <button type="button" aria-label="Open Kassa navigation"
+            onClick={() => setSidebarOpen(true)}
+            className="rounded-md p-2 text-[#374151] hover:bg-gray-100 lg:hidden">
             <Menu size={20}/>
-          </Link>
-          <h1 className="text-[20px] font-bold text-[#182033]">Offline selling</h1>
+          </button>
+          <h1 className="text-[20px] font-bold text-[#182033]">{OFFLINE_TITLES[section]}</h1>
+          <span className="hidden rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-900 sm:inline">Offline workspace</span>
         </div>
         <div className="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold">
           {online ? <Wifi size={15} className="text-emerald-700"/> : <WifiOff size={15} className="text-amber-700"/>}
@@ -288,8 +340,13 @@ export default function OfflineSalesPage() {
 
       <main className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-8">
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-          <strong>Cash-only test mode.</strong> Receipts are LOCAL and marked Pending Cloud Sync until Kassa confirms them.
-          Paystack, bank transfers, cards and USSD cannot be confirmed offline. Stock shown here is a device estimate.
+          <strong>Offline KASSA · Test mode.</strong> Move between the locally available sections
+          using the usual green navigation bar. Cash sales, receipts, local transactions, and cached
+          stock work without the backend. All totals are device estimates until cloud sync succeeds.
+          Paystack and account-management actions remain online-only.
+          {online && (
+            <Link href="/dashboard" className="ml-2 font-semibold underline">Return to live KASSA</Link>
+          )}
         </div>
         {message && <p role="status" className="rounded-lg border border-gray-200 bg-white p-3 text-sm">{message}</p>}
 
@@ -330,14 +387,131 @@ export default function OfflineSalesPage() {
           </div>
         )}
 
-        {workspace && (
+        {section === "home" && (
+          <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
+            <h2 className="text-lg font-semibold">Offline business overview</h2>
+            <p className="text-sm text-gray-600">
+              This is your local device view. It does not include today's sales from other devices
+              or changes that haven't been synchronized from the cloud.
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-lg bg-emerald-50 p-4">
+                <p className="text-xs text-gray-600">Cash collected on this device</p>
+                <p className="mt-1 text-xl font-bold">{money(localCash.toFixed(2))}</p>
+              </div>
+              <div className="rounded-lg bg-amber-50 p-4">
+                <p className="text-xs text-gray-600">Not confirmed by cloud</p>
+                <p className="mt-1 text-xl font-bold">{money(pendingCash.toFixed(2))}</p>
+              </div>
+              <div className="rounded-lg bg-gray-100 p-4">
+                <p className="text-xs text-gray-600">Cached products</p>
+                <p className="mt-1 text-xl font-bold">{products.length}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => navigate("new-sale")} className="rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white">
+                New cash sale
+              </button>
+              <button onClick={() => navigate("transactions")} className="rounded-lg border px-4 py-2.5 text-sm font-semibold">
+                Local transactions
+              </button>
+              <button onClick={() => navigate("products")} className="rounded-lg border px-4 py-2.5 text-sm font-semibold">
+                Cached inventory
+              </button>
+            </div>
+          </section>
+        )}
+
+        {section === "products" && (
+          <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
+            <h2 className="text-lg font-semibold">Cached inventory</h2>
+            <p className="text-sm text-gray-600">
+              Read-only estimated stock for {workspace?.branchName ?? "this branch"}.
+              Refresh your catalogue while online to pick up changes from other devices.
+            </p>
+            <input value={search} onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search cached products" className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm"/>
+            <div className="max-h-[560px] space-y-2 overflow-y-auto">
+              {visible.map((product) => (
+                <div key={product.id} className="flex items-center justify-between gap-4 rounded-lg border border-gray-100 p-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{product.name}</p>
+                    <p className="text-xs text-gray-500">{product.sku} · {product.category}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold">{money(product.price)}</p>
+                    <p className="text-xs text-gray-500">
+                      Est. stock: {availableOfflineStock(product, savedSales, workspace?.cachedAt ?? "")}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {!visible.length && <p className="text-sm text-gray-500">No cached products to display.</p>}
+            </div>
+          </section>
+        )}
+
+        {section === "reports" && (
+          <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
+            <h2 className="text-lg font-semibold">Device cash sales report</h2>
+            <p className="text-sm text-gray-600">
+              These figures represent only sales recorded in this offline workspace.
+              Live branch revenue, settlements, and accounting reports still need the backend.
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-lg bg-gray-50 p-4">
+                <p className="text-xs">Local cash transactions</p><p className="text-xl font-bold">{savedSales.length}</p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-4">
+                <p className="text-xs">Cash recorded locally</p><p className="text-xl font-bold">{money(localCash.toFixed(2))}</p>
+              </div>
+              <div className="rounded-lg bg-amber-50 p-4">
+                <p className="text-xs">Awaiting cloud confirmation</p><p className="text-xl font-bold">{money(pendingCash.toFixed(2))}</p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {["customers", "staff", "settings"].includes(section) && (
+          <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-6">
+            <h2 className="text-lg font-semibold">{OFFLINE_TITLES[section]}</h2>
+            <p className="text-sm leading-6 text-gray-600">
+              This section depends on current cloud data and permissions, so editing is
+              unavailable offline. Offline cash sales, local receipts, cached inventory,
+              and local transaction history remain accessible using the sidebar.
+            </p>
+            <button onClick={() => navigate("new-sale")}
+              className="rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white">
+              Continue offline selling
+            </button>
+          </section>
+        )}
+
+        {workspace && (section === "new-sale" || section === "scan") && (
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr]">
             <section className="rounded-xl border border-gray-200 bg-white p-5">
-              <h2 className="mb-2 text-lg font-semibold">Products</h2>
-              <p className="mb-4 text-xs text-gray-500">Local stock estimates include pending cash sales on this device.</p>
+              <h2 className="mb-2 text-lg font-semibold">
+                {section === "scan" ? "Scan barcode or SKU" : "Products"}
+              </h2>
+              <p className="mb-4 text-xs text-gray-500">
+                Local stock estimates include pending cash sales on this device.
+                {section === "scan" ? " Bluetooth/USB HID scanners can type into this field." : ""}
+              </p>
               <input value={search} onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search product, SKU or barcode"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && section === "scan") {
+                    event.preventDefault();
+                    scanOfflineProduct();
+                  }
+                }}
+                placeholder={section === "scan" ? "Scan barcode, then press Enter" : "Search product, SKU or barcode"}
                 className="mb-4 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm"/>
+              {section === "scan" && (
+                <button type="button" onClick={scanOfflineProduct} disabled={!fresh}
+                  className="mb-4 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
+                  Add scanned product
+                </button>
+              )}
               <div className="max-h-[460px] space-y-2 overflow-y-auto">
                 {visible.map((product) => {
                   const available = availableOfflineStock(product, savedSales, workspace.cachedAt);
@@ -391,7 +565,7 @@ export default function OfflineSalesPage() {
           </div>
         )}
 
-        {selectedReceipt && (
+        {selectedReceipt && (section === "new-sale" || section === "scan" || section === "transactions") && (
           <section aria-label="Local receipt" className="space-y-3">
             <h2 className="text-lg font-semibold">Saved local receipt</h2>
             <div id="kassa-receipt-document" className="rounded-xl border border-gray-200 bg-white p-5 sm:p-8">
@@ -426,6 +600,7 @@ export default function OfflineSalesPage() {
           </section>
         )}
 
+        {(section === "home" || section === "transactions" || section === "new-sale") && (
         <section className="rounded-xl border border-gray-200 bg-white p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold">Device sales & sync queue</h2>
@@ -465,6 +640,8 @@ export default function OfflineSalesPage() {
             {!savedSales.length && <p className="text-sm text-gray-500">No local sales recorded yet.</p>}
           </div>
         </section>
+        )}
+        {section === "backup" && (
         <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 print:hidden">
           <div>
             <h2 className="text-lg font-semibold">Encrypted backup & recovery</h2>
@@ -506,6 +683,7 @@ export default function OfflineSalesPage() {
             synced the sales. This is a recovery aid, not automatic cloud backup.
           </p>
         </section>
+        )}
         <p className="pb-6 text-xs leading-5 text-gray-500">
           Local storage is encrypted using a device-specific browser key. Keep your device
           locked; a separate offline sign-in/PIN is still needed before production release.
@@ -513,6 +691,7 @@ export default function OfflineSalesPage() {
           differences require reconciliation.
         </p>
       </main>
+      </div>
     </div>
   );
 }
