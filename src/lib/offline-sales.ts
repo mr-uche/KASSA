@@ -152,6 +152,14 @@ export async function createOfflineSale(sale: OfflineSale): Promise<void> {
 async function updateSale(sale: OfflineSale): Promise<void> {
   await storeRecord("sales", sale.id, sale);
 }
+
+/** Owner can retry an unchanged transaction after correcting server inventory.
+ * Reuse the exact original ID; never generate a second sale for this cash. */
+export async function retryReviewedOfflineSale(id: string): Promise<void> {
+  const saved = await getRecord<OfflineSale>("sales", id);
+  if (!saved || saved.status !== "needs_attention") return;
+  await updateSale({ ...saved, status: "pending", lastError: undefined });
+}
 export function nairaToKobo(amount: string): bigint {
   if (!/^(?:0|[1-9][0-9]{0,10})(?:\.[0-9]{1,2})?$/.test(amount)) {
     throw new Error("Invalid saved offline price");
