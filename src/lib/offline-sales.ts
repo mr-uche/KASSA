@@ -86,9 +86,13 @@ async function encryptionKey(): Promise<CryptoKey> {
     const created = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
     const tx = database.transaction("keys", "readwrite");
     const done = completed(tx);
-    tx.objectStore("keys").put(created, "primary");
+    const store = tx.objectStore("keys");
+    // Recheck inside the write transaction so two tabs starting together
+    // cannot replace the other tab's encryption key.
+    const existingInWrite = await request<CryptoKey | undefined>(store.get("primary"));
+    if (!existingInWrite) store.put(created, "primary");
     await done;
-    return created;
+    return existingInWrite ?? created;
   })().catch((error) => { keyPromise = null; throw error; });
   return keyPromise;
 }
