@@ -171,8 +171,8 @@ export async function restoreEncryptedOfflineBackup(
     if (salt.length !== 16 || iv.length !== 12) throw Error();
     const key = await encryptionKey(password, salt);
     const plain = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv, additionalData: encoder.encode(FORMAT) },
-      key, fromBase64(envelope.encrypted),
+      { name: "AES-GCM", iv: new Uint8Array(iv), additionalData: encoder.encode(FORMAT) },
+      key, new Uint8Array(fromBase64(envelope.encrypted)),
     );
     payload = JSON.parse(decoder.decode(plain)) as BackupPayload;
   } catch {
