@@ -7,7 +7,7 @@ type Context = { params: Promise<{ segments?: string[] }> };
 
 function pathFrom(segments: string[]): string | null {
   if (segments.length === 0) return "/sales";
-  if (segments.length === 1 && ["catalog", "lookup"].includes(segments[0])) return "/sales/" + segments[0];
+  if (segments.length === 1 && ["catalog", "lookup", "offline-sync"].includes(segments[0])) return "/sales/" + segments[0];
   if (segments.length > 2 || !/^[0-9a-f-]{36}$/i.test(segments[0])) return null;
   if (segments.length === 2 && segments[1] !== "confirm-cash") return null;
   return "/sales/" + segments.join("/");
@@ -20,7 +20,7 @@ async function handler(request: NextRequest, context: Context, method: "GET" | "
   const path = pathFrom(segments);
   if (!path || (method === "GET" && segments.length === 2))
     return NextResponse.json({ message: "Not found" }, { status: 404 });
-  if (method === "POST" && !(segments.length === 0 || (segments.length === 2 && segments[1] === "confirm-cash")))
+  if (method === "POST" && !(segments.length === 0 || (segments.length === 1 && segments[0] === "offline-sync") || (segments.length === 2 && segments[1] === "confirm-cash")))
     return NextResponse.json({ message: "Not found" }, { status: 404 });
 
   let body: unknown;
