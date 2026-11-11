@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AccessTokenGuard, type AuthenticatedRequest } from '../auth/access-token.guard';
-import { ConfirmCashDto, CreateSaleDto, SalesListQueryDto, ScanLookupQueryDto } from './dto/sales.dto';
+import { ConfirmCashDto, CreateSaleDto, OfflineCashSaleDto, SalesListQueryDto, ScanLookupQueryDto } from './dto/sales.dto';
 import { SalesService } from './sales.service';
 
 @ApiTags('Sales') @ApiBearerAuth() @UseGuards(AccessTokenGuard) @Controller('sales')
@@ -12,6 +12,12 @@ export class SalesController {
   create(@Req() request: AuthenticatedRequest, @Body() dto: CreateSaleDto) {
     return this.sales.create(request.userId, dto);
   }
+  @Post('offline-sync')
+  @ApiOperation({ summary: 'Synchronize a collected offline cash sale atomically, idempotently and with stock checks' })
+  offlineSync(@Req() request: AuthenticatedRequest, @Body() dto: OfflineCashSaleDto) {
+    return this.sales.syncOfflineCash(request.userId, dto);
+  }
+
   @Get() @ApiOperation({ summary: 'List latest 100 sales for authorised business branch' })
   list(@Req() request: AuthenticatedRequest, @Query() query: SalesListQueryDto) {
     return this.sales.list(request.userId, query);
