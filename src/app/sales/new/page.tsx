@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ScanBarcode, Minus, Plus, Menu, Bell } from "lucide-react";
+import { Search, ScanBarcode, Minus, Plus, Menu, Bell, WifiOff } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import Link from "next/link";
 import { getInventoryContext, type InventoryContext, type InventoryProduct } from "@/lib/inventory-client";
@@ -238,9 +238,15 @@ export default function NewSalePage() {
 
         </header>
 
-        <p className=" px-[25px] text-sm text-gray-400 mb-6">
+        <p className=" px-[25px] text-sm text-gray-400 mb-4">
               Sales / <span className="bg-yellow-100 px-1 rounded">New sale</span>
         </p>
+        <div className="mx-4 mb-2 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm sm:mx-6 lg:mx-8">
+          <span className="text-emerald-950">Unreliable internet? Prepare this device for offline cash sales while connected.</span>
+          <Link href="/offline-sales" className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 font-semibold text-white">
+            <WifiOff size={16}/> Offline selling
+          </Link>
+        </div>
 
         <div className="grid min-w-0 grid-cols-1 gap-6 px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:grid-cols-3 lg:px-8 lg:pb-10 lg:pt-12">
 
