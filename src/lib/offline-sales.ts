@@ -162,8 +162,11 @@ export function nairaToKobo(amount: string): bigint {
 export function koboToNaira(amount: bigint): string {
   return (amount / 100n).toString() + "." + (amount % 100n).toString().padStart(2, "0");
 }
-export function availableOfflineStock(product: OfflineProduct, sales: OfflineSale[]): number {
-  const taken = sales.filter((sale) => sale.status !== "synced").reduce((sum, sale) =>
+export function availableOfflineStock(product: OfflineProduct, sales: OfflineSale[], cachedAt: string): number {
+  // Subtract every sale not yet reflected in the cached cloud stock. Pending
+  // sales always count; synced sales count only if recorded after cache time.
+  const taken = sales.filter((sale) =>
+    sale.status !== "synced" || Date.parse(sale.recordedAt) >= Date.parse(cachedAt)).reduce((sum, sale) =>
     sum + sale.lines.filter((line) => line.productId === product.id)
       .reduce((lineSum, line) => lineSum + line.quantity, 0), 0);
   return Math.max(0, product.stock - taken);
