@@ -8,7 +8,7 @@ import { hasBusinessAccess, loadAccess } from "@/lib/kassa-permissions";
 import { listCheckoutProducts } from "@/lib/sales-client";
 import {
   availableOfflineStock, createOfflineSale, getOfflineWorkspace, koboToNaira,
-  listOfflineSales, nairaToKobo, OFFLINE_CACHE_DAYS, saveOfflineWorkspace,
+  listOfflineSales, nairaToKobo, OFFLINE_CACHE_DAYS, retryReviewedOfflineSale, saveOfflineWorkspace,
   syncOfflineSales, workspaceFresh, type OfflineLine, type OfflineSale,
   type OfflineWorkspace,
 } from "@/lib/offline-sales";
@@ -397,6 +397,15 @@ export default function OfflineSalesPage() {
                   </span>
                   <button type="button" onClick={() => setReceiptId(sale.id)}
                     className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold">Receipt</button>
+                  {sale.status === "needs_attention" && (
+                    <button type="button" disabled={!online} onClick={() => {
+                      void retryReviewedOfflineSale(sale.id)
+                        .then(() => syncNow()).then(() => refreshDevice())
+                        .catch((cause) => setMessage(cause instanceof Error ? cause.message : "Could not retry sale."));
+                    }} className="rounded-lg border border-amber-600 px-3 py-1.5 text-xs font-semibold text-amber-800 disabled:opacity-40">
+                      Retry after review
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
