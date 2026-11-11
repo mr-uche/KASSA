@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Menu, Printer, RefreshCw, ShoppingCart, Wifi, WifiOff } from "lucide-react";
+import { Download, Menu, Printer, RefreshCw, ShoppingCart, Upload, Wifi, WifiOff } from "lucide-react";
+import { createEncryptedOfflineBackup, restoreEncryptedOfflineBackup } from "@/lib/offline-backup";
 import { getInventoryContext } from "@/lib/inventory-client";
 import { hasBusinessAccess, loadAccess } from "@/lib/kassa-permissions";
 import { listCheckoutProducts } from "@/lib/sales-client";
@@ -29,6 +30,9 @@ export default function OfflineSalesPage() {
   const [message, setMessage] = useState("");
   const [receiptId, setReceiptId] = useState("");
   const [shellReady, setShellReady] = useState(false);
+  const [backupPassphrase, setBackupPassphrase] = useState("");
+  const [backupFile, setBackupFile] = useState<File | null>(null);
+  const [backupWorking, setBackupWorking] = useState(false);
 
   const refreshDevice = useCallback(async () => {
     const active = await getOfflineWorkspace();
@@ -174,6 +178,49 @@ export default function OfflineSalesPage() {
     synced: savedSales.filter((sale) => sale.status === "synced").length,
   };
   const selectedReceipt = savedSales.find((sale) => sale.id === receiptId);
+
+
+  async function downloadBackup() {
+    if (!workspace || backupWorking) return;
+    setBackupWorking(true);
+    setMessage("");
+    try {
+      const backup = await createEncryptedOfflineBackup(workspace, backupPassphrase);
+      const url = URL.createObjectURL(backup.file);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = backup.filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+      setMessage("Encrypted backup created for " + backup.count +
+        " unsynced sale(s). Keep the file and passphrase in separate safe places.");
+      setBackupPassphrase("");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Unable to encrypt the offline sales backup.");
+    } finally {
+      setBackupWorking(false);
+    }
+  }
+
+  async function restoreBackup() {
+    if (!workspace || !backupFile || backupWorking) return;
+    setBackupWorking(true);
+    setMessage("");
+    try {
+      const restored = await restoreEncryptedOfflineBackup(backupFile, backupPassphrase, workspace);
+      await refreshDevice();
+      setMessage("Recovered " + restored.restored + " unsynced sale(s). " +
+        restored.skipped + " existing ID(s) were safely skipped. Review them, then sync.");
+      setBackupPassphrase("");
+      setBackupFile(null);
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Unable to restore the backup.");
+    } finally {
+      setBackupWorking(false);
+    }
+  }
 
   function add(productId: string, delta: number) {
     if (!fresh || !workspace) return;
@@ -418,10 +465,52 @@ export default function OfflineSalesPage() {
             {!savedSales.length && <p className="text-sm text-gray-500">No local sales recorded yet.</p>}
           </div>
         </section>
+        <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 print:hidden">
+          <div>
+            <h2 className="text-lg font-semibold">Encrypted backup & recovery</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Save an encrypted copy of all unsynced cash sales. A backup keeps the original
+              transaction IDs, so restoring one cannot create a second sale when synced.
+              Import requires a current online login to the same cashier and branch.
+            </p>
+          </div>
+          <label htmlFor="offline-backup-passphrase" className="block text-sm font-semibold">
+            Backup passphrase (12+ characters)
+          </label>
+          <input id="offline-backup-passphrase" type="password" autoComplete="new-password"
+            value={backupPassphrase} onChange={(event) => setBackupPassphrase(event.target.value)}
+            placeholder="Use a unique, private passphrase"
+            className="w-full max-w-lg rounded-lg border border-gray-300 p-3 text-sm"
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" disabled={!workspace || backupWorking || backupPassphrase.length < 12 ||
+                savedSales.every((sale) => sale.status === "synced")}
+              onClick={() => void downloadBackup()}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40">
+              <Download size={17}/> Download encrypted backup
+            </button>
+            <label htmlFor="offline-backup-file" className="text-sm font-medium">Restore file</label>
+            <input id="offline-backup-file" type="file" accept=".kassa,application/json"
+              onChange={(event) => setBackupFile(event.target.files?.[0] ?? null)}
+              className="max-w-full text-xs"/>
+            <button type="button" disabled={!workspace || !online || !backupFile || backupWorking ||
+                backupPassphrase.length < 12}
+              onClick={() => void restoreBackup()}
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-800 px-4 py-2.5 text-sm font-semibold text-emerald-800 disabled:opacity-40">
+              <Upload size={17}/> Restore unsynced sales
+            </button>
+          </div>
+          <p className="text-xs leading-5 text-amber-800">
+            Store the backup file and passphrase separately. Losing the passphrase makes the
+            backup unreadable. Do not delete browser data until you've verified a backup and
+            synced the sales. This is a recovery aid, not automatic cloud backup.
+          </p>
+        </section>
         <p className="pb-6 text-xs leading-5 text-gray-500">
-          Device storage is encrypted using a non-exportable browser key. This first test version is not a replacement
-          for device screen locks, offline-user PINs, external backups or multi-device stock reconciliation.
-          Browser storage may be cleared by the user or system; sync pending cash sales before resetting your browser.
+          Local storage is encrypted using a device-specific browser key. Keep your device
+          locked; a separate offline sign-in/PIN is still needed before production release.
+          Browser storage may be cleared by the user or system, and multi-device stock
+          differences require reconciliation.
         </p>
       </main>
     </div>
