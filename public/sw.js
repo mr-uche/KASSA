@@ -31,7 +31,13 @@ self.addEventListener("message", (event) => {
             url.pathname.startsWith("/_next/static/"));
       } catch { return false; }
     });
-    await Promise.allSettled(resources.map((url) => cache.add(url)));
+    const results = await Promise.allSettled(resources.map((url) => cache.add(url)));
+    // Do not tell the cashier the device is ready until the shell was cached.
+    const prepared = results.length > 0 && results.every((result) => result.status === "fulfilled") &&
+      Boolean(await cache.match(OFFLINE_PATH));
+    if (event.source && "postMessage" in event.source) {
+      event.source.postMessage({ type: "KASSA_OFFLINE_SHELL", prepared });
+    }
   })());
 });
 
