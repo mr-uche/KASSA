@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Cloud, CloudOff, Download, Menu, Printer, RefreshCw, ShoppingCart, Wifi, WifiOff } from "lucide-react";
+import { Menu, Printer, RefreshCw, ShoppingCart, Wifi, WifiOff } from "lucide-react";
 import { getInventoryContext } from "@/lib/inventory-client";
 import { hasBusinessAccess, loadAccess } from "@/lib/kassa-permissions";
 import { listCheckoutProducts } from "@/lib/sales-client";
@@ -159,7 +159,7 @@ export default function OfflineSalesPage() {
           lineTotal: koboToNaira(unitKobo * BigInt(quantity)),
         };
       });
-    const total = lines.reduce((sum, line) => sum + nairaToKobo(line.lineTotal), 0n);
+    const total = lines.reduce((sum, line) => sum + nairaToKobo(line.lineTotal), BigInt(0));
     return { total: koboToNaira(total), lines };
   }, [cart, workspace]);
   const counts = {
@@ -408,7 +408,6 @@ export default function OfflineSalesPage() {
           for device screen locks, offline-user PINs, external backups or multi-device stock reconciliation.
           Browser storage may be cleared by the user or system; sync pending cash sales before resetting your browser.
         </p>
-        <p className="hidden"><Cloud/><CloudOff/><Download/><AlertTriangle/><CheckCircle2/></p>
       </main>
     </div>
   );
