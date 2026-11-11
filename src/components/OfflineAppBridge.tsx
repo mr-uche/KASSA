@@ -31,6 +31,9 @@ export default function OfflineAppBridge() {
       preparing = true;
       try {
         const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        // The first install may not be active yet. Wait so preparation also
+        // works on a device that has never opened Offline Selling before.
+        const activeRegistration = await navigator.serviceWorker.ready;
         const shell = await fetch("/offline-sales", { credentials: "same-origin", cache: "no-store" });
         if (!shell.ok) throw new Error("Offline Kassa entry could not be fetched");
         const html = await shell.text();
@@ -51,7 +54,7 @@ export default function OfflineAppBridge() {
             if (path.startsWith("/_next/static/")) assets.add(path);
           } catch { /* Ignore non-URL performance entries. */ }
         }
-        (registration.active ?? navigator.serviceWorker.controller)?.postMessage({
+        (activeRegistration.active ?? registration.active ?? navigator.serviceWorker.controller)?.postMessage({
           type: "PREPARE_OFFLINE", assets: [...assets],
         });
       } catch {
