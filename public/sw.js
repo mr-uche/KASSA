@@ -18,6 +18,8 @@ const APP_ROUTES = [
   ["/sales", "new-sale"],
 ];
 function routeSection(path) {
+  // Support a saved home-screen shortcut or opening the main domain offline.
+  if (path === "/" || path === "/login") return "home";
   for (const [prefix, section] of APP_ROUTES) {
     if (path === prefix || path.startsWith(prefix + "/")) return section;
   }
