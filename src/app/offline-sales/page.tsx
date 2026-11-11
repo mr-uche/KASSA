@@ -110,13 +110,18 @@ export default function OfflineSalesPage() {
       setReady(true);
     });
     if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", onShellMessage);
       navigator.serviceWorker.register("/sw.js", { scope: "/" }).then(async () => {
         const registration = await navigator.serviceWorker.ready;
         const assets = performance.getEntriesByType("resource").map((entry) => entry.name)
           .filter((name) => name.includes("/_next/static/"));
         registration.active?.postMessage({ type: "PREPARE_OFFLINE", assets });
-        setShellReady(true);
       }).catch(() => setMessage("The offline page cache could not be installed. Keep the page open while testing."));
+    }
+    function onShellMessage(event: MessageEvent) {
+      if (event.data?.type !== "KASSA_OFFLINE_SHELL") return;
+      setShellReady(event.data.prepared === true);
+      if (!event.data.prepared) setMessage("Some offline page resources could not be saved. Reopen this page while connected before testing.");
     }
     const onDeviceUpdate = () => void refreshDevice();
     const onOnline = () => { setOnline(true); void syncNow(); };
@@ -131,6 +136,7 @@ export default function OfflineSalesPage() {
     }, 30_000);
     return () => {
       window.clearInterval(interval);
+      if ("serviceWorker" in navigator) navigator.serviceWorker.removeEventListener("message", onShellMessage);
       window.removeEventListener("kassa-offline-sync-update", onDeviceUpdate);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
