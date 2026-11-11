@@ -43,7 +43,7 @@ export class ScanLookupQueryDto extends SalesListQueryDto {
  * Only server-confirmed receipts may be marked SYNCED in the client. */
 export class OfflineCashLineDto extends SaleLineDto {
   @ApiProperty({ example: "1200.00", description: "Price shown and collected while offline, in NGN" })
-  @IsString() @Matches(/^(?:0|[1-9]\\d{0,10})\\.\\d{2}$/)
+  @IsString() @Matches(/^(?:0|[1-9]\d{0,10})\.\d{2}$/)
   unitPrice!: string;
 }
 
