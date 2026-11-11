@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { requireBusinessPermission } from '../business-access';
-import { ConfirmCashDto, CreateSaleDto, SalesListQueryDto, ScanLookupQueryDto } from './dto/sales.dto';
+import { ConfirmCashDto, CreateSaleDto, OfflineCashSaleDto, SalesListQueryDto, ScanLookupQueryDto } from './dto/sales.dto';
 
 function toKobo(value: string): bigint {
   if (!/^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(value)) throw new BadRequestException('Invalid product price');
@@ -261,6 +261,164 @@ export class SalesService {
         data: { status: 'SUCCEEDED', confirmedAt: new Date() },
       });
     });
+
     return this.getOne(userId, id);
+  }
+
+  /**
+   * Cash has already been collected offline. Sync the whole transaction in a
+   * single SERIALIZABLE database transaction. Never trust client-side prices
+   * or stock as current cloud truth, never turn a conflict into a paid sale.
+   */
+  async syncOfflineCash(userId: string, dto: OfflineCashSaleDto) {
+    await this.checkAccess(userId, dto.businessId, dto.branchId, true);
+    const recordedAt = new Date(dto.recordedAt);
+    if (!Number.isFinite(recordedAt.getTime()) ||
+      recordedAt.getTime() > Date.now() + 5 * 60_000 ||
+      recordedAt.getTime() < Date.now() - 8 * 86400_000) {
+      throw new BadRequestException('Offline sale date is outside the supported eight-day sync window');
+    }
+    const ids = dto.items.map((item) => item.productId);
+    if (new Set(ids).size !== ids.length) throw new BadRequestException('Duplicate product in offline sale');
+
+    const reference = 'KSO-' + dto.clientRequestId.replace(/-/g, '');
+    const verifyExisting = (saved: Awaited<ReturnType<SalesService['getOfflineExisting']>>) => {
+      if (!saved) return null;
+      if (saved.businessId !== dto.businessId || saved.branchId !== dto.branchId ||
+        saved.cashierId !== userId || saved.status !== 'PAID' ||
+        saved.payments.length !== 1 || saved.payments[0].channel !== 'CASH' ||
+        saved.payments[0].status !== 'SUCCEEDED' || saved.payments[0].provider !== 'OFFLINE_CASH' ||
+        saved.items.length !== dto.items.length ||
+        dto.items.some((line) => !saved.items.some((item) =>
+          item.productId === line.productId && item.quantity === line.quantity &&
+          item.unitPrice.toString() === line.unitPrice))) {
+        throw new ConflictException({
+          code: 'OFFLINE_DUPLICATE_ID_CONFLICT',
+          message: 'This offline transaction ID is already associated with different sale details',
+        });
+      }
+      return this.serialize(saved);
+    };
+
+    const previous = verifyExisting(await this.getOfflineExisting(reference));
+    if (previous) return previous;
+
+    // Concurrent devices use conditional stock updates in a SERIALIZABLE
+    // transaction. The losing transaction must stay in local review state.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const duplicate = await tx.sale.findUnique({ where: { reference }, include: this.include });
+          const repeated = verifyExisting(duplicate);
+          if (repeated) return repeated;
+
+          const products = await tx.product.findMany({
+            where: { businessId: dto.businessId, id: { in: ids } },
+            select: { id: true, name: true, sellingPrice: true },
+          });
+          if (products.length !== ids.length) {
+            throw new ConflictException({
+              code: 'OFFLINE_PRODUCT_UNAVAILABLE',
+              message: 'A product was deleted or transferred. This cash sale needs owner review.',
+            });
+          }
+          const productMap = new Map(products.map((p) => [p.id, p]));
+          const lines = dto.items.map((item) => {
+            const product = productMap.get(item.productId);
+            if (!product) throw new ConflictException('Offline product no longer exists');
+            if (item.unitPrice !== money(toKobo(product.sellingPrice.toString()))) {
+              throw new ConflictException({
+                code: 'OFFLINE_PRICE_CHANGED',
+                message: 'The saved offline price differs from the current catalogue for ' + product.name +
+                  '. Review the received cash before reconciliation.',
+                productId: item.productId,
+              });
+            }
+            const unitKobo = toKobo(item.unitPrice);
+            if (unitKobo <= 0n) throw new BadRequestException('Offline price must be positive');
+            return {
+              productId: item.productId, productNameSnapshot: product.name,
+              quantity: item.quantity, unitPrice: item.unitPrice,
+              lineLineKobo: unitKobo * BigInt(item.quantity),
+            };
+          });
+          const sumKobo = lines.reduce((sum, line) => sum + line.lineLineKobo, 0n);
+          if (sumKobo <= 0n || sumKobo > 99_999_999_999_999n)
+            throw new BadRequestException('Offline sale total outside supported range');
+
+          for (const line of [...lines].sort((a, b) => a.productId.localeCompare(b.productId))) {
+            const stock = await tx.stockBalance.updateMany({
+              where: {
+                productId: line.productId, branchId: dto.branchId,
+                quantity: { gte: line.quantity },
+              },
+              data: { quantity: { decrement: line.quantity } },
+            });
+            if (stock.count !== 1) {
+              throw new ConflictException({
+                code: 'OFFLINE_STOCK_CONFLICT',
+                message: 'Cloud stock is insufficient for ' + line.productNameSnapshot +
+                  '. Cash was collected offline; owner reconciliation is required.',
+                productId: line.productId,
+              });
+            }
+          }
+
+          const total = money(sumKobo);
+          const sale = await tx.sale.create({
+            data: {
+              reference, businessId: dto.businessId, branchId: dto.branchId,
+              cashierId: userId, status: 'PAID',
+              subtotal: total, discount: '0.00', total,
+              items: { create: lines.map((item) => ({
+                productId: item.productId, productNameSnapshot: item.productNameSnapshot,
+                quantity: item.quantity, unitPrice: item.unitPrice, lineTotal: money(item.lineLineKobo),
+              })) },
+              payments: { create: {
+                reference: 'PAY-' + randomUUID(), businessId: dto.businessId,
+                channel: 'CASH', status: 'SUCCEEDED', amount: total,
+                confirmedAt: new Date(), provider: 'OFFLINE_CASH',
+                providerReference: dto.clientRequestId,
+                events: { create: {
+                  providerEventId: 'offline-' + dto.clientRequestId,
+                  eventType: 'offline.cash.synced',
+                  payload: { recordedAt: dto.recordedAt, syncMode: 'offline-cash-v1' },
+                } },
+              } },
+            },
+            include: this.include,
+          });
+
+          await tx.stockMovement.createMany({
+            data: lines.map((line) => ({
+              productId: line.productId, branchId: dto.branchId,
+              delta: -line.quantity, reason: 'SALE' as const, reference,
+              note: 'Cash collected offline at ' + dto.recordedAt,
+            })),
+          });
+          return this.serialize(sale);
+        }, { isolationLevel: 'Serializable', timeout: 15000, maxWait: 5000 });
+      } catch (error: unknown) {
+        const code = (error as { code?: string })?.code;
+        // Handle races between device retries without issuing a second sale.
+        if (code === 'P2002') {
+          const existing = verifyExisting(await this.getOfflineExisting(reference));
+          if (existing) return existing;
+        }
+        if (code === 'P2034' && attempt < 2) continue;
+        if (code === 'P2034') {
+          throw new ConflictException({
+            code: 'OFFLINE_RETRY_LATER',
+            message: 'Inventory was updated concurrently; please retry syncing this sale.',
+          });
+        }
+        throw error;
+      }
+    }
+    throw new ConflictException('Offline sale could not be synchronized');
+  }
+
+  private getOfflineExisting(reference: string) {
+    return this.prisma.sale.findUnique({ where: { reference }, include: this.include });
   }
 }
