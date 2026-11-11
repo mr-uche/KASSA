@@ -53,7 +53,7 @@ function completed(tx: IDBTransaction): Promise<void> {
   });
 }
 function db(): Promise<IDBDatabase> {
-  if (!dbPromise) dbPromise = new Promise((resolve, reject) => {
+  if (!dbPromise) dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     if (typeof indexedDB === "undefined") {
       reject(new Error("This browser does not support secure local sales storage"));
       return;
@@ -72,7 +72,7 @@ function db(): Promise<IDBDatabase> {
     open.onerror = () => reject(open.error ?? new Error("Unable to open offline sales database"));
     open.onblocked = () => reject(new Error("Close other Kassa tabs to update the offline database"));
   }).catch((error) => { dbPromise = null; throw error; });
-  return dbPromise;
+  return dbPromise!;
 }
 async function encryptionKey(): Promise<CryptoKey> {
   if (!keyPromise) keyPromise = (async () => {
@@ -101,7 +101,7 @@ async function seal(id: string, value: unknown): Promise<CipherRecord> {
 }
 async function unseal<T>(record: CipherRecord): Promise<T> {
   const bytes = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: record.iv }, await encryptionKey(), record.encrypted,
+    { name: "AES-GCM", iv: new Uint8Array(record.iv) }, await encryptionKey(), record.encrypted,
   );
   return JSON.parse(DEC.decode(bytes)) as T;
 }
@@ -157,10 +157,10 @@ export function nairaToKobo(amount: string): bigint {
     throw new Error("Invalid saved offline price");
   }
   const [whole, decimal = ""] = amount.split(".");
-  return BigInt(whole) * 100n + BigInt(decimal.padEnd(2, "0"));
+  return BigInt(whole) * BigInt(100) + BigInt(decimal.padEnd(2, "0"));
 }
 export function koboToNaira(amount: bigint): string {
-  return (amount / 100n).toString() + "." + (amount % 100n).toString().padStart(2, "0");
+  return (amount / BigInt(100)).toString() + "." + (amount % BigInt(100)).toString().padStart(2, "0");
 }
 export function availableOfflineStock(product: OfflineProduct, sales: OfflineSale[], cachedAt: string): number {
   // Subtract every sale not yet reflected in the cached cloud stock. Pending
