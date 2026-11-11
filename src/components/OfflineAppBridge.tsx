@@ -11,6 +11,7 @@ const SECTIONS: Array<[string, string]> = [
   ["/settings", "settings"], ["/sales", "new-sale"],
 ];
 function offlineSection(pathname: string): string | null {
+  if (pathname === "/" || pathname === "/login") return "home";
   return SECTIONS.find(([prefix]) => pathname === prefix || pathname.startsWith(prefix + "/"))?.[1] ?? null;
 }
 
