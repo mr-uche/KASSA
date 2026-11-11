@@ -91,6 +91,14 @@ export default function KassaAccessGate({
             <div role="alert">
               <h2 className="mb-2 text-lg font-semibold text-gray-900">Access could not be verified</h2>
               <p className="text-sm text-gray-600">{message}</p>
+              <p className="mt-3 text-xs leading-5 text-gray-500">
+                If the backend is unreachable, you can still use a previously prepared offline
+                catalogue for local cash sales. Cloud transactions remain unavailable until reconnecting.
+              </p>
+              <Link href="/offline-sales?section=new-sale"
+                className="mt-4 mr-3 inline-flex rounded-lg bg-emerald-800 px-4 py-2 text-sm font-medium text-white">
+                Continue offline selling
+              </Link>
               {message.toLowerCase().includes("sign in again") && (
                 <Link href="/login" className="mt-4 inline-flex rounded-lg border border-emerald-700 px-4 py-2 text-sm font-medium text-emerald-800">
                   Sign in again
