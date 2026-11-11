@@ -143,6 +143,13 @@ export default function OfflineSalesPage() {
       navigator.serviceWorker.addEventListener("message", onShellMessage);
       navigator.serviceWorker.register("/sw.js", { scope: "/" }).then(async () => {
         const registration = await navigator.serviceWorker.ready;
+        if (!navigator.onLine) {
+          // Reopening while disconnected must not attempt a new precache and
+          // falsely report failure for a previously prepared offline shell.
+          const stored = await caches.match("/offline-sales", { ignoreVary: true });
+          setShellReady(Boolean(stored));
+          return;
+        }
         const assets = performance.getEntriesByType("resource").map((entry) => entry.name)
           .filter((name) => name.includes("/_next/static/"));
         registration.active?.postMessage({ type: "PREPARE_OFFLINE", assets });
