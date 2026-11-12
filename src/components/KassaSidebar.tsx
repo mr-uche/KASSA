@@ -6,7 +6,7 @@ import { usePathname,useRouter } from "next/navigation";
 import { X, LogOut } from "lucide-react";
 
 import Logo from "@/components/logo";
-import { offlineSectionAllowed, type OfflineWorkspace } from "@/lib/offline-sales";
+import { offlineSectionAllowed, setOfflineActiveUser, type OfflineWorkspace } from "@/lib/offline-sales";
 
 import {
   hasBusinessAccess, loadAccess, selectedBusiness,
@@ -216,6 +216,7 @@ export default function KassaSidebar({
                         body: "{}",
                       });
                       if (!response.ok) return;
+                      await setOfflineActiveUser(null);
                       router.replace("/login");
                       router.refresh();
                     } catch {
