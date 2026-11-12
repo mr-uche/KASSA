@@ -1,17 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import KassaSidebar from "@/components/KassaSidebar";
 import { Download, Menu, Printer, RefreshCw, ShoppingCart, Upload, Wifi, WifiOff } from "lucide-react";
 import { createEncryptedOfflineBackup, restoreEncryptedOfflineBackup } from "@/lib/offline-backup";
-import { getInventoryContext } from "@/lib/inventory-client";
+import { getInventoryContext, getInventoryProducts } from "@/lib/inventory-client";
 import { hasBusinessAccess, loadAccess } from "@/lib/kassa-permissions";
 import { listCheckoutProducts } from "@/lib/sales-client";
 import {
   availableOfflineStock, createOfflineSale, getOfflineWorkspace, koboToNaira, offlineSectionAllowed,
   listOfflineSales, nairaToKobo, OFFLINE_CACHE_DAYS, retryReviewedOfflineSale, saveOfflineWorkspace,
-  syncOfflineSales, workspaceFresh, type OfflineLine, type OfflineSale,
+  setOfflineActiveUser, syncOfflineSales, workspaceFresh, type OfflineLine, type OfflineSale,
   type OfflineWorkspace,
 } from "@/lib/offline-sales";
 
@@ -34,6 +34,7 @@ const money = (value: string) => "₦" + Number(value).toLocaleString("en-NG", {
 
 export default function OfflineSalesPage() {
   const [workspace, setWorkspace] = useState<OfflineWorkspace | null>(null);
+  const activeScope = useRef("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [section, setSection] = useState<OfflineSection>("new-sale");
   const [savedSales, setSavedSales] = useState<OfflineSale[]>([]);
@@ -56,6 +57,7 @@ export default function OfflineSalesPage() {
 
   const navigate = (choice: string) => {
     const next = parseSection(choice);
+    if (!workspace || !workspaceFresh(workspace) || !offlineSectionAllowed(next, workspace)) return;
     setSection(next);
     setSidebarOpen(false);
     window.history.replaceState(window.history.state, "", "/offline-sales?section=" + next);
@@ -63,7 +65,15 @@ export default function OfflineSalesPage() {
 
   const refreshDevice = useCallback(async () => {
     const active = await getOfflineWorkspace();
-    const list = await listOfflineSales(active ?? undefined);
+    const key = active ? active.userId + "/" + active.businessId + "/" + active.branchId : "";
+    if (activeScope.current !== key) {
+      // Switching staff never preserves the last cashier's unsaved cart.
+      activeScope.current = key;
+      setCart({});
+      setReceiptId("");
+      setSearch("");
+    }
+    const list = active ? await listOfflineSales(active) : [];
     setWorkspace(active);
     setSavedSales(list);
     setReady(true);
@@ -79,12 +89,17 @@ export default function OfflineSalesPage() {
       const identity: unknown = await auth.json();
       const userId = identity && typeof identity === "object" && "id" in identity
         ? (identity as { id: unknown }).id : null;
-      if (typeof userId !== "string" || !userId) throw new Error("Unable to identify this cashier.");
+      if (typeof userId !== "string" || !userId) throw new Error("Unable to identify this staff account.");
+      await setOfflineActiveUser(userId);
 
       const [context, memberships] = await Promise.all([getInventoryContext(), loadAccess()]);
       const business = memberships.find((item) => item.id === context.businessId);
-      if (!hasBusinessAccess(business, "Manage sales & transactions")) {
-        throw new Error("This account is not permitted to sell at the selected business.");
+      const canSell = hasBusinessAccess(business, "Manage sales & transactions");
+      const canInventory = hasBusinessAccess(business, "Manage products & inventory");
+      const canDashboard = hasBusinessAccess(business, "View dashboard");
+      const canReports = hasBusinessAccess(business, "View reports & analytics");
+      if (!business || !(canSell || canInventory || canDashboard || canReports)) {
+        throw new Error("Your role has no supported offline features.");
       }
       const previous = await getOfflineWorkspace();
       if (previous && (previous.userId !== userId || previous.businessId !== context.businessId ||
@@ -95,7 +110,8 @@ export default function OfflineSalesPage() {
           throw new Error("This device has unsynced sales for its previous cashier or branch. Sign back into that account and reconcile them before switching.");
         }
       }
-      const catalogue = await listCheckoutProducts(context);
+      const catalogue = canSell ? await listCheckoutProducts(context)
+        : canInventory ? await getInventoryProducts(context) : [];
       const name = business && "name" in business && typeof business.name === "string"
         ? business.name : "Kassa merchant";
       const active: OfflineWorkspace = {
@@ -115,7 +131,7 @@ export default function OfflineSalesPage() {
       setWorkspace(active);
       setCart({});
       await refreshDevice();
-      setMessage("Offline products prepared. Cash selling is available on this device without internet for up to seven days.");
+      setMessage("Offline access updated for this staff account.");
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Couldn't prepare offline selling.");
     } finally {
@@ -164,9 +180,18 @@ export default function OfflineSalesPage() {
       if (!event.data.prepared) setMessage("Some offline page resources could not be saved. Reopen this page while connected before testing.");
     }
     const onDeviceUpdate = () => void refreshDevice();
-    const onOnline = () => { setOnline(true); void syncNow(); };
+    const onIdentityChanged = () => void refreshDevice();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "kassa-offline-identity-change") void refreshDevice();
+    };
+    const onOnline = () => { setOnline(true); void refreshDevice(); void syncNow(); };
     const onOffline = () => setOnline(false);
-    const onFocus = () => { if (navigator.onLine) void syncNow(); };
+    const onFocus = () => {
+      void refreshDevice();
+      if (navigator.onLine) void syncNow();
+    };
+    window.addEventListener("kassa-offline-account-changed", onIdentityChanged);
+    window.addEventListener("storage", onStorage);
     window.addEventListener("kassa-offline-sync-update", onDeviceUpdate);
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
@@ -177,6 +202,8 @@ export default function OfflineSalesPage() {
     return () => {
       window.clearInterval(interval);
       if ("serviceWorker" in navigator) navigator.serviceWorker.removeEventListener("message", onShellMessage);
+      window.removeEventListener("kassa-offline-account-changed", onIdentityChanged);
+      window.removeEventListener("storage", onStorage);
       window.removeEventListener("kassa-offline-sync-update", onDeviceUpdate);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
@@ -190,7 +217,16 @@ export default function OfflineSalesPage() {
 
   const fresh = workspace !== null && workspaceFresh(workspace);
   const accessReady = fresh && offlineSectionAllowed("new-sale", workspace);
-  const screenAllowed = accessReady && offlineSectionAllowed(section, workspace);
+  const screenAllowed = fresh && offlineSectionAllowed(section, workspace);
+  useEffect(() => {
+    if (!workspace || !fresh || offlineSectionAllowed(section, workspace)) return;
+    const first = (["new-sale", "home", "products", "reports", "transactions", "scan", "backup"] as OfflineSection[])
+      .find((candidate) => offlineSectionAllowed(candidate, workspace));
+    if (first) {
+      setSection(first);
+      window.history.replaceState(window.history.state, "", "/offline-sales?section=" + first);
+    }
+  }, [workspace, fresh, section]);
   const products = workspace?.products ?? [];
   const visible = products.filter((product) =>
     (product.name + " " + product.sku + " " + (product.barcode ?? "")).toLowerCase()
@@ -221,8 +257,8 @@ export default function OfflineSalesPage() {
     .reduce((sum, sale) => sum + Number(sale.total), 0);
 
   function scanOfflineProduct() {
-    if (!workspace || !workspaceFresh(workspace)) {
-      setMessage("Prepare a valid offline catalogue while connected before scanning.");
+    if (!accessReady || !workspace) {
+      setMessage("Offline scanning is not available for this staff role.");
       return;
     }
     const code = search.trim().toLowerCase();
@@ -239,7 +275,7 @@ export default function OfflineSalesPage() {
 
 
   async function downloadBackup() {
-    if (!workspace || backupWorking || !offlineSectionAllowed("backup", workspace)) return;
+    if (!fresh || !workspace || backupWorking || !offlineSectionAllowed("backup", workspace)) return;
     setBackupWorking(true);
     setMessage("");
     try {
@@ -263,7 +299,7 @@ export default function OfflineSalesPage() {
   }
 
   async function restoreBackup() {
-    if (!workspace || !backupFile || backupWorking || !offlineSectionAllowed("backup", workspace)) return;
+    if (!fresh || !workspace || !backupFile || backupWorking || !offlineSectionAllowed("backup", workspace)) return;
     setBackupWorking(true);
     setMessage("");
     try {
