@@ -14,6 +14,7 @@ const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
  * safe catalogue. Never fetch other staff accounts' cached data. */
 export async function prepareCurrentStaffOffline(
   userId: string, force = false,
+  identity?: { fullName?: string; email?: string; phone?: string | null },
 ): Promise<OfflineWorkspace> {
   if (!navigator.onLine || (await getOfflineActiveUser()) !== userId) {
     throw new Error("Sign in online before preparing offline access.");
@@ -70,6 +71,9 @@ export async function prepareCurrentStaffOffline(
       ...previous,
       role: verifiedRole,
       permissions: verifiedPermissions,
+      userName: identity?.fullName ?? previous.userName,
+      userEmail: identity?.email ?? previous.userEmail,
+      userPhone: identity?.phone ?? previous.userPhone,
     };
     await saveOfflineWorkspace(updated);
     window.dispatchEvent(new Event("kassa-offline-catalogue-updated"));
@@ -88,6 +92,9 @@ export async function prepareCurrentStaffOffline(
       ? business.name : "Kassa merchant",
     branchName: context.branchName,
     role: verifiedRole, permissions: verifiedPermissions,
+    userName: identity?.fullName ?? (sameScope ? previous?.userName : undefined),
+    userEmail: identity?.email ?? (sameScope ? previous?.userEmail : undefined),
+    userPhone: identity?.phone ?? (sameScope ? previous?.userPhone : undefined),
     cachedAt: new Date().toISOString(),
     products: catalogue.map((product) => ({
       id: product.id, name: product.name, sku: product.sku,
