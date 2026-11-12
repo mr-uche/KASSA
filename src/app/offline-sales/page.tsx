@@ -9,22 +9,23 @@ import { getInventoryContext } from "@/lib/inventory-client";
 import { hasBusinessAccess, loadAccess } from "@/lib/kassa-permissions";
 import { listCheckoutProducts } from "@/lib/sales-client";
 import {
-  availableOfflineStock, createOfflineSale, getOfflineWorkspace, koboToNaira,
+  availableOfflineStock, createOfflineSale, getOfflineWorkspace, koboToNaira, offlineSectionAllowed,
   listOfflineSales, nairaToKobo, OFFLINE_CACHE_DAYS, retryReviewedOfflineSale, saveOfflineWorkspace,
   syncOfflineSales, workspaceFresh, type OfflineLine, type OfflineSale,
   type OfflineWorkspace,
 } from "@/lib/offline-sales";
 
-type OfflineSection = "home" | "new-sale" | "transactions" | "scan" | "reports" |
-  "products" | "customers" | "staff" | "settings" | "backup";
+type OfflineSection = "home" | "new-sale" | "transactions" | "scan" |
+  "reports" | "products" | "customers" | "backup";
+const SHOW_TEST_NOTES = process.env.NEXT_PUBLIC_KASSA_TEST_MODE === "true";
 const OFFLINE_TITLES: Record<OfflineSection, string> = {
   home: "Home", "new-sale": "New Sale", transactions: "Transactions",
   scan: "Scan Product", reports: "Reports & Analytics", products: "Products & Inventory",
-  customers: "Customers", staff: "Staff & Branches", settings: "Settings",
-  backup: "Offline Backup & Recovery",
+  customers: "Customers", backup: "Backup & Recovery",
 };
 function parseSection(value: string | null): OfflineSection {
-  return value && value in OFFLINE_TITLES ? value as OfflineSection : "new-sale";
+  return value && Object.prototype.hasOwnProperty.call(OFFLINE_TITLES, value)
+    ? value as OfflineSection : "new-sale";
 }
 
 const money = (value: string) => "₦" + Number(value).toLocaleString("en-NG", {
@@ -100,6 +101,8 @@ export default function OfflineSalesPage() {
       const active: OfflineWorkspace = {
         userId, businessId: context.businessId, branchId: context.branchId,
         businessName: name, branchName: context.branchName,
+        role: business?.myRole ?? "",
+        permissions: business?.myPermissions ?? [],
         cachedAt: new Date().toISOString(),
         // Checkout catalogue excludes internal cost prices and private notes.
         products: catalogue.map((product) => ({
@@ -186,6 +189,8 @@ export default function OfflineSalesPage() {
   }, [ready, online, workspace?.businessId, workspace?.branchId, syncNow]);
 
   const fresh = workspace !== null && workspaceFresh(workspace);
+  const accessReady = fresh && offlineSectionAllowed("new-sale", workspace);
+  const screenAllowed = accessReady && offlineSectionAllowed(section, workspace);
   const products = workspace?.products ?? [];
   const visible = products.filter((product) =>
     (product.name + " " + product.sku + " " + (product.barcode ?? "")).toLowerCase()
@@ -234,7 +239,7 @@ export default function OfflineSalesPage() {
 
 
   async function downloadBackup() {
-    if (!workspace || backupWorking) return;
+    if (!workspace || backupWorking || !offlineSectionAllowed("backup", workspace)) return;
     setBackupWorking(true);
     setMessage("");
     try {
@@ -258,7 +263,7 @@ export default function OfflineSalesPage() {
   }
 
   async function restoreBackup() {
-    if (!workspace || !backupFile || backupWorking) return;
+    if (!workspace || !backupFile || backupWorking || !offlineSectionAllowed("backup", workspace)) return;
     setBackupWorking(true);
     setMessage("");
     try {
@@ -276,7 +281,7 @@ export default function OfflineSalesPage() {
   }
 
   function add(productId: string, delta: number) {
-    if (!fresh || !workspace) return;
+    if (!accessReady || !workspace) return;
     const product = workspace.products.find((item) => item.id === productId);
     if (!product) return;
     const maximum = availableOfflineStock(product, savedSales, workspace.cachedAt);
@@ -290,7 +295,7 @@ export default function OfflineSalesPage() {
   }
 
   async function recordCash() {
-    if (!workspace || !fresh || working || !totals.lines.length) return;
+    if (!workspace || !accessReady || working || !totals.lines.length) return;
     if (!window.confirm("Confirm you physically collected " + money(totals.total) +
       " in cash? This receipt will be PENDING CLOUD SYNC until the server confirms stock.")) return;
     setWorking(true);
