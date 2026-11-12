@@ -5,12 +5,10 @@ import Link from "next/link";
 import KassaSidebar from "@/components/KassaSidebar";
 import { Download, Menu, Printer, RefreshCw, ShoppingCart, Upload, Wifi, WifiOff } from "lucide-react";
 import { createEncryptedOfflineBackup, restoreEncryptedOfflineBackup } from "@/lib/offline-backup";
-import { getInventoryContext, getInventoryProducts } from "@/lib/inventory-client";
-import { hasBusinessAccess, loadAccess } from "@/lib/kassa-permissions";
-import { listCheckoutProducts } from "@/lib/sales-client";
+import { prepareCurrentStaffOffline } from "@/lib/offline-preparation";
 import {
   availableOfflineStock, createOfflineSale, getOfflineWorkspace, koboToNaira, offlineSectionAllowed,
-  listOfflineSales, nairaToKobo, OFFLINE_CACHE_DAYS, retryReviewedOfflineSale, saveOfflineWorkspace,
+  listOfflineSales, nairaToKobo, OFFLINE_CACHE_DAYS, retryReviewedOfflineSale,
   setOfflineActiveUser, syncOfflineSales, workspaceFresh, type OfflineLine, type OfflineSale,
   type OfflineWorkspace,
 } from "@/lib/offline-sales";
@@ -85,55 +83,19 @@ export default function OfflineSalesPage() {
     setMessage("");
     try {
       const auth = await fetch("/api/auth/me", { cache: "no-store", credentials: "same-origin" });
-      if (!auth.ok) throw new Error("Sign in online before preparing this device for offline selling.");
-      const identity: unknown = await auth.json();
-      const userId = identity && typeof identity === "object" && "id" in identity
-        ? (identity as { id: unknown }).id : null;
-      if (typeof userId !== "string" || !userId) throw new Error("Unable to identify this staff account.");
+      if (!auth.ok) throw new Error("Sign in online before preparing offline access.");
+      const profile: unknown = await auth.json();
+      const userId = profile && typeof profile === "object" && "id" in profile
+        ? (profile as { id: unknown }).id : null;
+      if (typeof userId !== "string" || !userId) {
+        throw new Error("Kassa could not identify the signed-in staff account.");
+      }
       await setOfflineActiveUser(userId);
-
-      const [context, memberships] = await Promise.all([getInventoryContext(), loadAccess()]);
-      const business = memberships.find((item) => item.id === context.businessId);
-      const canSell = hasBusinessAccess(business, "Manage sales & transactions");
-      const canInventory = hasBusinessAccess(business, "Manage products & inventory");
-      const canDashboard = hasBusinessAccess(business, "View dashboard");
-      const canReports = hasBusinessAccess(business, "View reports & analytics");
-      if (!business || !(canSell || canInventory || canDashboard || canReports)) {
-        throw new Error("Your role has no supported offline features.");
-      }
-      const previous = await getOfflineWorkspace();
-      if (previous && (previous.userId !== userId || previous.businessId !== context.businessId ||
-        previous.branchId !== context.branchId)) {
-        const unsynced = (await listOfflineSales(previous))
-          .filter((sale) => sale.status !== "synced");
-        if (unsynced.length) {
-          throw new Error("This device has unsynced sales for its previous cashier or branch. Sign back into that account and reconcile them before switching.");
-        }
-      }
-      const catalogue = canSell ? await listCheckoutProducts(context)
-        : canInventory ? await getInventoryProducts(context) : [];
-      const name = business && "name" in business && typeof business.name === "string"
-        ? business.name : "Kassa merchant";
-      const active: OfflineWorkspace = {
-        userId, businessId: context.businessId, branchId: context.branchId,
-        businessName: name, branchName: context.branchName,
-        role: business?.myRole ?? "",
-        permissions: business?.myPermissions ?? [],
-        cachedAt: new Date().toISOString(),
-        // Checkout catalogue excludes internal cost prices and private notes.
-        products: catalogue.map((product) => ({
-          id: product.id, name: product.name, sku: product.sku,
-          barcode: product.barcode, category: product.category,
-          price: product.price, stock: product.stock,
-        })),
-      };
-      await saveOfflineWorkspace(active);
-      setWorkspace(active);
-      setCart({});
+      await prepareCurrentStaffOffline(userId, true);
       await refreshDevice();
-      setMessage("Offline access updated for this staff account.");
+      setMessage("Offline access updated for your account.");
     } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : "Couldn't prepare offline selling.");
+      setMessage(cause instanceof Error ? cause.message : "Unable to prepare offline access.");
     } finally {
       setWorking(false);
     }
@@ -191,6 +153,7 @@ export default function OfflineSalesPage() {
       if (navigator.onLine) void syncNow();
     };
     window.addEventListener("kassa-offline-account-changed", onIdentityChanged);
+    window.addEventListener("kassa-offline-catalogue-updated", onIdentityChanged);
     window.addEventListener("storage", onStorage);
     window.addEventListener("kassa-offline-sync-update", onDeviceUpdate);
     window.addEventListener("online", onOnline);
@@ -203,6 +166,7 @@ export default function OfflineSalesPage() {
       window.clearInterval(interval);
       if ("serviceWorker" in navigator) navigator.serviceWorker.removeEventListener("message", onShellMessage);
       window.removeEventListener("kassa-offline-account-changed", onIdentityChanged);
+      window.removeEventListener("kassa-offline-catalogue-updated", onIdentityChanged);
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("kassa-offline-sync-update", onDeviceUpdate);
       window.removeEventListener("online", onOnline);
