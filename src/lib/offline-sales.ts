@@ -20,8 +20,6 @@ export type OfflineWorkspace = {
   // Offline permissions are an expiring snapshot, not live server authorization.
   role?: string;
   permissions?: string[];
-  pinSalt?: string;
-  pinVerifier?: string;
   products: OfflineProduct[];
 };
 export type OfflineLine = {
@@ -146,39 +144,6 @@ export function offlineSectionAllowed(section: string, workspace: OfflineWorkspa
     case "products": return can("Manage products & inventory");
     case "customers": return can("Manage customers");
     default: return false;
-  }
-}
-
-function toPinBase64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes));
-}
-function fromPinBase64(encoded: string): Uint8Array {
-  return Uint8Array.from(atob(encoded), (letter) => letter.charCodeAt(0));
-}
-async function pinVerifier(pin: string, salt: Uint8Array): Promise<string> {
-  const secret = await crypto.subtle.importKey("raw", ENC.encode(pin), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt: new Uint8Array(salt), iterations: 240000, hash: "SHA-256" },
-    secret, 256,
-  );
-  return toPinBase64(new Uint8Array(bits));
-}
-export async function createOfflineDevicePin(pin: string): Promise<{ pinSalt: string; pinVerifier: string }> {
-  if (!/^\d{6,10}$/.test(pin)) throw new Error("Create a 6–10 digit offline unlock PIN.");
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  return { pinSalt: toPinBase64(salt), pinVerifier: await pinVerifier(pin, salt) };
-}
-export async function verifyOfflineDevicePin(workspace: OfflineWorkspace, pin: string): Promise<boolean> {
-  if (!workspace.pinSalt || !workspace.pinVerifier || !/^\d{6,10}$/.test(pin)) return false;
-  try {
-    const expected = fromPinBase64(workspace.pinVerifier);
-    const actual = fromPinBase64(await pinVerifier(pin, fromPinBase64(workspace.pinSalt)));
-    if (actual.length !== expected.length) return false;
-    let difference = 0;
-    for (let i = 0; i < actual.length; i++) difference |= actual[i] ^ expected[i];
-    return difference === 0;
-  } catch {
-    return false;
   }
 }
 
