@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
 import { setOfflineActiveUser } from "@/lib/offline-sales";
+import { prepareCurrentStaffOffline } from "@/lib/offline-preparation";
 
 const SECTIONS: Array<[string, string]> = [
   ["/dashboard", "home"], ["/sales/new", "new-sale"],
@@ -36,7 +37,14 @@ export default function OfflineAppBridge() {
           const profile: unknown = await response.json();
           if (profile && typeof profile === "object" && "id" in profile &&
             typeof (profile as { id: unknown }).id === "string") {
-            await setOfflineActiveUser((profile as { id: string }).id);
+            const userId = (profile as { id: string }).id;
+            await setOfflineActiveUser(userId);
+            try {
+              await prepareCurrentStaffOffline(userId);
+            } catch {
+              // Offline cache preparation is best-effort: it must not prevent
+              // a valid online login or block normal online navigation.
+            }
           }
         } else if (response.status === 401) {
           await setOfflineActiveUser(null);
