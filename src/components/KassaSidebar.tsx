@@ -6,6 +6,7 @@ import { usePathname,useRouter } from "next/navigation";
 import { X, LogOut } from "lucide-react";
 
 import Logo from "@/components/logo";
+import { offlineSectionAllowed, type OfflineWorkspace } from "@/lib/offline-sales";
 
 import {
   hasBusinessAccess, loadAccess, selectedBusiness,
@@ -24,9 +25,6 @@ const offlineItems = [
   { name: "Scan Product", section: "scan" },
   { name: "Reports & Analytics", section: "reports" },
   { name: "Products & Inventory", section: "products" },
-  { name: "Customers", section: "customers" },
-  { name: "Staff & Branches", section: "staff" },
-  { name: "Settings", section: "settings" },
   { name: "Offline Backup", section: "backup" },
 ];
 
@@ -48,12 +46,14 @@ export default function KassaSidebar({
   offlineMode = false,
   activeOfflineSection = "new-sale",
   onOfflineNavigate,
+  offlineAccess = null,
 }: {
   isOpen: boolean;
   onClose: () => void;
   offlineMode?: boolean;
   activeOfflineSection?: string;
   onOfflineNavigate?: (section: string) => void;
+  offlineAccess?: OfflineWorkspace | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -164,7 +164,10 @@ export default function KassaSidebar({
         {/* Online links are role-filtered. Offline links stay within the
             local workspace and cannot authorize cloud operations. */}
         <nav className="mt-[48px] flex flex-1 flex-col gap-[4px] overflow-y-auto">
-          {offlineNavigation ? offlineItems.map((item) => {
+          {offlineNavigation ? (offlineAccess ? offlineItems.filter((item) =>
+            offlineSectionAllowed(item.section, offlineAccess)) : [
+            { name: "Offline Selling", section: "new-sale" },
+          ]).map((item) => {
             const active = activeOfflineSection === item.section ||
               (!offlineMode && pathname === "/offline-sales" && item.section === "new-sale");
             return (
@@ -202,7 +205,7 @@ export default function KassaSidebar({
 
         {offlineNavigation ? (
           <div className="mx-4 mb-5 rounded-lg bg-white/10 px-3 py-2 text-xs leading-5 text-white/90">
-            Offline mode · Sign out when you reconnect. Lock this device when unattended.
+            Offline mode · Lock the device when unattended.
           </div>
         ) : (
           <button type="button" onClick={async () => {
