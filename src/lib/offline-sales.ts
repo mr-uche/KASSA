@@ -173,6 +173,8 @@ export async function setOfflineActiveUser(userId: string | null): Promise<void>
     userId, verifiedAt: new Date().toISOString(),
   } satisfies ActiveOfflineAccount);
   if (previous !== userId) {
+    // Cross-tab notification carries no identifying account data.
+    localStorage.setItem("kassa-offline-identity-change", String(Date.now()));
     window.dispatchEvent(new Event("kassa-offline-account-changed"));
   }
 }
@@ -249,6 +251,7 @@ async function syncUnconfirmedSales(): Promise<void> {
   if (!workspace || !offlineSectionAllowed("new-sale", workspace) || !workspaceFresh(workspace)) return;
   const pending = (await listOfflineSales(workspace)).filter((sale) => sale.status === "pending" || sale.status === "syncing");
   for (const sale of pending.reverse()) {
+    if (await getOfflineActiveUser() !== sale.userId) break;
     const current: OfflineSale = { ...sale, status: "syncing", attempts: sale.attempts + 1, lastError: undefined };
     await updateSale(current);
     window.dispatchEvent(new Event("kassa-offline-sync-update"));
