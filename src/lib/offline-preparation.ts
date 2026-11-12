@@ -64,7 +64,7 @@ export async function prepareCurrentStaffOffline(
     }
   }
 
-  if (sameScope && workspaceFresh(previous) && !force &&
+  if (previous && sameScope && workspaceFresh(previous) && !force &&
     Date.now() - Date.parse(previous.cachedAt) < REFRESH_INTERVAL_MS) {
     const updated: OfflineWorkspace = {
       ...previous,
