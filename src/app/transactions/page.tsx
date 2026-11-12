@@ -1,9 +1,10 @@
 "use client";
 
+import KassaHeaderActions from "@/components/KassaHeaderActions";
+
 import { useState ,useEffect} from "react";
 import Link from "next/link";
 import {
-  Bell,
   ChevronDown,
   Menu,
   Search,
@@ -261,15 +262,7 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
                 <span className="truncate">{selectedBranch}</span>
               </div>
             </div>
-            <button className="relative flex h-[36px] w-[36px] items-center justify-center rounded-full bg-[#F8F9FA]">
-              <Bell size={17} className="text-[#98A1AE]" />
-
-              <span className="absolute right-[8px] top-[6px] h-[7px] w-[7px] rounded-full bg-[#E54848]" />
-            </button>
-
-            <div className="flex h-[36px] w-[36px] items-center justify-center rounded-full bg-[#E5F5F0] text-[12px] font-semibold text-[#08745F]">
-              AO
-            </div>
+            <KassaHeaderActions />
           </div>
         </header>
 
