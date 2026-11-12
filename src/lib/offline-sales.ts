@@ -147,11 +147,49 @@ export function offlineSectionAllowed(section: string, workspace: OfflineWorkspa
   }
 }
 
+/** Only the last online-authenticated user can access an offline workspace.
+ * The marker persists across restarts, but is cleared on explicit logout.
+ * A missing marker never falls back to the previous cashier's data.
+ */
+type ActiveOfflineAccount = { userId: string | null; verifiedAt: string };
+const ACTIVE_ACCOUNT_KEY = "active-account";
+const workspaceKey = (userId: string) => "user:" + userId;
+
+export async function getOfflineActiveUser(): Promise<string | null> {
+  const marker = await getRecord<ActiveOfflineAccount>("workspace", ACTIVE_ACCOUNT_KEY);
+  if (!marker || typeof marker.userId !== "string" || !marker.userId) return null;
+  const verified = Date.parse(marker.verifiedAt);
+  if (!Number.isFinite(verified) || verified > Date.now() + 300000 ||
+    Date.now() - verified >= OFFLINE_CACHE_DAYS * 86400_000) return null;
+  return marker.userId;
+}
+
+export async function setOfflineActiveUser(userId: string | null): Promise<void> {
+  if (userId !== null && (typeof userId !== "string" || !userId)) {
+    throw new Error("Cannot activate an unidentified offline account.");
+  }
+  const previous = await getOfflineActiveUser();
+  await storeRecord("workspace", ACTIVE_ACCOUNT_KEY, {
+    userId, verifiedAt: new Date().toISOString(),
+  } satisfies ActiveOfflineAccount);
+  if (previous !== userId) {
+    window.dispatchEvent(new Event("kassa-offline-account-changed"));
+  }
+}
 export async function getOfflineWorkspace(): Promise<OfflineWorkspace | null> {
-  return getRecord<OfflineWorkspace>("workspace", "active");
+  const currentUser = await getOfflineActiveUser();
+  if (!currentUser) return null;
+  const scoped = await getRecord<OfflineWorkspace>("workspace", workspaceKey(currentUser));
+  if (scoped) return scoped.userId === currentUser ? scoped : null;
+  // Preserve older device cache on upgrade, but never expose it to another user.
+  const legacy = await getRecord<OfflineWorkspace>("workspace", "active");
+  return legacy?.userId === currentUser ? legacy : null;
 }
 export async function saveOfflineWorkspace(value: OfflineWorkspace): Promise<void> {
-  await storeRecord("workspace", "active", value);
+  if (await getOfflineActiveUser() !== value.userId) {
+    throw new Error("Offline workspace does not match the signed-in cashier.");
+  }
+  await storeRecord("workspace", workspaceKey(value.userId), value);
   if (navigator.storage?.persist) {
     // Best effort; the browser can refuse. Storage is not a cloud backup.
     await navigator.storage.persist().catch(() => false);
@@ -208,7 +246,7 @@ export function availableOfflineStock(product: OfflineProduct, sales: OfflineSal
 async function syncUnconfirmedSales(): Promise<void> {
   if (navigator.onLine === false) return;
   const workspace = await getOfflineWorkspace();
-  if (!workspace) return;
+  if (!workspace || !offlineSectionAllowed("new-sale", workspace) || !workspaceFresh(workspace)) return;
   const pending = (await listOfflineSales(workspace)).filter((sale) => sale.status === "pending" || sale.status === "syncing");
   for (const sale of pending.reverse()) {
     const current: OfflineSale = { ...sale, status: "syncing", attempts: sale.attempts + 1, lastError: undefined };
