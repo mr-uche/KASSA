@@ -7,18 +7,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 import {
-  ArrowLeft, Camera, CameraOff, CheckCircle2, Keyboard, Menu,
-  ScanBarcode, ShoppingCart, Video, Zap,
+  ArrowLeft, Camera, CameraOff, Keyboard, Menu,
+  ScanBarcode, ShoppingCart, Zap,
 } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
-import { getInventoryContext, formatNaira, type InventoryContext } from "@/lib/inventory-client";
+import { getInventoryContext, type InventoryContext } from "@/lib/inventory-client";
+import { listCheckoutProducts } from "@/lib/sales-client";
 import {
-  addScannedItem, findScannedProduct, readScopedCart, SCAN_CART_KEY,
-  type ScannedProduct,
+  addScannedItem, findScannedProduct, readScopedCart, SCAN_CART_KEY, SALE_CART_KEY,
+  type CartItem, type ScannedProduct,
 } from "@/lib/scan-client";
 
 type CameraState = "idle" | "starting" | "scanning";
-type Source = "camera" | "hardware" | "manual";
 
 type ScannerControls = { stop(): void; switchTorch?(enabled: boolean): Promise<void> };
 
@@ -28,21 +28,25 @@ export default function ScanProductPage() {
   const [context, setContext] = useState<InventoryContext | null>(null);
   const [loadingContext, setLoadingContext] = useState(true);
   const [cameraState, setCameraState] = useState<CameraState>("idle");
-  const [detectedCode, setDetectedCode] = useState("");
   const [torchAvailable, setTorchAvailable] = useState(false);
   const [torchEnabled, setTorchEnabled] = useState(false);
   const [code, setCode] = useState("");
-  const [found, setFound] = useState<ScannedProduct | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [cartCount, setCartCount] = useState(0);
+  const [checkoutItems, setCheckoutItems] = useState<CartItem[]>([]);
+  const [productsById, setProductsById] = useState<
+    Record<string, Pick<ScannedProduct, "name" | "sku" | "price">>
+  >({});
+  const cartCount = checkoutItems.reduce((sum, item) => sum + item.quantity, 0);
+  const cartTotal = checkoutItems.reduce((sum, item) =>
+    sum + Number(productsById[item.productId]?.price ?? 0) * item.quantity, 0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<ScannerControls | null>(null);
   const cameraEpoch = useRef(0);
   const inFlight = useRef(false);
   const lastScan = useRef<{ code: string; time: number } | null>(null);
-  const lookupRef = useRef<(value: string, source: Source) => void>(() => {});
+  const lookupRef = useRef<(value: string) => void>(() => {});
   const queryHandled = useRef(false);
 
   const stopCamera = useCallback(() => {
@@ -60,7 +64,21 @@ export default function ScanProductPage() {
     setTorchEnabled(false);
   }, []);
 
-  const lookUp = useCallback(async (raw: string, source: Source) => {
+
+  // Both the current New Sale cart and newly scanned items appear in one
+  // checkout summary. The scanner stage is merged by New Sale when opened.
+  const refreshCheckout = useCallback((scope: InventoryContext) => {
+    const combined = new Map<string, number>();
+    for (const item of [
+      ...readScopedCart(SALE_CART_KEY, scope),
+      ...readScopedCart(SCAN_CART_KEY, scope),
+    ]) {
+      combined.set(item.productId, (combined.get(item.productId) ?? 0) + item.quantity);
+    }
+    setCheckoutItems(Array.from(combined, ([productId, quantity]) => ({ productId, quantity })));
+  }, []);
+
+  const lookUp = useCallback(async (raw: string) => {
     const value = raw.trim();
     if (!value || !context || inFlight.current) return;
     if (value.length > 100) {
@@ -75,28 +93,26 @@ export default function ScanProductPage() {
     setBusy(true);
     setError("");
     setNotice("");
-    setFound(null);
-    setCode(value);
     try {
       const product = await findScannedProduct(context, value);
-      setFound(product);
-      if (source === "hardware" && product.stock > 0) {
-        const count = addScannedItem(context, product);
-        setCartCount(count);
-        setNotice(product.name + " added to your sale. Scan another product or view the sale.");
-      } else if (product.stock === 0) {
-        setNotice("This product is out of stock at " + context.branchName + ".");
-      } else {
-        setNotice("Product found. Select Add to Sale to include it in the checkout.");
-      }
+      // No preview or extra click: every successful camera, external-scanner
+      // or manual lookup adds directly to the branch-scoped checkout cart.
+      addScannedItem(context, product);
+      setProductsById((current) => ({
+        ...current,
+        [product.id]: { name: product.name, sku: product.sku, price: product.price },
+      }));
+      refreshCheckout(context);
+      setCode("");
+      setNotice(product.name + " added to checkout.");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not find this product.");
+      setError(cause instanceof Error ? cause.message : "Could not add this product.");
     } finally {
       inFlight.current = false;
       setBusy(false);
     }
-  }, [context, stopCamera]);
-  lookupRef.current = (value, source) => { void lookUp(value, source); };
+  }, [context, refreshCheckout, stopCamera]);
+  lookupRef.current = (value) => { void lookUp(value); };
 
   useEffect(() => {
     let live = true;
@@ -105,8 +121,15 @@ export default function ScanProductPage() {
         const value = await getInventoryContext();
         if (!live) return;
         setContext(value);
-        setCartCount(readScopedCart(SCAN_CART_KEY, value)
-          .reduce((sum, item) => sum + item.quantity, 0));
+        refreshCheckout(value);
+        // Fill in existing checkout item names and prices without waiting
+        // for the catalogue before enabling the camera.
+        void listCheckoutProducts(value).then((products) => {
+          if (!live) return;
+          setProductsById(Object.fromEntries(products.map((product) => [
+            product.id, { name: product.name, sku: product.sku, price: product.price },
+          ])));
+        }).catch(() => { /* A scan can still work if catalogue loading fails. */ });
         setError("");
       } catch (cause) {
         if (live) setError(cause instanceof Error ? cause.message : "Unable to load your business.");
@@ -117,8 +140,9 @@ export default function ScanProductPage() {
     void loadContext();
     const onBranchChange = () => {
       stopCamera();
-      setFound(null);
       setNotice("");
+      setProductsById({});
+      setCheckoutItems([]);
       setContext(null);
       setLoadingContext(true);
       void loadContext();
@@ -128,14 +152,14 @@ export default function ScanProductPage() {
       live = false;
       window.removeEventListener("branchChanged", onBranchChange);
     };
-  }, [stopCamera]);
+  }, [refreshCheckout, stopCamera]);
 
   // Also supports the manual barcode entry screen, which links to /scan?code=...
   useEffect(() => {
     if (!context || queryHandled.current) return;
     queryHandled.current = true;
     const incoming = new URLSearchParams(window.location.search).get("code");
-    if (incoming) lookupRef.current(incoming, "manual");
+    if (incoming) lookupRef.current(incoming);
     if (incoming) {
       const url = new URL(window.location.href);
       url.searchParams.delete("code");
@@ -160,7 +184,7 @@ export default function ScanProductPage() {
         const duration = current - first;
         if (buffer.length >= 4 && duration <= Math.max(700, buffer.length * 110)) {
           event.preventDefault();
-          lookupRef.current(buffer, "hardware");
+          lookupRef.current(buffer);
         }
         buffer = "";
         previous = 0;
@@ -208,7 +232,6 @@ export default function ScanProductPage() {
     if (!context || cameraState !== "idle") return;
     setError("");
     setNotice("");
-    setDetectedCode("");
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       setError("Camera access requires HTTPS or localhost in a supported browser. You can still use a USB/Bluetooth scanner.");
       return;
@@ -249,9 +272,8 @@ export default function ScanProductPage() {
           if (!result || generation !== cameraEpoch.current || inFlight.current) return;
           const scanned = result.getText().trim();
           if (!scanned) return;
-          setDetectedCode(scanned);
           cameraControls.stop();
-          lookupRef.current(scanned, "camera");
+          lookupRef.current(scanned);
         },
       );
       if (generation !== cameraEpoch.current) {
@@ -294,21 +316,9 @@ export default function ScanProductPage() {
     }
   }
 
-  function addCurrentProduct() {
-    if (!context || !found) return;
-    try {
-      const quantity = addScannedItem(context, found);
-      setCartCount(quantity);
-      setNotice(found.name + " added to your sale.");
-      setError("");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not add this product.");
-    }
-  }
-
   function submitCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void lookUp(code, "manual");
+    void lookUp(code);
   }
 
   return (
@@ -360,7 +370,7 @@ export default function ScanProductPage() {
                 {cameraState === "idle" && (
                   <div className="flex flex-col items-center gap-3 text-center text-gray-300">
                     <ScanBarcode size={64} strokeWidth={1.3} className="text-emerald-300"/>
-                    <p className="text-sm">Activate your phone or laptop camera to scan a product.</p>
+                    <p className="text-sm">Point your camera at a product barcode.</p>
                   </div>
                 )}
                 {cameraState !== "idle" && (
@@ -372,18 +382,9 @@ export default function ScanProductPage() {
                   <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-sm">Starting camera...</div>
                 )}
               </div>
-              <p className="mt-4 text-center text-sm text-white">
-                {cameraState === "scanning" ? "Hold the barcode steady, sharp and well lit" : "Camera scanning"}
+              <p className="mt-3 text-center text-sm text-gray-200">
+                {cameraState === "scanning" ? "Hold the barcode inside the frame." : "Scan to add directly to checkout."}
               </p>
-              <p className="mt-1 text-center text-xs leading-5 text-gray-400">
-                Use the rear camera. Fill most of the frame with the bars, keep the white edges visible,
-                and move the phone slowly closer or farther away until the lines are in focus.
-              </p>
-              {detectedCode && (
-                <p className="mt-3 break-all rounded-lg bg-emerald-950 px-3 py-2 text-center text-sm text-emerald-100" role="status">
-                  Barcode read: <strong>{detectedCode}</strong>
-                </p>
-              )}
               <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
                 {cameraState === "idle" ? (
                   <button type="button" onClick={() => void startCamera()}
@@ -411,18 +412,17 @@ export default function ScanProductPage() {
             </div>
             <form onSubmit={submitCode} className="rounded-xl border border-gray-200 bg-white p-5">
               <label htmlFor="scanner-code" className="text-sm font-semibold text-gray-900">
-                USB/Bluetooth barcode scanner or manual code
+                Barcode or SKU
               </label>
-              <p className="mt-1 mb-3 text-xs leading-5 text-gray-500">
-                Connect your scanner as a keyboard. Scan with its usual Enter suffix, or click the field,
-                scan the barcode and press Find Product. Keyboard-wedge scanners also work without focusing the field.
+              <p className="mb-3 mt-1 text-xs text-gray-500">
+                Scan or enter a code to add it to checkout.
               </p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input id="scanner-code" type="text" value={code}
                   onChange={(event) => setCode(event.target.value)} maxLength={100}
                   onKeyDown={(event) => {
                     // Most USB/Bluetooth scanners emit Enter after the barcode.
-                    // Automatically put a matched item into the staging cart.
+                    // Automatically add the matching item to checkout.
                     if (event.key === "Enter" && !event.nativeEvent.isComposing) {
                       event.preventDefault();
                       void lookUp(event.currentTarget.value, "hardware");
@@ -433,7 +433,7 @@ export default function ScanProductPage() {
                   className="min-w-0 flex-1 rounded-lg border border-gray-200 px-4 py-3 text-sm outline-none focus:border-emerald-600"/>
                 <button type="submit" disabled={!context || busy}
                   className="rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">
-                  {busy ? "Searching..." : "Find Product"}
+                  {busy ? "Adding..." : "Add to checkout"}
                 </button>
               </div>
             </form>
@@ -441,55 +441,45 @@ export default function ScanProductPage() {
 
           <aside className="space-y-4">
             <div className="rounded-xl border border-gray-200 bg-white p-5">
-              <h2 className="text-base font-semibold text-gray-900">{found ? "Scanned product" : "Product details"}</h2>
-              {!found && <p className="mt-3 text-sm text-gray-500">
-                {busy ? "Checking this code against your business inventory..." :
-                  "Scan a barcode or enter a product code. Only real inventory matches will appear here."}
-              </p>}
-              {found && (
-                <div className="mt-4 space-y-3">
-                  <div>
-                    <p className="text-lg font-semibold text-gray-900">{found.name}</p>
-                    <p className="mt-1 text-xs text-gray-500">SKU: {found.sku}{found.barcode ? " · Barcode: " + found.barcode : ""}</p>
-                    <p className="mt-1 text-xs text-gray-500">{found.category}</p>
-                  </div>
-                  <div className="rounded-lg bg-gray-50 p-3">
-                    <p className="text-sm font-semibold text-gray-900">{formatNaira(found.price)}</p>
-                    <p className="mt-1 text-xs text-gray-600">{found.stock} available in {context?.branchName}</p>
-                  </div>
-                  <button type="button" onClick={addCurrentProduct} disabled={!context || found.stock < 1}
-                    className="w-full rounded-lg bg-emerald-800 px-4 py-3 text-sm font-medium text-white disabled:bg-gray-300">
-                    Add to Sale
-                  </button>
-                  <button type="button" disabled={cameraState !== "idle"} onClick={() => void startCamera()}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-700 px-4 py-2.5 text-sm text-emerald-800">
-                    <Video size={16}/> Scan another with camera
-                  </button>
+              <h2 className="text-base font-semibold text-gray-900">
+                Checkout list ({cartCount})
+              </h2>
+              <p className="mt-1 text-xs text-gray-500">
+                Scanned products are added automatically.
+              </p>
+              {checkoutItems.length === 0 ? (
+                <p className="mt-4 text-sm text-gray-500">Your checkout is empty.</p>
+              ) : (
+                <div className="mt-4 max-h-80 space-y-3 overflow-y-auto">
+                  {checkoutItems.map((item) => (
+                    <div key={item.productId}
+                      className="flex items-start justify-between gap-3 border-b border-gray-100 pb-3 text-sm">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-gray-900">
+                          {productsById[item.productId]?.name ?? "Product"}
+                        </p>
+                        <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                      </div>
+                      <span className="shrink-0 font-semibold text-gray-900">
+                        {productsById[item.productId]
+                          ? "₦" + (Number(productsById[item.productId].price) * item.quantity)
+                              .toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : "—"}
+                      </span>
+                    </div>
+                  ))}
+                  {checkoutItems.every((item) => productsById[item.productId]) && (
+                    <div className="flex justify-between pt-1 font-semibold text-gray-900">
+                      <span>Total</span>
+                      <span>₦{cartTotal.toLocaleString("en-NG", {
+                        minimumFractionDigits: 2, maximumFractionDigits: 2,
+                      })}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-
-            <div className="rounded-xl border border-gray-200 bg-white p-5">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                <Zap size={17} className="text-emerald-700"/> External scanners
-              </h3>
-              <p className="mt-2 text-sm leading-6 text-gray-500">
-                USB and Bluetooth HID scanners need no special browser permission. If your scanner
-                sends Enter after each barcode, a successful match is automatically added to the sale.
-                Repeated scans increase quantity, subject to available stock.
-              </p>
-              <p className="mt-3 text-xs leading-5 text-gray-500">
-                A printed retail barcode must also be saved against the product in Products &amp; Inventory.
-                Detecting a code does not automatically create a matching product.
-              </p>
-            </div>
-            {cartCount > 0 && (
-              <button type="button" onClick={() => {stopCamera();router.push("/sales/new");}}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-700 bg-white px-4 py-3 text-sm font-semibold text-emerald-800">
-                <CheckCircle2 size={17}/> Continue with {cartCount} scanned item{cartCount === 1 ? "" : "s"}
-              </button>
-            )}
-          </aside>
+          </aside>   </aside>
         </div>
       </main>
     </div>
