@@ -15,12 +15,12 @@ import {
 } from "@/lib/offline-sales";
 
 type OfflineSection = "home" | "new-sale" | "transactions" | "scan" |
-  "reports" | "products" | "customers" | "backup" | "profile";
+  "reports" | "products" | "customers" | "backup";
 const SHOW_TEST_NOTES = process.env.NEXT_PUBLIC_KASSA_TEST_MODE === "true";
 const OFFLINE_TITLES: Record<OfflineSection, string> = {
   home: "Home", "new-sale": "New Sale", transactions: "Transactions",
   scan: "Scan Product", reports: "Reports & Analytics", products: "Products & Inventory",
-  customers: "Customers", backup: "Backup & Recovery", profile: "My profile",
+  customers: "Customers", backup: "Backup & Recovery",
 };
 function parseSection(value: string | null): OfflineSection {
   return value && Object.prototype.hasOwnProperty.call(OFFLINE_TITLES, value)
@@ -356,8 +356,7 @@ export default function OfflineSalesPage() {
             {online ? <Wifi size={15} className="text-emerald-700"/> : <WifiOff size={15} className="text-amber-700"/>}
             {online ? "Online" : "Offline"}
           </div>
-          <KassaHeaderActions offlineMode workspace={fresh ? workspace : null}
-            onOpenOfflineProfile={() => navigate("profile")} />
+          <KassaHeaderActions offlineMode workspace={fresh ? workspace : null} />
         </div>
       </header>
 
@@ -418,29 +417,6 @@ export default function OfflineSalesPage() {
           <p role="alert" className="rounded-lg bg-white p-4 text-sm text-gray-700">
             This section isn't available to the signed-in staff member.
           </p>
-        )}
-
-        {screenAllowed && section === "profile" && workspace && (
-          <section className="rounded-xl border border-gray-200 bg-white p-5 sm:p-7">
-            <h2 className="text-lg font-semibold">My account</h2>
-            <p className="mb-5 text-xs text-gray-500">Saved for offline access on this device</p>
-            <dl className="grid gap-4 text-sm sm:grid-cols-2">
-              <div><dt className="text-gray-500">Full name</dt>
-                <dd className="mt-1 font-semibold">{workspace.userName || "Staff member"}</dd></div>
-              <div><dt className="text-gray-500">Email</dt>
-                <dd className="mt-1 break-all font-semibold">{workspace.userEmail || "Not cached"}</dd></div>
-              <div><dt className="text-gray-500">Role</dt>
-                <dd className="mt-1 font-semibold">{workspace.role}</dd></div>
-              <div><dt className="text-gray-500">Branch</dt>
-                <dd className="mt-1 font-semibold">{workspace.branchName}</dd></div>
-              <div><dt className="text-gray-500">Business</dt>
-                <dd className="mt-1 font-semibold">{workspace.businessName}</dd></div>
-              {workspace.userPhone && (
-                <div><dt className="text-gray-500">Phone</dt>
-                  <dd className="mt-1 font-semibold">{workspace.userPhone}</dd></div>
-              )}
-            </dl>
-          </section>
         )}
 
         {screenAllowed && section === "home" && (
