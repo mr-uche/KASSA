@@ -14,7 +14,7 @@ const APP_ROUTES = [
   ["/products", "products"],
   ["/customers", "customers"],
   ["/staff-branches", "staff"],
-  ["/settings", "settings"],
+  ["/settings", "settings"], ["/profile", "profile"],
   ["/sales", "new-sale"],
 ];
 function routeSection(path) {
