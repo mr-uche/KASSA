@@ -479,7 +479,7 @@ export default function ScanProductPage() {
                 </div>
               )}
             </div>
-          </aside>   </aside>
+          </aside>
         </div>
       </main>
     </div>
