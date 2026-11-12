@@ -1,10 +1,12 @@
 "use client";
 
+import KassaHeaderActions from "@/components/KassaHeaderActions";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Bell, CheckCircle2, ChevronDown, Loader2, Menu, MoreHorizontal, Plus, Search, X,
+  CheckCircle2, ChevronDown, Loader2, Menu, MoreHorizontal, Plus, Search, X,
 } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import {
@@ -277,14 +279,7 @@ export default function StaffBranchPage() {
                 <span className="truncate">{branchDisplay}</span>
               </div>
             </div>
-            <button type="button" aria-label="Notifications"
-              className="relative flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[#F8F9FA]">
-              <Bell size={17} className="text-[#98A1AE]" />
-              <span className="absolute right-[8px] top-[6px] h-[7px] w-[7px] rounded-full bg-[#E54848]" />
-            </button>
-            <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[#E5F5F0] text-[12px] font-semibold text-[#08745F]">
-              AO
-            </div>
+            <KassaHeaderActions />
           </div>
         </header>
 
