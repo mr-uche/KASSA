@@ -91,7 +91,8 @@ export default function OfflineSalesPage() {
         throw new Error("Kassa could not identify the signed-in staff account.");
       }
       await setOfflineActiveUser(userId);
-      await prepareCurrentStaffOffline(userId, true);
+      await prepareCurrentStaffOffline(userId, true,
+        profile as { fullName?: string; email?: string; phone?: string | null });
       await refreshDevice();
       setMessage("Offline access updated for your account.");
     } catch (cause) {
