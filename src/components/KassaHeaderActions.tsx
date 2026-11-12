@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCircle2, CircleAlert, Clock3, UserRound, Settings2, LogOut } from "lucide-react";
-import { getOfflineWorkspace, listOfflineSales, setOfflineActiveUser, type OfflineSale, type OfflineWorkspace } from "@/lib/offline-sales";
+import { getOfflineWorkspace, listOfflineSales, offlineSectionAllowed, setOfflineActiveUser, type OfflineSale, type OfflineWorkspace } from "@/lib/offline-sales";
 import { loadAccess, selectedBusiness } from "@/lib/kassa-permissions";
 
 type Profile = { id: string; fullName?: string; email?: string; phone?: string | null };
@@ -42,8 +42,10 @@ export default function KassaHeaderActions({
   const displayEmail = profile?.email || activeWorkspace?.userEmail || "";
   const displayRole = activeWorkspace?.role || role || "Team member";
   const displayPhone = profile?.phone || activeWorkspace?.userPhone || "";
-  const alerts = sales.filter((sale) => sale.status !== "synced").length;
-  const items = sales.slice(0, 5);
+  const canSeeSales = offlineSectionAllowed("transactions", activeWorkspace ?? null);
+  const visibleSales = canSeeSales ? sales : [];
+  const alerts = visibleSales.filter((sale) => sale.status !== "synced").length;
+  const items = visibleSales.slice(0, 5);
 
   const refreshLocal = useCallback(async () => {
     try {
@@ -197,10 +199,12 @@ export default function KassaHeaderActions({
               </div>
             ))}
           </div>
-          <Link href="/offline-sales?section=transactions" onClick={() => setPanel(null)}
-            className="mt-3 block rounded-lg bg-emerald-800 px-3 py-2.5 text-center text-xs font-semibold text-white">
-            View local transactions
-          </Link>
+          {canSeeSales && (
+            <Link href="/offline-sales?section=transactions" onClick={() => setPanel(null)}
+              className="mt-3 block rounded-lg bg-emerald-800 px-3 py-2.5 text-center text-xs font-semibold text-white">
+              View local transactions
+            </Link>
+          )}
         </div>
       )}
 
@@ -219,14 +223,15 @@ export default function KassaHeaderActions({
             {activeWorkspace?.branchName && <p><span className="text-gray-500">Branch:</span> {activeWorkspace.branchName}</p>}
             {displayPhone && <p><span className="text-gray-500">Phone:</span> {displayPhone}</p>}
           </div>
-          {offlineMode || !online ? (
+          {offlineMode ? (
             <button type="button" onClick={() => { setPanel(null); onOpenOfflineProfile?.(); }}
               disabled={!onOpenOfflineProfile}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-gray-50 disabled:opacity-50">
               <UserRound size={17} /> My account
             </button>
           ) : (
-            <Link href="/profile" onClick={() => setPanel(null)}
+            <Link href={online ? "/profile" : "/offline-sales?section=profile"}
+              onClick={() => setPanel(null)}
               className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm hover:bg-gray-50">
               <UserRound size={17} /> My account
             </Link>
