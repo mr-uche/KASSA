@@ -20,6 +20,9 @@ export type OfflineWorkspace = {
   // Offline permissions are an expiring snapshot, not live server authorization.
   role?: string;
   permissions?: string[];
+  userName?: string;
+  userEmail?: string;
+  userPhone?: string;
   products: OfflineProduct[];
 };
 export type OfflineLine = {
@@ -135,6 +138,7 @@ export function offlineSectionAllowed(section: string, workspace: OfflineWorkspa
   if (!workspace || !workspace.role || !Array.isArray(workspace.permissions)) return false;
   const can = (name: string) => workspace.role === "Owner" || workspace.permissions!.includes(name);
   switch (section) {
+    case "profile": return true;
     case "home": return can("View dashboard") || can("Manage sales & transactions");
     case "new-sale":
     case "transactions":
