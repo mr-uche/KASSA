@@ -5,6 +5,7 @@ import { Eye, EyeOff } from "lucide-react";
 import Logo from "@/components/logo";
 import { kassaPost } from "@/lib/kassa-client";
 import { firstPermittedPath, type BusinessAccess } from "@/lib/kassa-permissions";
+import { setOfflineActiveUser } from "@/lib/offline-sales";
 
 const bullets = [
   "One reconciled view of every sale, every channel",
@@ -32,6 +33,11 @@ export default function LoginPage() {
           cache: "no-store", credentials: "same-origin",
         });
         if (!existing.ok || !active || signingInRef.current) return;
+        const profile: unknown = await existing.json();
+        if (profile && typeof profile === "object" && "id" in profile &&
+          typeof (profile as { id: unknown }).id === "string") {
+          await setOfflineActiveUser((profile as { id: string }).id);
+        }
         const response = await fetch("/api/businesses/mine", {
           cache: "no-store", credentials: "same-origin",
         });
@@ -76,6 +82,12 @@ export default function LoginPage() {
           "Signed in, but your session could not be verified. Check that the Kassa backend is running."
         );
       }
+      const currentUser: unknown = await sessionResponse.json();
+      if (!currentUser || typeof currentUser !== "object" || !("id" in currentUser) ||
+        typeof (currentUser as { id: unknown }).id !== "string") {
+        throw new Error("Kassa could not identify the signed-in staff account.");
+      }
+      await setOfflineActiveUser((currentUser as { id: string }).id);
 
       // Invitations return staff to the one-time acceptance screen after login.
       const next = new URLSearchParams(window.location.search).get("next");
