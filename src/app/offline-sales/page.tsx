@@ -368,7 +368,8 @@ export default function OfflineSalesPage() {
   return (
     <div className="min-h-screen bg-[#F7F8FA] text-gray-900">
       <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}
-        offlineMode activeOfflineSection={section} onOfflineNavigate={navigate} />
+        offlineMode activeOfflineSection={section} onOfflineNavigate={navigate}
+        offlineAccess={fresh ? workspace : null} />
       <div className="min-h-screen lg:ml-[198px]">
       <header className="flex min-h-[80px] flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-8">
         <div className="flex items-center gap-3">
@@ -378,7 +379,11 @@ export default function OfflineSalesPage() {
             <Menu size={20}/>
           </button>
           <h1 className="text-[20px] font-bold text-[#182033]">{OFFLINE_TITLES[section]}</h1>
-          <span className="hidden rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-900 sm:inline">Offline workspace</span>
+          {fresh && workspace?.role && (
+            <span className="hidden rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 sm:inline">
+              {workspace.role}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold">
           {online ? <Wifi size={15} className="text-emerald-700"/> : <WifiOff size={15} className="text-amber-700"/>}
@@ -387,15 +392,13 @@ export default function OfflineSalesPage() {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-8">
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-          <strong>Offline KASSA · Test mode.</strong> Move between the locally available sections
-          using the usual green navigation bar. Cash sales, receipts, local transactions, and cached
-          stock work without the backend. All totals are device estimates until cloud sync succeeds.
-          Paystack and account-management actions remain online-only.
-          {online && (
-            <Link href="/dashboard" className="ml-2 font-semibold underline">Return to live KASSA</Link>
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-4 py-3 text-sm text-gray-700">
+          <span>Cash sales only · Stock is estimated while offline.</span>
+          {online && <Link href="/dashboard" className="font-semibold text-emerald-800 underline">Live dashboard</Link>}
         </div>
+        {SHOW_TEST_NOTES && <p className="text-xs text-amber-800">
+          Test build: use sample sales and stock. Electronic payments require online verification.
+        </p>}
         {message && <p role="status" className="rounded-lg border border-gray-200 bg-white p-3 text-sm">{message}</p>}
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4">
@@ -405,8 +408,8 @@ export default function OfflineSalesPage() {
               {workspace && " · Cached " + new Date(workspace.cachedAt).toLocaleString("en-NG")}
             </p>
             <p className={"mt-1 text-xs " + (fresh ? "text-emerald-800" : "text-amber-800")}>
-              {fresh ? "Offline catalogue available" : "Online catalogue refresh required"} · {OFFLINE_CACHE_DAYS}-day offline window
-              {shellReady ? " · Offline page prepared" : " · Loading offline page cache"}
+              {fresh ? "Ready offline" : "Online refresh required"} · {OFFLINE_CACHE_DAYS}-day cache
+              {SHOW_TEST_NOTES ? (shellReady ? " · Page cached" : " · Cache pending") : ""}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -421,21 +424,33 @@ export default function OfflineSalesPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 text-center text-sm">
-          <div className="rounded-lg border border-gray-200 bg-white p-3"><b className="block text-xl">{counts.pending}</b>Pending</div>
-          <div className="rounded-lg border border-gray-200 bg-white p-3"><b className="block text-xl">{counts.attention}</b>Needs attention</div>
-          <div className="rounded-lg border border-gray-200 bg-white p-3"><b className="block text-xl">{counts.synced}</b>Synced</div>
-        </div>
+        {fresh && offlineSectionAllowed("transactions", workspace) && (
+          <div className="grid grid-cols-3 gap-3 text-center text-sm">
+            <div className="rounded-lg border border-gray-200 bg-white p-3"><b className="block text-xl">{counts.pending}</b>Pending</div>
+            <div className="rounded-lg border border-gray-200 bg-white p-3"><b className="block text-xl">{counts.attention}</b>Needs attention</div>
+            <div className="rounded-lg border border-gray-200 bg-white p-3"><b className="block text-xl">{counts.synced}</b>Synced</div>
+          </div>
+        )}
 
         {!ready && <p>Loading saved offline data...</p>}
         {ready && !workspace && (
           <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-600">
-            Open this page while signed in and online, then click <strong>Refresh offline catalogue</strong>.
-            Visit it at least once online before testing disconnection so the browser can cache its scripts.
+            Offline access isn't prepared for the current signed-in staff member.
+            Connect online and select <strong>Refresh offline catalogue</strong>.
           </div>
         )}
+        {ready && workspace && !fresh && (
+          <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+            This staff account needs an online refresh before offline access continues.
+          </p>
+        )}
+        {ready && fresh && !screenAllowed && (
+          <p role="alert" className="rounded-lg bg-white p-4 text-sm text-gray-700">
+            This section isn't available to the signed-in staff member.
+          </p>
+        )}
 
-        {section === "home" && (
+        {screenAllowed && section === "home" && (
           <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
             <h2 className="text-lg font-semibold">Offline business overview</h2>
             <p className="text-sm text-gray-600">
@@ -470,7 +485,7 @@ export default function OfflineSalesPage() {
           </section>
         )}
 
-        {section === "products" && (
+        {screenAllowed && section === "products" && (
           <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
             <h2 className="text-lg font-semibold">Cached inventory</h2>
             <p className="text-sm text-gray-600">
@@ -499,7 +514,7 @@ export default function OfflineSalesPage() {
           </section>
         )}
 
-        {section === "reports" && (
+        {screenAllowed && section === "reports" && (
           <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
             <h2 className="text-lg font-semibold">Device cash sales report</h2>
             <p className="text-sm text-gray-600">
@@ -520,22 +535,13 @@ export default function OfflineSalesPage() {
           </section>
         )}
 
-        {["customers", "staff", "settings"].includes(section) && (
-          <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-6">
-            <h2 className="text-lg font-semibold">{OFFLINE_TITLES[section]}</h2>
-            <p className="text-sm leading-6 text-gray-600">
-              This section depends on current cloud data and permissions, so editing is
-              unavailable offline. Offline cash sales, local receipts, cached inventory,
-              and local transaction history remain accessible using the sidebar.
-            </p>
-            <button onClick={() => navigate("new-sale")}
-              className="rounded-lg bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white">
-              Continue offline selling
-            </button>
+        {screenAllowed && section === "customers" && (
+          <section className="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-600">
+            Customer records are available when you reconnect.
           </section>
         )}
 
-        {workspace && (section === "new-sale" || section === "scan") && (
+        {screenAllowed && workspace && (section === "new-sale" || section === "scan") && (
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr]">
             <section className="rounded-xl border border-gray-200 bg-white p-5">
               <h2 className="mb-2 text-lg font-semibold">
@@ -613,7 +619,7 @@ export default function OfflineSalesPage() {
           </div>
         )}
 
-        {selectedReceipt && (section === "new-sale" || section === "scan" || section === "transactions") && (
+        {screenAllowed && selectedReceipt && (section === "new-sale" || section === "scan" || section === "transactions") && (
           <section aria-label="Local receipt" className="space-y-3">
             <h2 className="text-lg font-semibold">Saved local receipt</h2>
             <div id="kassa-receipt-document" className="rounded-xl border border-gray-200 bg-white p-5 sm:p-8">
@@ -648,7 +654,7 @@ export default function OfflineSalesPage() {
           </section>
         )}
 
-        {(section === "home" || section === "transactions" || section === "new-sale") && (
+        {screenAllowed && (section === "home" || section === "transactions" || section === "new-sale") && (
         <section className="rounded-xl border border-gray-200 bg-white p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold">Device sales & sync queue</h2>
@@ -689,18 +695,16 @@ export default function OfflineSalesPage() {
           </div>
         </section>
         )}
-        {section === "backup" && (
+        {screenAllowed && section === "backup" && (
         <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 print:hidden">
           <div>
             <h2 className="text-lg font-semibold">Encrypted backup & recovery</h2>
             <p className="mt-1 text-sm text-gray-600">
-              Save an encrypted copy of all unsynced cash sales. A backup keeps the original
-              transaction IDs, so restoring one cannot create a second sale when synced.
-              Import requires a current online login to the same cashier and branch.
+              Save and restore your unsynced sales with a private passphrase.
             </p>
           </div>
           <label htmlFor="offline-backup-passphrase" className="block text-sm font-semibold">
-            Backup passphrase (12+ characters)
+            Backup password (12+ characters)
           </label>
           <input id="offline-backup-passphrase" type="password" autoComplete="new-password"
             value={backupPassphrase} onChange={(event) => setBackupPassphrase(event.target.value)}
@@ -726,18 +730,15 @@ export default function OfflineSalesPage() {
             </button>
           </div>
           <p className="text-xs leading-5 text-amber-800">
-            Store the backup file and passphrase separately. Losing the passphrase makes the
-            backup unreadable. Do not delete browser data until you've verified a backup and
-            synced the sales. This is a recovery aid, not automatic cloud backup.
+            Keep the password and file safe. KASSA cannot recover a lost backup password.
+            Don't clear browser data until your sales have synced.
           </p>
         </section>
         )}
-        <p className="pb-6 text-xs leading-5 text-gray-500">
-          Local storage is encrypted using a device-specific browser key. Keep your device
-          locked; a separate offline sign-in/PIN is still needed before production release.
-          Browser storage may be cleared by the user or system, and multi-device stock
-          differences require reconciliation.
-        </p>
+        {SHOW_TEST_NOTES && <p className="pb-6 text-xs leading-5 text-gray-500">
+          Device storage is encrypted; unsynced sales are not yet cloud backups.
+          Use your device screen lock and test stock conflicts on multiple devices.
+        </p>}
       </main>
       </div>
     </div>
