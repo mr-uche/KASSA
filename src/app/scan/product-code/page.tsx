@@ -1,4 +1,6 @@
 "use client";
+
+import KassaHeaderActions from "@/components/KassaHeaderActions";
  
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
@@ -49,10 +51,7 @@ export default function EnterProductCodePage() {
               Main branch
               <span className="text-[#98A1AE]">▾</span>
             </button>
-            <span className="h-2 w-2 rounded-full bg-[#E54848]" />
-            <div className="flex h-[36px] w-[36px] items-center justify-center rounded-full bg-[#0F4C3A] text-[13px] font-semibold text-white">
-              AO
-            </div>
+            <KassaHeaderActions />
           </div>
         </header>
  
