@@ -1,8 +1,10 @@
 "use client";
 
+import KassaHeaderActions from "@/components/KassaHeaderActions";
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ScanBarcode, Minus, Plus, Menu, Bell, WifiOff } from "lucide-react";
+import { Search, ScanBarcode, Minus, Plus, Menu, WifiOff } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import Link from "next/link";
 import { getInventoryContext, type InventoryContext, type InventoryProduct } from "@/lib/inventory-client";
@@ -219,20 +221,7 @@ export default function NewSalePage() {
             </div>
 
             {/* Notification */}
-            <button
-              className="relative flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[#F8F9FA]"
-              type="button"
-              aria-label="Notifications"
-            >
-              <Bell size={17} className="text-[#98A1AE]" />
-
-              <span className="absolute right-[8px] top-[6px] h-[7px] w-[7px] rounded-full bg-[#E54848]" />
-            </button>
-
-            {/* Profile */}
-            <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[#E5F5F0] text-[12px] font-semibold text-[#08745F]">
-              AO
-            </div>
+            <KassaHeaderActions />
           </div>
           
 
