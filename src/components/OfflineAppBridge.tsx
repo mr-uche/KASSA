@@ -9,7 +9,7 @@ const SECTIONS: Array<[string, string]> = [
   ["/dashboard", "home"], ["/sales/new", "new-sale"],
   ["/transactions", "transactions"], ["/scan", "scan"],
   ["/reports", "reports"], ["/products", "products"],
-  ["/customers", "customers"], ["/profile", "profile"], ["/sales", "new-sale"],
+  ["/customers", "customers"], ["/sales", "new-sale"],
 ];
 function offlineSection(pathname: string): string | null {
   if (pathname === "/" || pathname === "/login") return "home";
