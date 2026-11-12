@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
+import { setOfflineActiveUser } from "@/lib/offline-sales";
 
 const SECTIONS: Array<[string, string]> = [
   ["/dashboard", "home"], ["/sales/new", "new-sale"],
   ["/transactions", "transactions"], ["/scan", "scan"],
   ["/reports", "reports"], ["/products", "products"],
-  ["/customers", "customers"], ["/staff-branches", "staff"],
-  ["/settings", "settings"], ["/sales", "new-sale"],
+  ["/customers", "customers"], ["/sales", "new-sale"],
 ];
 function offlineSection(pathname: string): string | null {
   if (pathname === "/" || pathname === "/login") return "home";
@@ -26,10 +26,31 @@ export default function OfflineAppBridge() {
     let active = true;
     let preparing = false;
 
+    async function updateIdentity() {
+      if (!active || !navigator.onLine) return;
+      try {
+        const response = await fetch("/api/auth/me", {
+          cache: "no-store", credentials: "same-origin",
+        });
+        if (response.ok) {
+          const profile: unknown = await response.json();
+          if (profile && typeof profile === "object" && "id" in profile &&
+            typeof (profile as { id: unknown }).id === "string") {
+            await setOfflineActiveUser((profile as { id: string }).id);
+          }
+        } else if (response.status === 401) {
+          await setOfflineActiveUser(null);
+        }
+      } catch {
+        // A temporary backend outage must not log a cashier out of local mode.
+      }
+    }
+
     async function prepareShell() {
       if (!active || preparing || !navigator.onLine || !("serviceWorker" in navigator)) return;
       preparing = true;
       try {
+        await updateIdentity();
         const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
         // The first install may not be active yet. Wait so preparation also
         // works on a device that has never opened Offline Selling before.
@@ -69,6 +90,9 @@ export default function OfflineAppBridge() {
       setOffline(!navigator.onLine);
       if (navigator.onLine) void prepareShell();
     }
+    function focus() {
+      if (active && navigator.onLine) void updateIdentity();
+    }
     function onWorkerMessage(event: MessageEvent) {
       if (active && event.data?.type === "KASSA_OFFLINE_SHELL") {
         setPrepared(event.data.prepared === true);
@@ -96,6 +120,7 @@ export default function OfflineAppBridge() {
 
     window.addEventListener("online", connectivity);
     window.addEventListener("offline", connectivity);
+    window.addEventListener("focus", focus);
     navigator.serviceWorker?.addEventListener("message", onWorkerMessage);
     document.addEventListener("click", redirectNavigation, true);
     void prepareShell();
@@ -103,6 +128,7 @@ export default function OfflineAppBridge() {
       active = false;
       window.removeEventListener("online", connectivity);
       window.removeEventListener("offline", connectivity);
+      window.removeEventListener("focus", focus);
       navigator.serviceWorker?.removeEventListener("message", onWorkerMessage);
       document.removeEventListener("click", redirectNavigation, true);
     };
