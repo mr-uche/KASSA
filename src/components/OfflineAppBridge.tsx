@@ -40,7 +40,8 @@ export default function OfflineAppBridge() {
             const userId = (profile as { id: string }).id;
             await setOfflineActiveUser(userId);
             try {
-              await prepareCurrentStaffOffline(userId);
+              await prepareCurrentStaffOffline(userId, false,
+                profile as { fullName?: string; email?: string; phone?: string | null });
             } catch {
               // Offline cache preparation is best-effort: it must not prevent
               // a valid online login or block normal online navigation.
