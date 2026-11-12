@@ -1,8 +1,10 @@
 "use client";
 
+import KassaHeaderActions from "@/components/KassaHeaderActions";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Bell, CheckCircle2, Loader2, Menu, ShieldAlert } from "lucide-react";
+import { CheckCircle2, Loader2, Menu, ShieldAlert } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import { getInventoryContext } from "@/lib/inventory-client";
 import {
@@ -291,18 +293,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <button
-              className="relative flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[#F8F9FA]"
-              type="button"
-              aria-label="Notifications"
-            >
-              <Bell size={17} className="text-[#98A1AE]" />
-              <span className="absolute right-[8px] top-[6px] h-[7px] w-[7px] rounded-full bg-[#E54848]" />
-            </button>
-
-            <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[#E5F5F0] text-[12px] font-semibold text-[#08745F]">
-              AO
-            </div>
+            <KassaHeaderActions />
           </div>
         </header>
 
