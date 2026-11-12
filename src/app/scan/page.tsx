@@ -425,7 +425,7 @@ export default function ScanProductPage() {
                     // Automatically add the matching item to checkout.
                     if (event.key === "Enter" && !event.nativeEvent.isComposing) {
                       event.preventDefault();
-                      void lookUp(event.currentTarget.value, "hardware");
+                      void lookUp(event.currentTarget.value);
                     }
                   }}
                   placeholder="Scan barcode or type SKU"
