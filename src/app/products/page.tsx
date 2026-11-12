@@ -1,4 +1,6 @@
-"use client"; 
+"use client";
+
+import KassaHeaderActions from "@/components/KassaHeaderActions"; 
   
 import { useState, useEffect, Suspense } from "react"; 
 import { 
@@ -9,8 +11,7 @@ import {
   X, 
   CheckCircle2, 
   Menu, 
-  Bell, 
-} from "lucide-react"; 
+  } from "lucide-react"; 
 import KassaSidebar from "@/components/KassaSidebar"; 
 import { useSearchParams, useRouter } from "next/navigation"; 
 import Link from "next/link";
@@ -424,20 +425,7 @@ function ProductsPageContent() {
             </div> 
          
             {/* Notification */} 
-            <button 
-              className="relative flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[#F8F9FA]" 
-              type="button" 
-              aria-label="Notifications" 
-            > 
-              <Bell size={17} className="text-[#98A1AE]" /> 
-         
-              <span className="absolute right-[8px] top-[6px] h-[7px] w-[7px] rounded-full bg-[#E54848]" /> 
-            </button> 
-         
-            {/* Profile */} 
-            <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-full bg-[#E5F5F0] text-[12px] font-semibold text-[#08745F]"> 
-              AO 
-            </div> 
+            <KassaHeaderActions /> 
           </div> 
         </header> 
          
