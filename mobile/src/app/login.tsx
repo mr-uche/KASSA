@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 
 import React ,{useState} from "react";
 import { 
@@ -155,10 +156,7 @@ export default function LoginScreen() {
 
   <Pressable
     onPress={() =>
-      Alert.alert(
-        "Sign Up",
-        "We'll build the Sign Up screen next."
-      )
+      router.push("/cashier/sign-up")
     }
   >
     <Text style={styles.signUpLink}>
@@ -171,7 +169,7 @@ export default function LoginScreen() {
   
 {/* Login Screen Footer */}
 <Text style={styles.footer}>
-  © Kassa • Secure cashier access
+  Â© Kassa â€¢ Secure cashier access
 </Text>
 
 
