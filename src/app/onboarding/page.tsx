@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Plus } from "lucide-react";
 
 import Logo from "@/components/logo";
+import { kassaPost } from "@/lib/kassa-client";
 
 type StaffMember = { fullName: string; role: string; phone: string };
 type Branch = { name: string; address: string; phone: string };
@@ -37,6 +38,8 @@ const roles = ["Cashier", "Branch manager", "Admin", "Owner"];
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   // Step 1
   const [businessName, setBusinessName] = useState("");
@@ -60,6 +63,21 @@ export default function OnboardingPage() {
     { fullName: "", role: "Branch manager", phone: "" },
   ]);
 
+  useEffect(() => {
+    const raw = sessionStorage.getItem("kassa_onboarding_prefill");
+    if (!raw) return;
+    try {
+      const data: unknown = JSON.parse(raw);
+      if (data && typeof data === "object") {
+        const values = data as Record<string, unknown>;
+        if (typeof values.businessName === "string") setBusinessName(values.businessName);
+        if (typeof values.businessType === "string") setBusinessType(values.businessType);
+      }
+    } catch {
+      sessionStorage.removeItem("kassa_onboarding_prefill");
+    }
+  }, []);
+
   const addBranch = () =>
     setBranches([...branches, { name: "", address: "", phone: "" }]);
 
@@ -78,8 +96,72 @@ export default function OnboardingPage() {
     setStaff(next);
   };
 
-  const handleFinish = () => {
-    router.push("/dashboard");
+  const validateStep = (): string | null => {
+    if (step === 1 && !businessName.trim()) return "Enter your business name.";
+    if (step === 2) {
+      if (branches.some((branch) => !branch.name.trim())) return "Enter a name for each branch.";
+      if (new Set(branches.map((branch) => branch.name.trim().toLowerCase())).size !== branches.length) {
+        return "Each branch needs a different name.";
+      }
+    }
+    if (step === 3 && accountNumber && !/^\d{10}$/.test(accountNumber)) {
+      return "Account number must contain exactly 10 digits.";
+    }
+    if (step === 3 && accountNumber && !settlementBank) return "Select a settlement bank.";
+    return null;
+  };
+
+  const handleContinue = () => {
+    const issue = validateStep();
+    if (issue) {
+      setError(issue);
+      return;
+    }
+    setError("");
+    setStep((current) => Math.min(4, current + 1));
+  };
+
+  const handleFinish = async () => {
+    if (submitting) return;
+    if (!businessName.trim() || branches.some((branch) => !branch.name.trim())) {
+      setError("Complete your business and branch details before finishing.");
+      return;
+    }
+    if (accountNumber && !/^\d{10}$/.test(accountNumber)) {
+      setError("Account number must contain exactly 10 digits.");
+      return;
+    }
+    setError("");
+    setSubmitting(true);
+    try {
+      await kassaPost("/api/businesses/onboarding", {
+        businessName: businessName.trim(),
+        businessType: businessType || undefined,
+        registeredName: registeredName.trim() || undefined,
+        ...(staffCount ? { staffCount: Number(staffCount) } : {}),
+        branches: branches.map((branch) => ({
+          name: branch.name.trim(),
+          address: branch.address.trim() || undefined,
+          phone: branch.phone.trim() || undefined,
+        })),
+        payoutSchedule,
+        settlementBank: settlementBank || undefined,
+        accountNumber: accountNumber || undefined,
+        staff: staff.filter((member) => member.fullName.trim()).map((member) => ({
+          fullName: member.fullName.trim(),
+          role: member.role,
+          phone: member.phone.trim() || undefined,
+        })),
+      });
+      sessionStorage.removeItem("kassa_onboarding_prefill");
+      router.replace("/dashboard");
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Unable to save your business.";
+      setError(message);
+      if (message.toLowerCase().includes("sign in")) router.replace("/login");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -267,7 +349,7 @@ export default function OnboardingPage() {
                 Choose your payout schedule
               </h2>
               <p className="text-sm text-gray-500 mb-5">
-                This is when your reconciled sales settle to your bank account.
+                Save a payout preference for future use. Actual settlement is not yet enabled.
               </p>
 
               <div className="space-y-3 mb-5">
@@ -343,7 +425,7 @@ export default function OnboardingPage() {
                 Invite your team
               </h2>
               <p className="text-sm text-gray-500 mb-5">
-                Each staff member gets their own login and activity log.
+                Add staff details now; account invitations will be available later.
               </p>
 
               {staff.map((member, i) => (
@@ -400,17 +482,18 @@ export default function OnboardingPage() {
             </div>
           )}
 
+          {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
           <div className="flex justify-between mt-6">
             <button
-              onClick={() => setStep((s) => Math.max(1, s - 1))}
-              disabled={step === 1}
+              onClick={() => { setError(""); setStep((s) => Math.max(1, s - 1)); }}
+              disabled={step === 1 || submitting}
               className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 disabled:opacity-40"
             >
               Back
             </button>
             {step < 4 ? (
               <button
-                onClick={() => setStep((s) => s + 1)}
+                onClick={handleContinue}
                 className="px-5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold"
               >
                 Continue
@@ -418,9 +501,10 @@ export default function OnboardingPage() {
             ) : (
               <button
                 onClick={handleFinish}
+                disabled={submitting}
                 className="px-5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold"
               >
-                Finish setup
+                {submitting ? "Saving business..." : "Finish setup"}
               </button>
             )}
           </div>

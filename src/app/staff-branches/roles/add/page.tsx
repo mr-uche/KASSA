@@ -1,8 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import KassaHeaderActions from "@/components/KassaHeaderActions";
+
+import { useState,useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import {Menu, Bell,Loader2} from "lucide-react"
 import KassaSidebar from "@/components/KassaSidebar";
+import { createRole, staffContext } from "@/lib/staff-branches-client";
 
 const permissionOptions = [
   "View dashboard",
@@ -10,19 +15,79 @@ const permissionOptions = [
   "Manage products & inventory",
   "View reports & analytics",
   "Manage customers",
-  "Manage staff & branches",
 ];
 
 export default function AddRolePage() {
   const [form, setForm] = useState({ name: "", description: "" });
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [businessId, setBusinessId] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    staffContext().then((context) => {
+      if (context.myRole !== "Owner") throw new Error("Only owners may create roles.");
+      if (active) setBusinessId(context.businessId);
+    }).catch((cause) => {
+      if (active) setError(cause instanceof Error ? cause.message : "Unable to load business.");
+    });
+    return () => { active = false; };
+  }, []);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({
     "View dashboard": true,
     "Manage sales & transactions": true,
     "Manage products & inventory": false,
     "View reports & analytics": false,
     "Manage customers": false,
-    "Manage staff & branches": false,
   });
+
+  // Branch selected from the dashboard
+        const [selectedBranch, setSelectedBranch] = useState("Main branch");
+      
+        // Get the selected branch from the dashboard
+        useEffect(() => {
+          const savedBranch = localStorage.getItem("selectedBranch");
+      
+          if (savedBranch) {
+            setSelectedBranch(savedBranch);
+          }
+        }, []);
+      
+        // Listen for branch changes
+        useEffect(() => {
+          const handleBranchChange = () => {
+            const savedBranch = localStorage.getItem("selectedBranch");
+      
+            if (savedBranch) {
+              setSelectedBranch(savedBranch);
+            }
+          };
+      
+          window.addEventListener("storage", handleBranchChange);
+      
+          return () => {
+            window.removeEventListener("storage", handleBranchChange);
+          };
+        }, []);
+
+const handleSave = async () => {
+    if (saving || !businessId) return;
+    if (!form.name.trim()) return setError("Enter a role name.");
+    setSaving(true);
+    setError("");
+    try {
+      await createRole({
+        businessId, name: form.name.trim(), description: form.description.trim(),
+        permissions: permissionOptions.filter((permission) => permissions[permission]),
+      });
+      router.replace("/staff-branches?added=role");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create role.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  
 
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -44,27 +109,43 @@ export default function AddRolePage() {
         onClose={() => setSidebarOpen(false)}
       />
 
-      <main className="ml-0 md:ml-[198px] p-4 sm:p-6 lg:p-8">
-        {/* Page heading */}
-        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-1">
-          Staff & Branches
-        </h1>
-
-        <p className="text-sm sm:text-base text-gray-500 mb-6">
-          Manage your team, branches, and access permissions.
-        </p>
-
-        {/* Add role heading */}
-        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">
-          Add role
-        </h2>
-
-        <p className="text-sm sm:text-base text-gray-500 mb-6">
+      <main className="min-h-screen lg:ml-[198px]">
+        {/* Header */}
+                <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSidebarOpen(true)}
+                      className="shrink-0 rounded-md p-1.5 text-[#374151] transition hover:bg-[#F3F4F6] lg:hidden"
+                      aria-label="Open menu"
+                    >
+                      <Menu size={22} />
+                    </button>
+        
+                    <h1 className="truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">
+                        Add role
+                    </h1>
+                  </div>
+        
+                  <div className="flex shrink-0 items-center gap-3 sm:gap-5">
+                      {/* Branch display - no dropdown */}
+                    <div className="hidden w-[130px] sm:block sm:w-[150px] lg:w-[162px]">
+                      <div className="flex h-[34px] w-full items-center justify-between rounded-[9px] border border-[#D8DCE3] bg-white px-3 text-[12px] text-[#374151] sm:text-[13px]">
+                        <span className="truncate">{selectedBranch}</span>
+                      </div>
+                    </div>
+        
+                    <KassaHeaderActions />
+                  </div>
+                </header>
+        
+        <p className="mb-6 px-4 pt-6 text-sm text-gray-500 sm:px-6 sm:pt-8 sm:text-base lg:px-8 lg:pt-12">
           Create a custom role and choose what this role can access.
         </p>
 
+        {error && <p role="alert" className="mb-4 px-4 text-sm text-red-700 sm:px-6 lg:px-8">{error}</p>}
         {/* Main responsive layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 px-4 pb-8 sm:px-6 lg:grid-cols-3 lg:px-8 lg:pb-10">
           {/* Left / Main form */}
           <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-5">
@@ -157,7 +238,7 @@ export default function AddRolePage() {
 
                 <p className="text-sm text-gray-600 leading-5">
                   Give staff only the access they need to perform their
-                  work. You can edit permissions later.
+                  work. Only owners can manage roles.
                 </p>
               </div>
 
@@ -170,17 +251,22 @@ export default function AddRolePage() {
                 <ul className="space-y-1 text-sm text-gray-600">
                   <li>• Role appears in Roles & permissions</li>
                   <li>• You can assign it to staff</li>
-                  <li>• Permissions can be updated later</li>
+                  <li>• Existing roles are read-only in this phase</li>
                 </ul>
               </div>
 
-              <button className="w-full bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium transition-colors mb-3">
-                Add role
+               <button
+                onClick={handleSave}
+                disabled={saving || !businessId}
+                className="w-full flex items-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium transition-colors mb-3 disabled:opacity-70"
+              >
+                {saving && <Loader2 size={14} className="animate-spin" />}
+                {saving ? "Adding..." : " Add role"}
               </button>
 
               {/* Cancel */}
               <Link
-                href="/staff"
+                href="/staff-branches"
                 className="block w-full text-center border border-gray-200 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Cancel

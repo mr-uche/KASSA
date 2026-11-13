@@ -28,7 +28,7 @@ export default function SelectField({
         <select
           id={selectId}
           defaultValue={defaultValue ?? ""}
-          className={`w-full appearance-none rounded-lg border border-border-subtle bg-surface-muted px-3.5 py-2.5 pr-9 text-sm text-text-primary outline-none transition-colors focus:border-brand-500 focus:bg-surface focus:ring-2 focus:ring-brand-100 ${
+          className={`kassa-select-custom-icon w-full appearance-none rounded-lg border border-border-subtle bg-surface-muted px-3.5 py-2.5 pr-11 text-sm text-text-primary outline-none transition-colors focus:border-brand-500 focus:bg-surface focus:ring-2 focus:ring-brand-100 ${
             className ?? ""
           }`}
           {...props}
@@ -41,7 +41,7 @@ export default function SelectField({
           {children}
         </select>
         <svg
-          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary"
+          className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary"
           viewBox="0 0 20 20"
           fill="none"
         >

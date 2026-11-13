@@ -1,219 +1,110 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Download, Share2, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
-
-const transaction = {
-  id: "TXN-2026-000146",
-  status: "Success",
-  date: "20 Aug 2026 • 9:14 AM",
-  channel: "Bank Transfer",
-  customer: "Mary Adeyemi",
-  cashier: "Ifeoma Bassey",
-  branch: "Main Branch",
-  amountPaid: 24500,
-  paymentMethod: "Bank Transfer",
-  items: [
-    { name: "Amoxicillin 500mg", qty: 2, amount: 8000 },
-    { name: "Vitamin C 1000mg", qty: 1, amount: 6500 },
-    { name: "Paracetamol", qty: 2, amount: 5000 },
-    { name: "Hand Sanitizer", qty: 1, amount: 5500 },
-  ],
-  subtotal: 25000,
-  discount: 500,
-  total: 24500,
-};
+import { formatNaira } from "@/lib/inventory-client";
+import { getSale, saleStatusLabel, type SavedSale } from "@/lib/sales-client";
 
 export default function TransactionDetailsPage() {
-  const [disputeStatus, setDisputeStatus] = useState<null | "review">(null);
+  const params = useParams<{ id: string }>();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sale, setSale] = useState<SavedSale | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    getSale(params.id).then((result) => {
+      if (active) { setSale(result); setError(""); }
+    }).catch((cause) => {
+      if (active) setError(cause instanceof Error ? cause.message : "Unable to load transaction.");
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [params.id]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gray-50">
-      <KassaSidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-
-      <main className="min-h-screen lg:ml-[198px] p-4 sm:p-6 lg:p-8">
-        {/* Mobile header row with menu button */}
-        <div className="flex items-center gap-3 mb-1">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="shrink-0 rounded-md p-1.5 text-gray-600 transition hover:bg-gray-100 lg:hidden"
-            aria-label="Open menu"
-          >
-            <Menu size={22} />
-          </button>
-
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
-            Transaction Details
-          </h1>
-        </div>
-        <p className="text-gray-500 mb-6 text-sm sm:text-base">
-          Review the transaction, itemised receipt, and dispute options.
-        </p>
-
-        {/* Summary bar */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 sm:gap-8">
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                Transaction ID
-              </p>
-              <p className="font-semibold text-gray-900 text-sm sm:text-base break-all">{transaction.id}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Status</p>
-              <span className="inline-block px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-                {transaction.status.toUpperCase()}
-              </span>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                Date & time
-              </p>
-              <p className="font-medium text-gray-900 text-sm sm:text-base">{transaction.date}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Channel</p>
-              <p className="font-medium text-gray-900 text-sm sm:text-base">{transaction.channel}</p>
-            </div>
-          </div>
-        </div>
-
-        {disputeStatus === "review" && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
-              <p className="text-sm text-gray-500">{transaction.customer}</p>
-              <span className="text-xs text-gray-400">
-                {transaction.date} · {transaction.paymentMethod}
-              </span>
-            </div>
-
-            <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">
-              Dispute status
-            </p>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 text-amber-700 text-sm font-medium mb-4">
-              Dispute under review
-            </span>
-
-            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Dispute ID</p>
-            <p className="font-semibold text-gray-900 mb-3">DSP-000184</p>
-
-            <p className="text-sm text-gray-500">
-              The dispute has been submitted and is awaiting review.
-            </p>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Itemised receipt */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Itemised Receipt</h2>
-            <p className="text-sm text-gray-500 mb-4">Customer: {transaction.customer}</p>
-
-            <div className="overflow-x-auto mb-4">
-              <table className="w-full min-w-[360px] text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
-                    <th className="pb-3 font-medium">Item</th>
-                    <th className="pb-3 font-medium text-center">Qty</th>
-                    <th className="pb-3 font-medium text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transaction.items.map((item) => (
-                    <tr key={item.name} className="border-b border-gray-50">
-                      <td className="py-3 text-gray-900">{item.name}</td>
-                      <td className="py-3 text-center text-gray-700">{item.qty}</td>
-                      <td className="py-3 text-right font-medium text-gray-900 whitespace-nowrap">
-                        ₦{item.amount.toLocaleString()}
-                      </td>
+    <div className="min-h-screen bg-[#F5F6F8]">
+      <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <main className="min-h-screen lg:ml-[198px]">
+        <header className="flex min-h-[80px] items-center gap-3 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
+          <button type="button" aria-label="Open menu" onClick={() => setSidebarOpen(true)}
+            className="rounded-md p-2 lg:hidden"><Menu size={21} /></button>
+          <h1 className="text-xl font-bold text-[#182033]">Transaction details</h1>
+        </header>
+        <div className="mx-auto max-w-4xl space-y-6 px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-10 lg:pt-12">
+          <Link href="/transactions" className="text-sm font-medium text-emerald-700">← Back to transactions</Link>
+          {loading && <p role="status" className="text-sm text-gray-500">Loading transaction...</p>}
+          {error && <p role="alert" className="rounded-lg border border-red-200 bg-white p-4 text-sm text-red-700">{error}</p>}
+          {sale && (
+            <>
+              <section className="rounded-xl border border-gray-200 bg-white p-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-medium uppercase text-gray-500">Sale reference</p>
+                    <h2 className="mt-1 break-all text-lg font-semibold text-gray-900">{sale.reference}</h2>
+                    <p className="mt-1 text-xs text-gray-500">{new Date(sale.createdAt).toLocaleString("en-NG")}</p>
+                    {sale.payments.some((payment) => payment.provider === "PAYSTACK_TEST") && (
+                      <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs font-semibold text-amber-900">
+                        Paystack TEST payment — no real funds collected
+                      </p>
+                    )}
+                  </div>
+                  <span className={sale.status === "PAID"
+                    ? "rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700"
+                    : "rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700"}>
+                    {saleStatusLabel(sale.status)}
+                  </span>
+                </div>
+                <div className="mt-6 grid grid-cols-2 gap-4 border-t border-gray-100 pt-5 text-sm">
+                  <span className="text-gray-500">Customer</span><span className="text-right font-medium">{sale.customer}</span>
+                  <span className="text-gray-500">Cashier</span><span className="text-right font-medium">{sale.cashier}</span>
+                  <span className="text-gray-500">Payment channel</span><span className="text-right font-medium">{sale.payments[0]?.channel.replaceAll("_", " ") ?? "None"}</span>
+                  <span className="text-gray-500">Payment status</span><span className="text-right font-medium">{sale.payments[0]?.status ?? "None"}</span>
+                  {sale.payments[0]?.providerReference && (
+                    <>
+                      <span className="text-gray-500">Paystack reference</span>
+                      <span className="break-all text-right font-medium">{sale.payments[0].providerReference}</span>
+                    </>
+                  )}
+                  <span className="text-gray-500">Total</span><span className="text-right text-lg font-bold text-emerald-700">{formatNaira(sale.total)}</span>
+                </div>
+              </section>
+              <section className="rounded-xl border border-gray-200 bg-white p-6">
+                <h3 className="mb-4 text-base font-semibold text-gray-900">Sale items</h3>
+                <div className="w-full overflow-x-auto">
+                <table className="w-full min-w-[370px] text-sm">
+                  <thead><tr className="border-b border-gray-100 text-left text-xs uppercase text-gray-500">
+                    <th className="pb-3">Product</th><th className="pb-3 text-center">Quantity</th><th className="pb-3 text-right">Line total</th>
+                  </tr></thead>
+                  <tbody>{sale.items.map((item) => (
+                    <tr key={item.id} className="border-b border-gray-50">
+                      <td className="py-3">{item.name}</td>
+                      <td className="py-3 text-center">{item.quantity}</td>
+                      <td className="py-3 text-right">{formatNaira(item.lineTotal)}</td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="space-y-1.5 text-sm mb-4">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Subtotal</span>
-                <span className="text-gray-900">₦{transaction.subtotal.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Discount</span>
-                <span className="text-gray-900">-₦{transaction.discount.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between font-semibold pt-2 border-t border-gray-100">
-                <span className="text-gray-900">Total</span>
-                <span className="text-emerald-700 text-lg">
-                  ₦{transaction.total.toLocaleString()}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:justify-between gap-3 border-t border-gray-100 pt-4 text-sm">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Payment method</p>
-                <p className="font-medium text-gray-900">{transaction.paymentMethod}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Cashier</p>
-                <p className="font-medium text-gray-900">{transaction.cashier}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Transaction summary + actions */}
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">
-                Transaction Summary
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Customer</p>
-                  <p className="text-sm font-semibold text-gray-900">{transaction.customer}</p>
+                  ))}</tbody>
+                </table>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Cashier</p>
-                  <p className="text-sm font-semibold text-gray-900">{transaction.cashier}</p>
+                <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4 font-semibold">
+                  <span>Total</span><span className="text-lg text-emerald-700">{formatNaira(sale.total)}</span>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Branch</p>
-                  <p className="text-sm font-semibold text-gray-900">{transaction.branch}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Amount paid</p>
-                  <p className="text-lg font-bold text-emerald-700">
-                    ₦{transaction.amountPaid.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">Actions</h3>
-              <button className="w-full flex items-center gap-2 justify-center bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium transition-colors mb-3">
-                <Download size={16} />
-                Download Receipt
-              </button>
-              <button className="w-full flex items-center gap-2 justify-center border border-gray-200 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 mb-3">
-                <Share2 size={16} />
-                Share Receipt
-              </button>
-              <Link
-                href={`/transactions/${transaction.id}/dispute`}
-                className="w-full flex items-center justify-center border border-red-200 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"
-              >
-                Dispute Transaction
-              </Link>
-            </div>
-          </div>
+              </section>
+              {sale.status === "PAID" ? (
+                <Link href={"/sales/receipt?saleId=" + encodeURIComponent(sale.id)}
+                  className="inline-flex rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white">
+                  View verified receipt
+                </Link>
+              ) : (
+                <Link href={"/sales/payment?saleId=" + encodeURIComponent(sale.id)}
+                  className="inline-flex rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white">
+                  View payment status
+                </Link>
+              )}
+            </>
+          )}
         </div>
       </main>
     </div>

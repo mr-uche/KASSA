@@ -1,14 +1,29 @@
 "use client";
+
+import KassaHeaderActions from "@/components/KassaHeaderActions";
  
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import Link from "next/link";
 import KassaSidebar from "@/components/KassaSidebar";
 import { Loader2, Menu } from "lucide-react";
+import { createBranch, staffContext } from "@/lib/staff-branches-client";
  
 export default function AddBranchPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [businessId, setBusinessId] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    staffContext().then((context) => {
+      if (context.myRole !== "Owner") throw new Error("Only owners can create branches.");
+      if (active) setBusinessId(context.businessId);
+    }).catch((cause) => {
+      if (active) setError(cause instanceof Error ? cause.message : "Unable to load your business.");
+    });
+    return () => { active = false; };
+  }, []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -21,48 +36,102 @@ export default function AddBranchPage() {
   });
  
   const handleSave = async () => {
+    if (saving || !businessId) return;
+    if (!form.name.trim() || !form.code.trim() || !form.address.trim() ||
+        !form.city.trim() || !form.state.trim()) {
+      setError("Fill in the branch name, code, address, city and state.");
+      return;
+    }
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000)); // remove once real API is wired up
- 
-    setSaving(false);
- 
-    setTimeout(() => {
-      router.push("/staff-branches?added=branch");
-    }, 1200);
+    setError("");
+    try {
+      await createBranch({
+        businessId, name: form.name.trim(), code: form.code.trim(),
+        phone: form.phone.trim(), address: form.address.trim(),
+        city: form.city.trim(), state: form.state.trim(),
+        isActive: form.status === "Active",
+      });
+      router.replace("/staff-branches?added=branch");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create branch.");
+    } finally {
+      setSaving(false);
+    }
   };
  
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
- 
+
+// Branch selected from the dashboard
+      const [selectedBranch, setSelectedBranch] = useState("Main branch");
+    
+      // Get the selected branch from the dashboard
+      useEffect(() => {
+        const savedBranch = localStorage.getItem("selectedBranch");
+    
+        if (savedBranch) {
+          setSelectedBranch(savedBranch);
+        }
+      }, []);
+    
+      // Listen for branch changes
+      useEffect(() => {
+        const handleBranchChange = () => {
+          const savedBranch = localStorage.getItem("selectedBranch");
+    
+          if (savedBranch) {
+            setSelectedBranch(savedBranch);
+          }
+        };
+    
+        window.addEventListener("storage", handleBranchChange);
+    
+        return () => {
+          window.removeEventListener("storage", handleBranchChange);
+        };
+      }, []);
+    
   return (
     <div className="min-h-screen bg-gray-50">
       <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
  
-      <main className="lg:ml-[198px] p-4 sm:p-6 lg:p-8">
-        <div className="flex items-center gap-3 mb-1">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="shrink-0 rounded-md p-1.5 text-gray-600 transition hover:bg-gray-100 lg:hidden"
-            aria-label="Open menu"
-          >
-            <Menu size={22} />
-          </button>
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
-            Staff &amp; Branches
-          </h1>
-        </div>
-        <p className="text-sm sm:text-base text-gray-500 mb-6">
-          Manage your team, branches, roles and access.
-        </p>
- 
-        <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">Add branch</h2>
-        <p className="text-sm sm:text-base text-gray-500 mb-6">
+      <main className="lg:ml-[198px] ">
+         {/* Header */}
+                <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSidebarOpen(true)}
+                      className="shrink-0 rounded-md p-1.5 text-[#374151] transition hover:bg-[#F3F4F6] lg:hidden"
+                      aria-label="Open menu"
+                    >
+                      <Menu size={22} />
+                    </button>
+        
+                    <h1 className="truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">
+                        Add branch
+                    </h1>
+                  </div>
+        
+                  <div className="flex shrink-0 items-center gap-3 sm:gap-5">
+                      {/* Branch display - no dropdown */}
+                    <div className="hidden w-[130px] sm:block sm:w-[150px] lg:w-[162px]">
+                      <div className="flex h-[34px] w-full items-center justify-between rounded-[9px] border border-[#D8DCE3] bg-white px-3 text-[12px] text-[#374151] sm:text-[13px]">
+                        <span className="truncate">{selectedBranch}</span>
+                      </div>
+                    </div>
+        
+                    <KassaHeaderActions />
+                  </div>
+                </header>
+        
+        <p className="mb-6 px-4 pt-6 text-sm text-gray-500 sm:px-6 sm:pt-8 sm:text-base lg:px-8 lg:pt-12">
           Create a new business location and assign staff to it.
         </p>
  
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {error && <p role="alert" className="mb-4 px-4 text-sm text-red-700 sm:px-6 lg:px-8">{error}</p>}
+        <div className="grid grid-cols-1 gap-6 px-4 pb-8 sm:px-6 lg:grid-cols-3 lg:px-8 lg:pb-10">
           <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1">
               Branch information
@@ -147,6 +216,11 @@ export default function AddBranchPage() {
                     <option value="Lagos">Lagos</option>
                     <option value="Kano">Kano</option>
                     <option value="Rivers">Rivers</option>
+                    {["Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno",
+                      "Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","Gombe","Imo","Jigawa",
+                      "Kaduna","Katsina","Kebbi","Kogi","Kwara","Nasarawa","Niger","Ogun","Ondo",
+                      "Osun","Oyo","Plateau","Sokoto","Taraba","Yobe","Zamfara"].map((state) =>
+                      <option key={state} value={state}>{state}</option>)}
                   </select>
                 </div>
               </div>
@@ -194,7 +268,7 @@ export default function AddBranchPage() {
 
               <button
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || !businessId}
                 className="w-full flex items-center justify-center gap-2 bg-emerald-800 hover:bg-emerald-900 text-white py-2.5 rounded-lg text-sm font-medium transition-colors mb-3 disabled:opacity-70"
               >
                 {saving && <Loader2 size={14} className="animate-spin" />}
@@ -207,7 +281,7 @@ export default function AddBranchPage() {
                 Cancel
               </Link>
               <p className="text-xs text-gray-400 text-center">
-                You can edit branch details later from the branch actions menu.
+                Staff can only be assigned to active branches.
               </p>
             </div>
           </div>

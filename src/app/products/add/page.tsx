@@ -1,19 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import KassaHeaderActions from "@/components/KassaHeaderActions";
+
+import { useState,useEffect } from "react";
 import {
   Loader2,
   Upload,
   CheckCircle2,
   X,
   Menu,
-} from "lucide-react";
+  } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
+import Link from "next/link";
+import { getInventoryContext, getInventoryCategories, kassaPost, type InventoryCategory, type InventoryContext } from "@/lib/inventory-client";
 
 export default function AddProductPage() {
   const [form, setForm] = useState({
     name: "",
     sku: "",
+    barcode: "",
     category: "",
     brand: "",
     unit: "",
@@ -26,6 +31,9 @@ export default function AddProductPage() {
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  const [categories, setCategories] = useState<InventoryCategory[]>([]);
+  const [inventoryContext, setInventoryContext] = useState<InventoryContext | null>(null);
 
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -40,16 +48,85 @@ export default function AddProductPage() {
     }));
   };
 
+  // Branch selected from the dashboard
+    const [selectedBranch, setSelectedBranch] = useState("Main branch");
+  
+    // Get the selected branch from the dashboard
+    useEffect(() => {
+      const savedBranch = localStorage.getItem("selectedBranch");
+  
+      if (savedBranch) {
+        setSelectedBranch(savedBranch);
+      }
+    }, []);
+  
+    // Listen for branch changes
+    useEffect(() => {
+      const handleBranchChange = () => {
+        const savedBranch = localStorage.getItem("selectedBranch");
+  
+        if (savedBranch) {
+          setSelectedBranch(savedBranch);
+        }
+      };
+  
+      window.addEventListener("storage", handleBranchChange);
+  
+      return () => {
+        window.removeEventListener("storage", handleBranchChange);
+      };
+    }, []);
+  
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const context = await getInventoryContext();
+        const data = await getInventoryCategories(context);
+        if (cancelled) return;
+        setInventoryContext(context);
+        setSelectedBranch(context.branchName);
+        setCategories(data.filter((category) => category.status === "Active"));
+      } catch (cause) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Unable to load categories.");
+      }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, []);
+
   const handleSave = async () => {
+    if (saving || saved) return;
+    if (!inventoryContext) return setError("Inventory is not ready. Confirm that your business is set up.");
+    if (!form.name.trim() || !form.sku.trim() || !form.category)
+      return setError("Enter the product name, SKU, and category.");
+    const money = /^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/;
+    if (!money.test(form.sellingPrice.trim()) ||
+        (form.costPrice.trim() && !money.test(form.costPrice.trim())))
+      return setError("Enter a valid naira price with no more than two decimal places.");
+    if (!/^\d+$/.test(form.currentStock.trim()) || !/^\d+$/.test(form.lowStockThreshold.trim()))
+      return setError("Current stock and low-stock threshold must be whole numbers of zero or more.");
+    const currentStock = Number(form.currentStock), lowStockThreshold = Number(form.lowStockThreshold);
+    if (!Number.isSafeInteger(currentStock) || !Number.isSafeInteger(lowStockThreshold) ||
+        currentStock > 100000000 || lowStockThreshold > 100000000)
+      return setError("Stock values must be no greater than 100,000,000.");
+    setError("");
     setSaving(true);
-
-    // TODO: replace with your real API call
-    await new Promise((resolve) =>
-      setTimeout(resolve, 1000)
-    );
-
-    setSaving(false);
-    setSaved(true);
+    try {
+      await kassaPost("/api/inventory/products", {
+        businessId: inventoryContext.businessId, branchId: inventoryContext.branchId,
+        name: form.name.trim(), sku: form.sku.trim(), barcode: form.barcode.trim() || undefined,
+        categoryId: form.category,
+        brand: form.brand.trim() || undefined, unit: form.unit.trim() || undefined,
+        description: form.description.trim() || undefined,
+        sellingPrice: form.sellingPrice.trim(), costPrice: form.costPrice.trim() || undefined,
+        currentStock, lowStockThreshold,
+      });
+      setSaved(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to save the product.");
+    } finally { setSaving(false); }
   };
 
   return (
@@ -60,28 +137,41 @@ export default function AddProductPage() {
         onClose={() => setSidebarOpen(false)}
       />
 
-      <main className="min-h-screen lg:ml-[198px] p-4 sm:p-6 lg:p-8">
-        {/* Mobile Header */}
-        <div className="flex items-center gap-3 mb-1">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="flex lg:hidden items-center justify-center rounded-md p-1.5 text-gray-600 hover:bg-gray-100 transition-colors"
-            aria-label="Open menu"
-          >
-            <Menu size={23} />
-          </button>
+      <main className="min-h-screen lg:ml-[198px]  ">
+        {/* Header */}
+        <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="shrink-0 rounded-md p-1.5 text-[#374151] transition hover:bg-[#F3F4F6] lg:hidden"
+              aria-label="Open menu"
+            >
+              <Menu size={22} />
+            </button>
 
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
-            Add Product
-          </h1>
-        </div>
+            <h1 className="truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">
+                Add Product
+            </h1>
+          </div>
 
-        <p className="text-sm md:text-base text-gray-500 mb-6">
+          <div className="flex shrink-0 items-center gap-3 sm:gap-5">
+              {/* Branch display - no dropdown */}
+            <div className="hidden w-[130px] sm:block sm:w-[150px] lg:w-[162px]">
+              <div className="flex h-[34px] w-full items-center justify-between rounded-[9px] border border-[#D8DCE3] bg-white px-3 text-[12px] text-[#374151] sm:text-[13px]">
+                <span className="truncate">{selectedBranch}</span>
+              </div>
+            </div>
+
+            <KassaHeaderActions />
+          </div>
+        </header>
+
+        <p className="mb-6 px-4 pt-6 text-sm text-gray-500 sm:px-6 sm:pt-8 sm:text-base lg:px-8 lg:pt-12">
           Add a new product to your catalogue.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 px-4 pb-8 sm:px-6 lg:grid-cols-3 lg:px-8 lg:pb-10">
           {/* ================= FORM ================= */}
           <div className="md:col-span-2 bg-white rounded-xl border border-gray-200 p-4 md:p-6 space-y-6">
             <div>
@@ -144,17 +234,33 @@ export default function AddProductPage() {
                       <option value="">
                         Select category
                       </option>
-                      <option value="Medicine">
-                        Medicine
-                      </option>
-                      <option value="Supplements">
-                        Supplements
-                      </option>
-                      <option value="Wellness">
-                        Wellness
-                      </option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>{category.name}</option>
+                      ))}
                     </select>
+                    {categories.length === 0 && (
+                      <p className="mt-2 text-xs text-amber-700">
+                        No active categories yet. <Link href="/products/categories/add" className="underline">Create a category</Link> first.
+                      </p>
+                    )}
                   </div>
+                </div>
+
+                {/* Optional GTIN, EAN, UPC or Code 128 barcode printed on the item. */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="product-barcode">
+                    Barcode number (optional)
+                  </label>
+                  <input id="product-barcode" value={form.barcode}
+                    onChange={(event) => handleChange("barcode", event.target.value)}
+                    maxLength={100} autoComplete="off" inputMode="text"
+                    placeholder="Scan or type the packaging barcode"
+                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Keep leading zeroes. If blank, Kassa can still scan the product using its SKU.
+                    Barcodes must be unique within your business.
+                  </p>
                 </div>
 
                 {/* Brand + Unit */}
@@ -333,7 +439,7 @@ export default function AddProductPage() {
                 />
 
                 <span className="text-sm font-medium text-emerald-700">
-                  Upload product image
+                  Product images coming soon
                 </span>
 
                 <span className="text-xs text-gray-400">
@@ -342,6 +448,7 @@ export default function AddProductPage() {
 
                 <input
                   type="file"
+                  disabled
                   accept="image/jpeg,image/png"
                   className="hidden"
                 />
@@ -351,6 +458,7 @@ export default function AddProductPage() {
 
           {/* ================= SAVE PANEL ================= */}
           <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 h-fit">
+            {error && <p role="alert" className="mb-4 text-sm text-red-700">{error}</p>}
             {!saved ? (
               <>
                 <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-1">
@@ -377,12 +485,12 @@ export default function AddProductPage() {
                   {saving ? "Saving..." : "Save Product"}
                 </button>
 
-                <button
-                  type="button"
-                  className="w-full border border-emerald-700 text-emerald-700 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-50 transition-colors mb-6"
+                <Link
+                  href="/products"
+                  className="flex w-full items-center justify-center border border-emerald-700 text-emerald-700 py-2.5 rounded-lg text-sm font-medium hover:bg-emerald-50 transition-colors mb-6"
                 >
                   Cancel
-                </button>
+                </Link>
               </>
             ) : (
               <div className="flex items-start gap-3 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 mb-6">
@@ -403,7 +511,10 @@ export default function AddProductPage() {
 
                 <button
                   type="button"
-                  onClick={() => setSaved(false)}
+                  onClick={() => {
+                    setSaved(false);
+                    setForm({ name: "", sku: "", barcode: "", category: "", brand: "", unit: "", description: "", sellingPrice: "", costPrice: "", currentStock: "", lowStockThreshold: "" });
+                  }}
                 >
                   <X
                     size={14}

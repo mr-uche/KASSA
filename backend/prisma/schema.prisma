@@ -1,0 +1,338 @@
+// Kassa's initial multi-tenant data model. API business logic will be added in phases.
+// Prisma 7 generates CommonJS code to match Nest's TypeScript build.
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PayoutSchedule {
+  INSTANT
+  DAILY
+  WEEKLY
+}
+
+enum SaleStatus {
+  DRAFT
+  PENDING_PAYMENT
+  PAID
+  CANCELLED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentChannel {
+  BANK_TRANSFER
+  CARD
+  USSD
+  CASH
+  POS
+  WALLET
+}
+
+enum StockMovementReason {
+  INITIAL_STOCK
+  RESTOCK
+  SALE
+  SALE_REVERSAL
+  ADJUSTMENT
+}
+
+model User {
+  id              String               @id @default(uuid()) @db.Uuid
+  email           String               @unique
+  passwordHash    String
+  fullName        String
+  phone           String?
+  isPlatformAdmin Boolean              @default(false)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  memberships     BusinessMembership[]
+  salesAsCashier  Sale[]               @relation("CashierSales")
+  authSessions    AuthSession[]
+}
+
+model AuthSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Business {
+  id          String               @id @default(uuid()) @db.Uuid
+  name        String
+  type        String?
+  legalName   String?
+  staffCountEstimate Int?
+  payoutSchedule PayoutSchedule @default(DAILY)
+  settlementBankName String?
+  settlementAccountLast4 String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  memberships BusinessMembership[]
+  roles       BusinessRole[]
+  branches    Branch[]
+  categories  Category[]
+  products    Product[]
+  customers   Customer[]
+  sales       Sale[]
+  payments    Payment[]
+  staffDrafts  StaffOnboardingDraft[]
+  staffInvitations StaffInvitation[]
+}
+
+model StaffOnboardingDraft {
+  id         String   @id @default(uuid()) @db.Uuid
+  businessId String   @db.Uuid
+  fullName   String
+  roleName   String
+  phone      String?
+  createdAt  DateTime @default(now())
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
+model BusinessRole {
+  id          String               @id @default(uuid()) @db.Uuid
+  businessId  String               @db.Uuid
+  name        String
+  description String?
+  permissions Json                 @default("[]")
+  isSystem    Boolean              @default(false)
+  business    Business             @relation(fields: [businessId], references: [id])
+  members     BusinessMembership[]
+  invitations StaffInvitation[]
+
+  @@unique([businessId, name])
+}
+
+model BusinessMembership {
+  id         String       @id @default(uuid()) @db.Uuid
+  businessId String       @db.Uuid
+  userId     String       @db.Uuid
+  roleId     String       @db.Uuid
+  branchId   String?      @db.Uuid
+  createdAt  DateTime     @default(now())
+  business   Business     @relation(fields: [businessId], references: [id])
+  user       User         @relation(fields: [userId], references: [id])
+  role       BusinessRole @relation(fields: [roleId], references: [id])
+  branch     Branch?      @relation(fields: [branchId], references: [id])
+
+  @@unique([businessId, userId])
+  @@index([branchId])
+}
+
+model Branch {
+  id         String               @id @default(uuid()) @db.Uuid
+  businessId String               @db.Uuid
+  name       String
+  address    String?
+  phone      String?
+  isActive   Boolean              @default(true)
+  createdAt  DateTime             @default(now())
+  business   Business             @relation(fields: [businessId], references: [id])
+  members    BusinessMembership[]
+  stock      StockBalance[]
+  movements  StockMovement[]
+  sales      Sale[]
+  code       String?
+  city       String?
+  state      String?
+  invitations StaffInvitation[]
+
+  @@unique([businessId, name])
+  @@unique([businessId, code])
+}
+
+model StaffInvitation {
+  id         String        @id @default(uuid()) @db.Uuid
+  businessId String        @db.Uuid
+  roleId     String        @db.Uuid
+  branchId   String        @db.Uuid
+  email      String
+  fullName   String
+  message    String?
+  tokenHash  String        @unique
+  createdAt  DateTime      @default(now())
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+  business   Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  role       BusinessRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  branch     Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, email])
+  @@index([expiresAt])
+}
+
+model Category {
+  id         String    @id @default(uuid()) @db.Uuid
+  businessId String    @db.Uuid
+  name       String
+  description String?
+  isActive   Boolean   @default(true)
+  business   Business  @relation(fields: [businessId], references: [id])
+  products   Product[]
+
+  @@unique([businessId, name])
+}
+
+model Product {
+  id                String          @id @default(uuid()) @db.Uuid
+  businessId        String          @db.Uuid
+  categoryId        String?         @db.Uuid
+  name              String
+  sku               String
+  barcode           String?
+  brand             String?
+  unit              String?
+  description       String?
+  sellingPrice      Decimal         @db.Decimal(14, 2)
+  costPrice         Decimal?        @db.Decimal(14, 2)
+  lowStockThreshold Int             @default(5)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  business          Business        @relation(fields: [businessId], references: [id])
+  category          Category?       @relation(fields: [categoryId], references: [id])
+  stock             StockBalance[]
+  movements         StockMovement[]
+  saleItems         SaleItem[]
+
+  @@unique([businessId, sku])
+  @@unique([businessId, barcode])
+  @@index([businessId, name])
+}
+
+model StockBalance {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @db.Uuid
+  branchId  String   @db.Uuid
+  quantity  Int      @default(0)
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id])
+  branch    Branch   @relation(fields: [branchId], references: [id])
+
+  @@unique([productId, branchId])
+}
+
+model StockMovement {
+  id        String              @id @default(uuid()) @db.Uuid
+  productId String              @db.Uuid
+  branchId  String              @db.Uuid
+  delta     Int
+  reason    StockMovementReason
+  reference String?
+  note      String?
+  createdAt DateTime            @default(now())
+  product   Product             @relation(fields: [productId], references: [id])
+  branch    Branch              @relation(fields: [branchId], references: [id])
+
+  @@index([productId, branchId, createdAt])
+}
+
+model Customer {
+  id         String   @id @default(uuid()) @db.Uuid
+  businessId String   @db.Uuid
+  fullName   String
+  phone      String?
+  email      String?
+  address    String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  business   Business @relation(fields: [businessId], references: [id])
+  sales      Sale[]
+
+  @@index([businessId, fullName])
+}
+
+model Sale {
+  id         String     @id @default(uuid()) @db.Uuid
+  reference  String     @unique
+  businessId String     @db.Uuid
+  branchId   String     @db.Uuid
+  cashierId  String?    @db.Uuid
+  customerId String?    @db.Uuid
+  status     SaleStatus @default(DRAFT)
+  subtotal   Decimal    @db.Decimal(14, 2)
+  discount   Decimal    @default(0) @db.Decimal(14, 2)
+  total      Decimal    @db.Decimal(14, 2)
+  currency   String     @default("NGN")
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  business   Business   @relation(fields: [businessId], references: [id])
+  branch     Branch     @relation(fields: [branchId], references: [id])
+  cashier    User?      @relation("CashierSales", fields: [cashierId], references: [id])
+  customer   Customer?  @relation(fields: [customerId], references: [id])
+  items      SaleItem[]
+  payments   Payment[]
+
+  @@index([businessId, branchId, createdAt])
+}
+
+model SaleItem {
+  id                  String  @id @default(uuid()) @db.Uuid
+  saleId              String  @db.Uuid
+  productId           String  @db.Uuid
+  productNameSnapshot String
+  quantity            Int
+  unitPrice           Decimal @db.Decimal(14, 2)
+  lineTotal           Decimal @db.Decimal(14, 2)
+  sale                Sale    @relation(fields: [saleId], references: [id])
+  product             Product @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+}
+
+model Payment {
+  id                String         @id @default(uuid()) @db.Uuid
+  reference         String         @unique
+  businessId        String         @db.Uuid
+  saleId            String         @db.Uuid
+  channel           PaymentChannel
+  status            PaymentStatus  @default(PENDING)
+  amount            Decimal        @db.Decimal(14, 2)
+  provider          String?
+  providerReference String?
+  confirmedAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  business          Business       @relation(fields: [businessId], references: [id])
+  sale              Sale           @relation(fields: [saleId], references: [id])
+  events            PaymentEvent[]
+
+  @@unique([provider, providerReference])
+  @@index([businessId, status, createdAt])
+}
+
+model PaymentEvent {
+  id              String   @id @default(uuid()) @db.Uuid
+  paymentId       String   @db.Uuid
+  providerEventId String?
+  eventType       String
+  payload         Json
+  receivedAt      DateTime @default(now())
+  payment         Payment  @relation(fields: [paymentId], references: [id])
+
+  @@unique([paymentId, providerEventId])
+}
