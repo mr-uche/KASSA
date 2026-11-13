@@ -146,8 +146,34 @@ export default function LoginScreen() {
   </View>
 </View>
 
+  
+{/* Sign Up Section */}
+<View style={styles.signUpContainer}>
+  <Text style={styles.signUpText}>
+    Don't have an account?
+  </Text>
+
+  <Pressable
+    onPress={() =>
+      Alert.alert(
+        "Sign Up",
+        "We'll build the Sign Up screen next."
+      )
+    }
+  >
+    <Text style={styles.signUpLink}>
+      Sign Up
+    </Text>
+  </Pressable>
+</View>
 
 </View>
+  
+{/* Login Screen Footer */}
+<Text style={styles.footer}>
+  © Kassa • Secure cashier access
+</Text>
+
 
     </ScrollView>
   );
@@ -162,8 +188,8 @@ const styles = StyleSheet.create({
   scrollContent: {
   flexGrow: 1,
   paddingHorizontal: 32,
-  paddingTop: 100,
-  paddingBottom: 50,
+  paddingTop: 65,
+  paddingBottom: 24,
  },
 
   heading: {
@@ -329,5 +355,32 @@ infoDescription: {
   lineHeight: 17,
 },
 
+
+signUpContainer: {
+  flexDirection: "row",
+  justifyContent: "center",
+  alignItems: "center",
+  marginTop: 30,
+  gap: 6,
+},
+
+signUpText: {
+  fontSize: 12,
+  color: "#6B7280",
+},
+
+signUpLink: {
+  fontSize: 12,
+  fontWeight: "bold",
+  color: "#0F6E56",
+},
+
+footer: {
+  fontSize: 10,
+  color: "#9CA3AF",
+  textAlign: "center",
+  marginTop: 60,
+  marginBottom: 20,
+},
 
 });
