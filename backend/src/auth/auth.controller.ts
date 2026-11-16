@@ -7,6 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshSessionDto } from './dto/refresh-session.dto';
 import { RegisterDto } from './dto/register.dto';
 import { DeleteAccountDto } from './dto/delete-account.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -39,6 +40,15 @@ export class AuthController {
   @ApiOperation({ summary: 'Revoke a remembered session token' })
   logout(@Body() dto: RefreshSessionDto) {
     return this.auth.logout(dto);
+  }
+
+  @Post('change-password')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @ApiOperation({ summary: 'Update own password after confirming current password; revoke remembered sessions' })
+  changePassword(@Req() req: AuthenticatedRequest, @Body() dto: ChangePasswordDto) {
+    return this.auth.changePassword(req.userId, dto);
   }
 
   @Delete('me')
