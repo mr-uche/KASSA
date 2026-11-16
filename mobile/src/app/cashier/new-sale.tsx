@@ -111,9 +111,8 @@ export default function NewSale() {
                 <Text numberOfLines={2} style={s.productName}>{item.name}</Text>
                 <View style={s.productInfoRow}>
                   <View style={s.productDetails}>
-                    <Text numberOfLines={2} style={s.productMeta}>
-                      {naira(item.price)} • In stock: {item.stock}
-                    </Text>
+                    <Text style={[s.productMeta, { color: C.green, fontWeight: '800' }]}>{naira(item.price)}</Text>
+                    <Text style={s.productMeta}>In stock: {item.stock}</Text>
                   </View>
                   <Pressable
                     accessibilityRole="button"
