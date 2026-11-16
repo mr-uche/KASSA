@@ -64,6 +64,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
         icon: '▣',
         sku: item.sku,
         barcode: item.barcode,
+        lowStockThreshold: item.lowStockThreshold,
       })).filter(item => Number.isFinite(item.price) && item.price >= 0));
     } catch (error) {
       setCatalog([]);
