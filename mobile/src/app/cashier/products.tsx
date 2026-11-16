@@ -1,16 +1,19 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { products } from '@/components/kassa-demo/data';
+import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen, KCard, KButton, KTag, SectionTitle } from '@/components/kassa-demo/ui';
 const categories = ['All', 'Beverages', 'Groceries', 'Other'];
 export default function Products() {
   const router = useRouter();
+  const store = useKassaDemo();
   const [filter, setFilter] = useState('All');
   const [query, setQuery] = useState('');
-  const filtered = useMemo(() => products.filter(item => (filter === 'All' || filter === item.category) && item.name.toLowerCase().includes(query.toLowerCase())), [filter, query]);
+  const filtered = useMemo(() => store.catalog.filter(item => (filter === 'All' || filter === item.category) && item.name.toLowerCase().includes(query.toLowerCase())), [filter, query, store.catalog]);
   return <KScreen title="Products" subtitle="Browse sample stock and find products quickly.">
+    {store.loadingCatalog && <Text style={{ color: C.muted }}>Loading products…</Text>}
+    {store.catalogError && <Text onPress={() => { void store.refreshCatalog(); }} style={{ color: C.danger }}>{store.catalogError} • Tap to retry</Text>}
     <TextInput style={s.search} placeholder="Search products" placeholderTextColor={C.faint} value={query} onChangeText={setQuery} />
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 21 }}>
       {categories.map(cat => <KTag key={cat} text={cat} selected={filter === cat} onPress={() => setFilter(cat)} />)}
