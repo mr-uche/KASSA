@@ -9,9 +9,9 @@ export default function ScanProduct(){
   const router=useRouter();const store=useKassaDemo();const [code,setCode]=useState('');
   const match=store.catalog.find(item=>[item.id,item.sku,item.barcode].some(value=>value?.toLowerCase()===code.trim().toLowerCase()));
   return <KScreen title="Scan Product" subtitle="Manual SKU search in this preview." back>
-    <View style={s.scanner}><View style={s.cornerTL}/><View style={s.cornerTR}/><Text style={s.scannerText}>▣</Text><Text style={{color:C.muted,fontSize:12}}>Camera scanning is not connected</Text><View style={s.cornerBL}/><View style={s.cornerBR}/></View>
+    <View style={s.scanner}><View style={s.cornerTL}/><View style={s.cornerTR}/><Text style={s.scannerText}>▣</Text><Text style={{color:C.muted,fontSize: 14}}>Camera scanning is not connected</Text><View style={s.cornerBL}/><View style={s.cornerBR}/></View>
     <KField label="Enter code manually" placeholder="Enter a product SKU or barcode" value={code} onChangeText={setCode}/>
-    {match ? <KCard><Text style={{fontWeight:'800',color:C.title}}>{match.name}</Text><Text style={{color:C.muted,marginVertical:7}}>{naira(match.price)} · {match.stock} in stock</Text><KButton text="Add to current sale" onPress={()=>{store.add(match.id);Alert.alert('Item added',`${match.name} added to current sale.`)}}/><KButton text="View sale" variant="outline" onPress={()=>router.push('/cashier/new-sale')}/></KCard> : <Text style={{color:C.muted,fontSize:12}}>Enter the exact sample product SKU to show a result.</Text>}
+    {match ? <KCard><Text style={{fontWeight:'800',color:C.title}}>{match.name}</Text><Text style={{color:C.muted,marginVertical:7}}>{naira(match.price)} · {match.stock} in stock</Text><KButton text="Add to current sale" onPress={()=>{store.add(match.id);Alert.alert('Item added',`${match.name} added to current sale.`)}}/><KButton text="View sale" variant="outline" onPress={()=>router.push('/cashier/new-sale')}/></KCard> : <Text style={{color:C.muted,fontSize: 14}}>Enter the product SKU or barcode to show a result.</Text>}
   </KScreen>;
 }
 const s=StyleSheet.create({
