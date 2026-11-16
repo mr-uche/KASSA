@@ -6,7 +6,8 @@ import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 
-const icon = (name: { ios: string; android: string; web: string }, size = 20, color: string = C.green) =>
+type IconName = React.ComponentProps<typeof SymbolView>['name'];
+const icon = (name: IconName, size = 20, color: string = C.green) =>
   <SymbolView name={name} size={size} tintColor={color} />;
 
 export default function ReviewSale() {
