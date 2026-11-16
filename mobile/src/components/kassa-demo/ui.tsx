@@ -3,6 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { usePathname, useRouter, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C } from './theme';
+import KassaBackground from '@/components/KassaBackground';
 
 export function KassaLogo({ compact = false }: { compact?: boolean }) {
   return <View style={s.brand}>
@@ -36,9 +37,8 @@ function DemoBottomNav() {
 export function KScreen({ title, subtitle, children, nav = true, back = false }: { title?: string; subtitle?: string; children: React.ReactNode; nav?: boolean; back?: boolean }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  return <View style={s.screen}>
+  return <KassaBackground><View style={s.screen}>
     <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: Math.max(insets.top, 12) + 14, paddingBottom: 36, paddingHorizontal: 24, flexGrow: 1 }}>
-      <View pointerEvents="none" style={s.circleTop} />
       {back ? <Pressable onPress={() => router.back()} style={{ marginBottom: 20, alignSelf: 'flex-start' }}><Text style={{ color: C.green, fontWeight: '700' }}>‹  Back</Text></Pressable> : null}
       <KassaLogo compact />
       {title ? <Text style={s.title}>{title}</Text> : null}
@@ -47,7 +47,7 @@ export function KScreen({ title, subtitle, children, nav = true, back = false }:
       <Text style={s.demoLabel}>KASSA SCREEN PREVIEW  ·  SAMPLE DATA ONLY</Text>
     </ScrollView>
     {nav ? <DemoBottomNav /> : null}
-  </View>;
+  </View></KassaBackground>;
 }
 
 export function KCard({ children, style }: { children: React.ReactNode; style?: object }) {
@@ -75,7 +75,7 @@ export function KLinkRow({ title, subtitle, onPress, symbol = '›' }: { title: 
 }
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.background },
+  screen: { flex: 1, backgroundColor: 'transparent' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' },
   logo: { width: 55, height: 55 }, brandText: { fontWeight: '800', color: C.green, fontSize: 26, letterSpacing: 0.5 },
   title: { fontSize: 27, fontWeight: '800', color: C.title, marginTop: 24 },
@@ -95,6 +95,5 @@ const s = StyleSheet.create({
   bottomNav: { backgroundColor: C.white, borderTopColor: C.border, borderTopWidth: 1, flexDirection: 'row', paddingTop: 8, paddingBottom: 10, justifyContent: 'space-around' },
   bottomItem: { minWidth: 57, alignItems: 'center', paddingVertical: 3 }, bottomActive: { backgroundColor: C.mint, borderRadius: 9 },
   bottomIcon: { color: C.muted, fontSize: 20, fontWeight: '500', lineHeight: 24 }, bottomLabel: { color: C.muted, fontSize: 10, marginTop: 2 },
-  circleTop: { position: 'absolute', width: 190, height: 190, borderRadius: 95, backgroundColor: C.mint, right: -105, top: -95, opacity: 0.7 },
   demoLabel: { fontSize: 9, color: C.faint, marginTop: 42, textAlign: 'center', letterSpacing: 0.6 },
 });
