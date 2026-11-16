@@ -7,6 +7,7 @@ export type Product = {
   icon: string;
   sku?: string | null;
   barcode?: string | null;
+  lowStockThreshold?: number;
 };
 
 // Figma-inspired sample items. This is NOT inventory from the KASSA backend.
