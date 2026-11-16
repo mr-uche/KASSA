@@ -47,6 +47,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setLoadingCatalog(true);
+    setCatalog([]);
     setCatalogError(null);
     try {
       const raw = await session.request<CatalogItem[]>(
