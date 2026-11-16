@@ -8,97 +8,153 @@ import {
   StatusBar,
   Animated,
   Easing,
+  useWindowDimensions,
 } from "react-native";
 
 export default function SplashScreen() {
-  // Only the tagline and background circles are animated
-  const taglineOpacity = useRef(new Animated.Value(0)).current;
+  const { width, height } = useWindowDimensions();
 
-  const circleTopMove = useRef(new Animated.Value(0)).current;
-  const circleBottomMove = useRef(new Animated.Value(0)).current;
+  // Controls the movement of both circles
+  const circleProgress = useRef(
+    new Animated.Value(0)
+  ).current;
+
+  // Each tagline phrase has its own opacity
+  const wordOpacities = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
 
   useEffect(() => {
-    // Tagline fade-in animation
-    Animated.timing(taglineOpacity, {
-      toValue: 1,
-      duration: 1000,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: true,
-    }).start();
-
-    // Top circle floating animation
-    const topAnimation = Animated.loop(
+    // CIRCLES: Move diagonally and bounce back
+    const circleAnimation = Animated.loop(
       Animated.sequence([
-        Animated.timing(circleTopMove, {
-          toValue: 20,
-          duration: 3000,
-          easing: Easing.inOut(Easing.ease),
+        Animated.timing(circleProgress, {
+          toValue: 1,
+          duration: 1600,
+          easing: Easing.out(Easing.bounce),
           useNativeDriver: true,
         }),
-        Animated.timing(circleTopMove, {
+
+        Animated.timing(circleProgress, {
           toValue: 0,
-          duration: 3000,
-          easing: Easing.inOut(Easing.ease),
+          duration: 1600,
+          easing: Easing.out(Easing.bounce),
           useNativeDriver: true,
         }),
       ])
     );
 
-    // Bottom circle floating animation
-    const bottomAnimation = Animated.loop(
+    // TAGLINE: Fade in one phrase at a time
+    const taglineAnimation = Animated.loop(
       Animated.sequence([
-        Animated.timing(circleBottomMove, {
-          toValue: -25,
-          duration: 3500,
-          easing: Easing.inOut(Easing.ease),
+        // Simple.
+        Animated.timing(wordOpacities[0], {
+          toValue: 1,
+          duration: 350,
           useNativeDriver: true,
         }),
-        Animated.timing(circleBottomMove, {
-          toValue: 0,
-          duration: 3500,
-          easing: Easing.inOut(Easing.ease),
+
+        // Smart.
+        Animated.timing(wordOpacities[1], {
+          toValue: 1,
+          duration: 350,
           useNativeDriver: true,
         }),
+
+        // In control.
+        Animated.timing(wordOpacities[2], {
+          toValue: 1,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+
+        // Keep all words visible
+        Animated.delay(1000),
+
+        // Fade out all words together
+        Animated.parallel(
+          wordOpacities.map((opacity) =>
+            Animated.timing(opacity, {
+              toValue: 0,
+              duration: 600,
+              useNativeDriver: true,
+            })
+          )
+        ),
+
+        Animated.delay(300),
       ])
     );
 
-    topAnimation.start();
-    bottomAnimation.start();
+    circleAnimation.start();
+    taglineAnimation.start();
 
     return () => {
-      topAnimation.stop();
-      bottomAnimation.stop();
+      circleAnimation.stop();
+      taglineAnimation.stop();
     };
-  }, [taglineOpacity, circleTopMove, circleBottomMove]);
+  }, [circleProgress, wordOpacities]);
+
+  // Circle 1: Top-right to bottom-left
+  const circleOneX = circleProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 100 - width],
+  });
+
+  const circleOneY = circleProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, height - 80],
+  });
+
+  // Circle 2: Bottom-right to top-left
+  const circleTwoX = circleProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 120 - width],
+  });
+
+  const circleTwoY = circleProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 100 - height],
+  });
 
   return (
     <View style={styles.container}>
       <StatusBar hidden />
 
-      {/* Decorative floating circles */}
+      {/* Animated background circle 1 */}
       <Animated.View
+        pointerEvents="none"
         style={[
           styles.circle,
           styles.circleTop,
           {
-            transform: [{ translateY: circleTopMove }],
+            transform: [
+              { translateX: circleOneX },
+              { translateY: circleOneY },
+            ],
           },
         ]}
       />
 
+      {/* Animated background circle 2 */}
       <Animated.View
+        pointerEvents="none"
         style={[
           styles.circle,
           styles.circleBottom,
           {
-            transform: [{ translateY: circleBottomMove }],
+            transform: [
+              { translateX: circleTwoX },
+              { translateY: circleTwoY },
+            ],
           },
         ]}
       />
 
-      {/* KASSA branding */}
+      {/* STATIC KASSA LOGO AND BRAND */}
       <View style={styles.brand}>
-        {/* Static Logo */}
         <View style={styles.logoWrapper}>
           <Image
             source={require("../../assets/images/logo.png")}
@@ -107,23 +163,33 @@ export default function SplashScreen() {
           />
         </View>
 
-        {/* Static Brand Name */}
-        <Text style={styles.brandName}>Kassa</Text>
+        <Text style={styles.brandName}>
+          Kassa
+        </Text>
 
-        {/* Animated Tagline */}
-        <Animated.Text
-          style={[
-            styles.tagline,
-            {
-              opacity: taglineOpacity,
-            },
-          ]}
-        >
-          Simple. Smart. In control.
-        </Animated.Text>
+        {/* Animated tagline only */}
+        <View style={styles.taglineRow}>
+          {[
+            "Simple.",
+            "Smart.",
+            "In control.",
+          ].map((word, index) => (
+            <Animated.Text
+              key={word}
+              style={[
+                styles.tagline,
+                {
+                  opacity: wordOpacities[index],
+                },
+              ]}
+            >
+              {word}
+            </Animated.Text>
+          ))}
+        </View>
       </View>
 
-      {/* Static Footer */}
+      {/* Static footer */}
       <Text style={styles.footer}>
         Powered for modern businesses
       </Text>
@@ -142,6 +208,7 @@ const styles = StyleSheet.create({
 
   brand: {
     alignItems: "center",
+    zIndex: 1,
   },
 
   logoWrapper: {
@@ -163,30 +230,37 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
 
+  taglineRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 5,
+    marginTop: 8,
+  },
+
   tagline: {
     fontSize: 15,
     color: "#FFFFFF",
-    marginTop: 8,
   },
 
   circle: {
     position: "absolute",
-    borderRadius: 200,
-    backgroundColor: "rgba(255, 255, 255, 0.07)",
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.10)",
   },
 
   circleTop: {
-    width: 240,
-    height: 240,
+    width: 200,
+    height: 200,
     top: -80,
     right: -70,
   },
 
   circleBottom: {
-    width: 300,
-    height: 300,
+    width: 210,
+    height: 210,
     bottom: -110,
-    left: -100,
+    right: -100,
   },
 
   footer: {
@@ -194,5 +268,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     position: "absolute",
     bottom: 35,
+    zIndex: 1,
   },
 });

@@ -7,12 +7,9 @@ import { KScreen, KCard, KButton, KLinkRow, SectionTitle } from '@/components/ka
 import { useKassaDemo } from '@/components/kassa-demo/store';
 
 const shortcuts = [
-  { name: 'New sale', description: 'Start checkout', icon: '＋', route: '/cashier/new-sale' },
-  { name: 'Scan product', description: 'Find an item by code', icon: '▣', route: '/cashier/scan-product' },
+  { name: 'My sales', description: 'Start checkout', icon: '＋', route: '/cashier/new-sale' },
   { name: 'Transactions', description: 'View all activity', icon: '▤', route: '/cashier/sales' },
-  { name: 'Products', description: 'Check stock', icon: '▦', route: '/cashier/products' },
-  { name: 'Create account', description: 'Registration preview', icon: '♧', route: '/cashier/sign-up' },
-  { name: 'Help', description: 'Support options', icon: '?', route: '/cashier/help' },
+  { name: 'Find Products', description: 'Check stock', icon: '▦', route: '/cashier/products' },
 ] as const;
 
 export default function CashierHome() {
@@ -37,7 +34,7 @@ export default function CashierHome() {
         <Text style={s.quickDesc}>{item.description}</Text>
       </Pressable>)}
     </View>
-    <SectionTitle right={<Text onPress={() => go('/cashier/sales')} style={{ color: C.green, fontWeight: '700', fontSize: 12 }}>View all</Text>}>Recent transactions</SectionTitle>
+    <SectionTitle right={<Text onPress={() => go('/cashier/sales')} style={{ color: C.green, fontWeight: '700', fontSize: 12 }}>View all</Text>}>Recent Sales</SectionTitle>
     <KCard>{transactions.slice(0, 3).map((item, i) => <View key={item.id} style={[s.txRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.border }]}>
       <View style={{ flex: 1 }}><Text style={s.txName}>{item.name}</Text><Text style={s.txMeta}>{item.channel} • {item.time}</Text></View>
       <View style={{ alignItems: 'flex-end' }}><Text style={s.txName}>{naira(item.amount)}</Text><Text style={{ color: item.status === 'Success' ? C.green : C.danger, fontSize: 11 }}>{item.status}</Text></View>

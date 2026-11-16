@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-
+import KassaBackground from '@/components/KassaBackground';
 import React ,{useState} from "react";
 import { 
     View, 
@@ -16,23 +16,13 @@ import {SymbolView} from "expo-symbols";
 export default function LoginScreen() {
     const[showPassword, setShowPassword] =useState(false);
   return (
+ <KassaBackground>
    <ScrollView
   style={styles.container}
   contentContainerStyle={styles.scrollContent}
   keyboardShouldPersistTaps="handled"
   showsVerticalScrollIndicator={false}
 >
-
-{/* Background decorative circles */}
-<View
-  pointerEvents="none"
-  style={[styles.circle, styles.circleTop]}
-/>
-
-<View
-  pointerEvents="none"
-  style={[styles.circle, styles.circleBottom]}
-/>
 
      <View style={styles.logoContainer}>
      <Image
@@ -169,18 +159,18 @@ export default function LoginScreen() {
   
 {/* Login Screen Footer */}
 <Text style={styles.footer}>
-  Â© Kassa â€¢ Secure cashier access
+  © Kassa <View style={styles.dot} /> Secure cashier access
 </Text>
 
 
     </ScrollView>
+ </KassaBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
   },
 
   scrollContent: {
@@ -371,6 +361,13 @@ signUpLink: {
   fontSize: 12,
   fontWeight: "bold",
   color: "#0F6E56",
+},
+
+dot: {
+  width: 4,
+  height: 4,
+  borderRadius: 4,
+  backgroundColor: "#9CA3AF",
 },
 
 footer: {
