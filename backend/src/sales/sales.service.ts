@@ -211,6 +211,79 @@ export class SalesService {
     }
   }
 
+  async dashboard(userId: string, query: SalesListQueryDto) {
+    // Cashiers may view only their own activity in their authorised branch.
+    await this.checkAccess(userId, query.businessId, query.branchId);
+
+    // Africa/Lagos is UTC+01:00 year-round. Use an explicit Lagos day boundary,
+    // independent of Render's server timezone or the cashier's phone timezone.
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Africa/Lagos', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date());
+    const datePart = (name: string) => Number(parts.find(part => part.type === name)?.value);
+    const year = datePart('year');
+    const month = datePart('month');
+    const day = datePart('day');
+    const start = new Date(Date.UTC(year, month - 1, day) - 60 * 60 * 1000);
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+
+    const scope = {
+      businessId: query.businessId,
+      branchId: query.branchId,
+      cashierId: userId,
+    };
+    const paidToday = {
+      ...scope,
+      createdAt: { gte: start, lt: end },
+      status: 'PAID' as const,
+      payments: { some: { status: 'SUCCEEDED' as const } },
+    };
+
+    const [paidCount, received, testCount, recent] = await Promise.all([
+      this.prisma.sale.count({ where: paidToday }),
+      this.prisma.sale.aggregate({
+        // Paystack test payments can be successful, but are not real money received.
+        where: {
+          ...paidToday,
+          NOT: { payments: { some: { provider: 'PAYSTACK_TEST' } } },
+        },
+        _sum: { total: true },
+      }),
+      this.prisma.sale.count({
+        where: { ...paidToday, payments: { some: { status: 'SUCCEEDED', provider: 'PAYSTACK_TEST' } } },
+      }),
+      this.prisma.sale.findMany({
+        where: scope,
+        orderBy: { createdAt: 'desc' },
+        take: 3,
+        select: {
+          id: true, reference: true, createdAt: true, status: true, total: true,
+          items: { select: { quantity: true } },
+          payments: { take: 1, select: { channel: true, provider: true, status: true } },
+        },
+      }),
+    ]);
+
+    return {
+      scope: { businessId: query.businessId, branchId: query.branchId, timezone: 'Africa/Lagos' },
+      today: {
+        paidSales: paidCount,
+        amountReceived: received._sum.total?.toString() ?? '0.00',
+        testSales: testCount,
+      },
+      recentSales: recent.map(sale => ({
+        id: sale.id,
+        reference: sale.reference,
+        createdAt: sale.createdAt.toISOString(),
+        status: sale.status,
+        total: sale.total.toString(),
+        itemCount: sale.items.reduce((count, item) => count + item.quantity, 0),
+        channel: sale.payments[0]?.channel ?? null,
+        testMode: sale.payments[0]?.provider === 'PAYSTACK_TEST',
+      })),
+    };
+  }
+
   async list(userId: string, query: SalesListQueryDto) {
     await this.checkAccess(userId, query.businessId, query.branchId);
     const sales = await this.prisma.sale.findMany({
