@@ -23,7 +23,7 @@ export class SalesController {
     return this.sales.list(request.userId, query);
   }
   @Get('dashboard')
-  @ApiOperation({ summary: 'Today's cashier-specific sales, received revenue and recent transactions' })
+  @ApiOperation({ summary: 'Cashier sales today, received revenue and recent transactions' })
   dashboard(@Req() request: AuthenticatedRequest, @Query() query: SalesListQueryDto) {
     return this.sales.dashboard(request.userId, query);
   }
