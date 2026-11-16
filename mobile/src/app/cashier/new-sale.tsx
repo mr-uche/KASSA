@@ -2,12 +2,10 @@ import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { products } from '@/components/kassa-demo/data';
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 
-const categories = ['All', 'Beverages', 'Groceries', 'Other'] as const;
 
 function ProductIcon({ category }: { category: string }) {
   return (
@@ -28,14 +26,15 @@ export default function NewSale() {
   const store = useKassaDemo();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
+  const categories = useMemo(() => ['All', ...Array.from(new Set(store.catalog.map(p => p.category)))], [store.catalog]);
   const [showItems, setShowItems] = useState(false);
 
   const items = useMemo(
-    () => products.filter(item =>
+    () => store.catalog.filter(item =>
       (category === 'All' || item.category === category) &&
       `${item.name} ${item.id}`.toLowerCase().includes(query.trim().toLowerCase())
     ),
-    [query, category]
+    [query, category, store.catalog]
   );
 
   return (
@@ -96,7 +95,9 @@ export default function NewSale() {
         <Text style={s.sectionTitle}>Products</Text>
         <Text style={s.itemCount}>{items.length} items</Text>
       </View>
-      {items.length === 0 ? (
+      {store.loadingCatalog ? <Text style={s.emptyText}>Loading products…</Text> : null}
+      {store.catalogError ? <Pressable onPress={() => { void store.refreshCatalog(); }} style={s.emptyResults}><Text style={s.emptyText}>{store.catalogError} • Tap to retry.</Text></Pressable> : null}
+      {!store.loadingCatalog && items.length === 0 ? (
         <View style={s.emptyResults}><Text style={s.emptyText}>No products match your search.</Text></View>
       ) : (
         <View style={s.productsGrid}>
@@ -118,7 +119,8 @@ export default function NewSale() {
                     accessibilityRole="button"
                     accessibilityLabel={quantity > 0 ? `Add another ${item.name}; ${quantity} in sale` : `Add ${item.name} to sale`}
                     onPress={() => store.add(item.id)}
-                    style={[s.addCircle, quantity > 0 && s.addedCircle]}
+                    disabled={item.stock <= quantity}
+                    style={[s.addCircle, quantity > 0 && s.addedCircle, item.stock <= quantity && { opacity: 0.35 }]}
                   >
                     <SymbolView
                       name={quantity > 0
@@ -161,7 +163,7 @@ export default function NewSale() {
             accessibilityRole="button"
             accessibilityLabel="Continue to payment"
             disabled={store.count === 0}
-            onPress={() => router.push('/cashier/payment')}
+            onPress={() => router.push('/cashier/review-sale')}
             style={[s.paymentButton, store.count === 0 && s.paymentDisabled]}
           >
             <Text style={[s.paymentText, store.count === 0 && s.paymentDisabledText]}>Continue to payment</Text>
