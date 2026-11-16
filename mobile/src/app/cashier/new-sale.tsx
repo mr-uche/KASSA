@@ -1,65 +1,269 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { products } from '@/components/kassa-demo/data';
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira } from '@/components/kassa-demo/theme';
-import { KButton, KCard, KScreen, KTag, SectionTitle } from '@/components/kassa-demo/ui';
+import { KScreen } from '@/components/kassa-demo/ui';
 
-const categories = ['All', 'Beverages', 'Groceries', 'Other'];
+const categories = ['All', 'Beverages', 'Groceries', 'Other'] as const;
+
+function ProductIcon({ category }: { category: string }) {
+  return (
+    <View style={s.productIconCircle}>
+      <SymbolView
+        name={category === 'Beverages'
+          ? { ios: 'cup.and.saucer', android: 'local_drink', web: 'local_drink' }
+          : { ios: 'bag', android: 'shopping_bag', web: 'shopping_bag' }}
+        tintColor={C.green}
+        size={26}
+      />
+    </View>
+  );
+}
+
 export default function NewSale() {
   const router = useRouter();
   const store = useKassaDemo();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
-  const items = useMemo(() => products.filter(item => (category === 'All' || item.category === category) && `${item.name} ${item.id}`.toLowerCase().includes(query.trim().toLowerCase())), [query, category]);
-  return <KScreen title="New Sale" subtitle="Search or select products to build a customer's order.">
-    <View style={s.searchRow}>
-      <TextInput placeholder="Search products or SKU" placeholderTextColor={C.faint} value={query} onChangeText={setQuery} style={s.search} />
-      <Pressable onPress={() => router.push('/cashier/scan-product')} style={s.scan}><Text style={{ color: C.white, fontWeight: '700' }}>Scan</Text></Pressable>
-    </View>
-    <SectionTitle>Categories</SectionTitle>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 22 }}>
-      {categories.map(item => <KTag key={item} text={item} selected={item === category} onPress={() => setCategory(item)} />)}
-    </ScrollView>
-    <SectionTitle right={<Text style={{ color: C.muted, fontSize: 11 }}>{items.length} items</Text>}>Products</SectionTitle>
-    <View style={s.grid}>
-      {items.map(item => <KCard key={item.id} style={s.productCard}>
-        <View style={s.productIcon}><Text style={{ fontSize: 27 }}>{item.icon}</Text></View>
-        <Text style={s.productName}>{item.name}</Text>
-        <Text style={s.productMeta}>{naira(item.price)} • Stock: {item.stock}</Text>
-        <Pressable accessibilityRole="button" onPress={() => store.add(item.id)} style={s.addButton}><Text style={{ color: C.white, fontWeight: '800' }}>＋ Add</Text></Pressable>
-      </KCard>)}
-    </View>
-    <KCard>
-      <SectionTitle>Current sale</SectionTitle>
-      {store.lines.length === 0 && <Text style={{ color: C.muted, fontSize: 12, marginBottom: 12 }}>No items selected yet.</Text>}
-      {store.lines.map(line => {
-        const item = products.find(product => product.id === line.id);
-        if (!item) return null;
-        return <View key={line.id} style={s.cartRow}>
-          <View style={{ flex: 1 }}><Text style={{ color: C.title, fontWeight: '700', fontSize: 12 }}>{item.name}</Text><Text style={{ color: C.muted, fontSize: 11 }}>{naira(item.price)} × {line.quantity}</Text></View>
-          <Pressable onPress={() => store.subtract(item.id)} style={s.stepper}><Text style={s.stepperText}>−</Text></Pressable>
-          <Text style={{ paddingHorizontal: 8 }}>{line.quantity}</Text>
-          <Pressable onPress={() => store.add(item.id)} style={s.stepper}><Text style={s.stepperText}>+</Text></Pressable>
-        </View>;
-      })}
-      <View style={s.totalRow}><Text style={{ fontWeight: '700', color: C.text }}>Total ({store.count} items)</Text><Text style={{ fontWeight: '800', color: C.title, fontSize: 21 }}>{naira(store.total)}</Text></View>
-      <KButton text="Continue to payment" disabled={store.count === 0} onPress={() => store.count ? router.push('/cashier/payment') : Alert.alert('Empty sale', 'Add at least one item.')} />
-      {store.count > 0 && <KButton text="Clear current sale" variant="subtle" onPress={() => Alert.alert('Clear sale?', 'This removes the selected items.', [{ text: 'Cancel' }, { text: 'Clear', style: 'destructive', onPress: store.clear }])} />}
-    </KCard>
-  </KScreen>;
+  const [showItems, setShowItems] = useState(false);
+
+  const items = useMemo(
+    () => products.filter(item =>
+      (category === 'All' || item.category === category) &&
+      `${item.name} ${item.id}`.toLowerCase().includes(query.trim().toLowerCase())
+    ),
+    [query, category]
+  );
+
+  return (
+    <KScreen showBrand={false} showPreviewLabel={false}>
+      <View style={s.searchRow}>
+        <SymbolView
+          name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
+          tintColor={C.muted}
+          size={18}
+        />
+        <TextInput
+          style={s.searchInput}
+          placeholder="Search products or scan barcode"
+          placeholderTextColor={C.faint}
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+          accessibilityLabel="Search products"
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Scan barcode"
+          onPress={() => router.push('/cashier/scan-product')}
+          style={s.scanAction}
+        >
+          <SymbolView
+            name={{ ios: 'barcode.viewfinder', android: 'barcode_scanner', web: 'barcode_scanner' }}
+            tintColor={C.green}
+            size={21}
+          />
+        </Pressable>
+      </View>
+
+      <Text style={s.categoryTitle}>Categories</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={s.categoryScroll}
+        contentContainerStyle={s.categoryRow}
+      >
+        {categories.map(cat => (
+          <Pressable
+            key={cat}
+            accessibilityRole="button"
+            accessibilityLabel={`Filter ${cat}`}
+            accessibilityState={{ selected: category === cat }}
+            onPress={() => setCategory(cat)}
+            style={[s.categoryPill, category === cat && s.categorySelected]}
+          >
+            <Text style={[s.categoryText, category === cat && s.categoryTextSelected]}>
+              {cat}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      <View style={s.productsHeading}>
+        <Text style={s.sectionTitle}>Products</Text>
+        <Text style={s.itemCount}>{items.length} items</Text>
+      </View>
+      {items.length === 0 ? (
+        <View style={s.emptyResults}><Text style={s.emptyText}>No products match your search.</Text></View>
+      ) : (
+        <View style={s.productsGrid}>
+          {items.map(item => {
+            const quantity = store.lines.find(line => line.id === item.id)?.quantity ?? 0;
+            return (
+              <View key={item.id} style={s.productCard}>
+                <View style={s.productImage}>
+                  <ProductIcon category={item.category} />
+                </View>
+                <Text numberOfLines={1} style={s.productName}>{item.name}</Text>
+                <View style={s.productInfoRow}>
+                  <View style={s.productDetails}>
+                    <Text numberOfLines={1} style={s.productMeta}>
+                      {naira(item.price)} • In stock: {item.stock}
+                    </Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={quantity > 0 ? `Add another ${item.name}; ${quantity} in sale` : `Add ${item.name} to sale`}
+                    onPress={() => store.add(item.id)}
+                    style={[s.addCircle, quantity > 0 && s.addedCircle]}
+                  >
+                    <SymbolView
+                      name={quantity > 0
+                        ? { ios: 'checkmark', android: 'check', web: 'check' }
+                        : { ios: 'plus', android: 'add', web: 'add' }}
+                      size={17}
+                      tintColor={C.white}
+                    />
+                  </Pressable>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      <View style={s.cartCard}>
+        <View style={s.cartSummary}>
+          <View style={s.cartIconCircle}>
+            <SymbolView name={{ ios: 'basket', android: 'shopping_basket', web: 'shopping_basket' }} size={22} tintColor={C.green} />
+          </View>
+          <View style={s.cartInfo}>
+            <Text style={s.cartTitle}>Current sale</Text>
+            <Text style={s.cartCount}>{store.count} {store.count === 1 ? 'item' : 'items'} selected</Text>
+          </View>
+          <Text style={s.cartTotal}>{naira(store.total)}</Text>
+        </View>
+
+        <View style={s.cartActions}>
+          {store.count > 0 && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setShowItems(value => !value)}
+              style={s.editButton}
+            >
+              <Text style={s.editText}>{showItems ? 'Hide items' : 'Edit items'}</Text>
+            </Pressable>
+          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Continue to payment"
+            disabled={store.count === 0}
+            onPress={() => router.push('/cashier/payment')}
+            style={[s.paymentButton, store.count === 0 && s.paymentDisabled]}
+          >
+            <Text style={[s.paymentText, store.count === 0 && s.paymentDisabledText]}>Continue to payment</Text>
+          </Pressable>
+        </View>
+
+        {showItems && store.count > 0 && (
+          <View style={s.cartDetails}>
+            {store.lines.map(line => {
+              const item = products.find(product => product.id === line.id);
+              if (!item) return null;
+              return (
+                <View key={line.id} style={s.cartLine}>
+                  <View style={s.cartLineName}>
+                    <Text style={s.lineName}>{item.name}</Text>
+                    <Text style={s.lineMeta}>{naira(item.price)} each</Text>
+                  </View>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Remove one ${item.name}`} onPress={() => store.subtract(item.id)} style={s.quantityButton}>
+                    <Text style={s.quantityText}>−</Text>
+                  </Pressable>
+                  <Text style={s.quantityCount}>{line.quantity}</Text>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Add one ${item.name}`} onPress={() => store.add(item.id)} style={s.quantityButton}>
+                    <Text style={s.quantityText}>+</Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+            <Pressable
+              onPress={() => Alert.alert('Clear current sale?', 'All selected items will be removed.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Clear sale', style: 'destructive', onPress: () => { store.clear(); setShowItems(false); } },
+              ])}
+              style={s.clearButton}
+            >
+              <Text style={s.clearText}>Clear current sale</Text>
+            </Pressable>
+          </View>
+        )}
+      </View>
+    </KScreen>
+  );
 }
+
 const s = StyleSheet.create({
-  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20 },
-  search: { flex: 1, backgroundColor: C.white, borderRadius: 10, borderWidth: 1, borderColor: C.border, height: 48, paddingHorizontal: 15 },
-  scan: { paddingVertical: 15, paddingHorizontal: 15, borderRadius: 10, backgroundColor: C.green },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  productCard: { width: '48%', minHeight: 171, padding: 11 },
-  productIcon: { backgroundColor: C.mint, borderRadius: 10, height: 52, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  productName: { fontSize: 12, color: C.title, fontWeight: '800' }, productMeta: { fontSize: 10, marginVertical: 6, color: C.muted },
-  addButton: { backgroundColor: C.green, alignItems: 'center', borderRadius: 8, paddingVertical: 8, marginTop: 'auto' },
-  cartRow: { flexDirection: 'row', gap: 4, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: C.border, paddingVertical: 12 },
-  stepper: { width: 25, height: 25, borderRadius: 5, backgroundColor: C.mint, alignItems: 'center', justifyContent: 'center' }, stepperText: { color: C.green, fontWeight: '800', fontSize: 17 },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, marginBottom: 9 },
+  searchRow: {
+    flexDirection: 'row', alignItems: 'center', height: 49,
+    borderWidth: 1, borderColor: C.border, backgroundColor: C.white,
+    borderRadius: 10, paddingLeft: 13, paddingRight: 7,
+  },
+  searchInput: { flex: 1, minWidth: 0, height: 48, paddingHorizontal: 9, fontSize: 12, color: C.title },
+  scanAction: { width: 34, height: 34, borderRadius: 7, backgroundColor: C.mint, alignItems: 'center', justifyContent: 'center' },
+  categoryTitle: { color: C.title, fontWeight: '800', fontSize: 14, marginTop: 23, marginBottom: 13 },
+  categoryScroll: { flexGrow: 0 },
+  categoryRow: { gap: 9, paddingRight: 5 },
+  categoryPill: {
+    borderWidth: 1, borderColor: C.border, backgroundColor: C.white,
+    borderRadius: 22, minHeight: 32, minWidth: 68,
+    paddingHorizontal: 13, alignItems: 'center', justifyContent: 'center',
+  },
+  categorySelected: { backgroundColor: C.green, borderColor: C.green },
+  categoryText: { color: C.muted, fontSize: 11, fontWeight: '600' },
+  categoryTextSelected: { color: C.white },
+  productsHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 46, marginBottom: 14 },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: C.title },
+  itemCount: { color: C.faint, fontSize: 10 },
+  productsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
+  productCard: {
+    width: '48.4%', backgroundColor: C.white, borderWidth: 1,
+    borderColor: C.border, borderRadius: 12, padding: 10, minHeight: 147,
+  },
+  productImage: { height: 65, backgroundColor: C.mint, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 9 },
+  productIconCircle: { width: 43, height: 43, backgroundColor: '#D7EBE4', borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  productName: { color: C.title, fontWeight: '800', fontSize: 11 },
+  productInfoRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 3 },
+  productDetails: { flex: 1, minWidth: 0 },
+  productMeta: { color: C.muted, fontSize: 9 },
+  addCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
+  addedCircle: { backgroundColor: '#08765B' },
+  emptyResults: { borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 20, backgroundColor: C.white },
+  emptyText: { color: C.muted, fontSize: 12 },
+  cartCard: { marginTop: 22, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 13, padding: 13 },
+  cartSummary: { flexDirection: 'row', alignItems: 'center' },
+  cartIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.mint, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  cartInfo: { flex: 1 },
+  cartTitle: { fontSize: 12, fontWeight: '800', color: C.title },
+  cartCount: { color: C.faint, fontSize: 10, marginTop: 5 },
+  cartTotal: { fontSize: 14, fontWeight: '800', color: C.title },
+  cartActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 13, gap: 10 },
+  editButton: { paddingHorizontal: 6, paddingVertical: 7 },
+  editText: { color: C.green, fontSize: 10, fontWeight: '700' },
+  paymentButton: { borderRadius: 7, backgroundColor: C.green, minHeight: 33, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
+  paymentDisabled: { backgroundColor: '#E5E7EB' },
+  paymentText: { color: C.white, fontWeight: '800', fontSize: 10 },
+  paymentDisabledText: { color: C.faint },
+  cartDetails: { borderTopWidth: 1, borderTopColor: C.border, marginTop: 14, paddingTop: 6 },
+  cartLine: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 6 },
+  cartLineName: { flex: 1 },
+  lineName: { fontSize: 11, fontWeight: '700', color: C.title },
+  lineMeta: { color: C.muted, fontSize: 10, marginTop: 3 },
+  quantityButton: { width: 27, height: 27, borderRadius: 7, backgroundColor: C.mint, alignItems: 'center', justifyContent: 'center' },
+  quantityText: { color: C.green, fontSize: 18, fontWeight: '800' },
+  quantityCount: { color: C.title, fontWeight: '700', fontSize: 12, minWidth: 16, textAlign: 'center' },
+  clearButton: { alignSelf: 'flex-end', paddingVertical: 9, paddingHorizontal: 5 },
+  clearText: { color: C.danger, fontSize: 11, fontWeight: '700' },
 });

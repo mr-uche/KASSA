@@ -3,6 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { usePathname, useRouter, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C } from './theme';
+import { SymbolView } from 'expo-symbols';
 import KassaBackground from '@/components/KassaBackground';
 
 export function KassaLogo({ compact = false }: { compact?: boolean }) {
@@ -13,38 +14,49 @@ export function KassaLogo({ compact = false }: { compact?: boolean }) {
 }
 
 const navItems = [
-  { name: 'Home', path: '/cashier', icon: '⌂' },
-  { name: 'Sales', path: '/cashier/sales', icon: '▤' },
-  { name: 'New sale', path: '/cashier/new-sale', icon: '＋' },
-  { name: 'Products', path: '/cashier/products', icon: '▦' },
-  { name: 'Profile', path: '/cashier/profile', icon: '◉' },
+  { name: 'Home', path: '/cashier', symbol: { ios: 'house', android: 'home', web: 'home' } },
+  { name: 'Sales', path: '/cashier/sales', symbol: { ios: 'list.bullet', android: 'receipt_long', web: 'receipt_long' } },
+  { name: 'New sale', path: '/cashier/new-sale', symbol: { ios: 'plus', android: 'add', web: 'add' } },
+  { name: 'Products', path: '/cashier/products', symbol: { ios: 'shippingbox', android: 'inventory_2', web: 'inventory_2' } },
+  { name: 'Profile', path: '/cashier/profile', symbol: { ios: 'person.crop.circle', android: 'account_circle', web: 'account_circle' } },
 ] as const;
 
 function DemoBottomNav() {
   const pathname = usePathname();
   const router = useRouter();
-  return <View style={s.bottomNav}>
+  const insets = useSafeAreaInsets();
+  return <View style={[s.bottomNav, { paddingBottom: Math.max(insets.bottom, 10) }]}>
     {navItems.map(item => {
       const active = pathname === item.path;
-      return <Pressable accessibilityRole="button" accessibilityLabel={item.name} key={item.path} onPress={() => router.push(item.path as Href)} style={[s.bottomItem, active && s.bottomActive]}>
-        <Text style={[s.bottomIcon, active && { color: C.green }]}>{item.icon}</Text>
-        <Text style={[s.bottomLabel, active && { color: C.green, fontWeight: '700' }]}>{item.name}</Text>
+      const isNewSale = item.name === 'New sale';
+      return <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={item.name}
+        accessibilityState={{ selected: active }}
+        key={item.path}
+        onPress={() => router.push(item.path as Href)}
+        style={[s.bottomItem, active && !isNewSale && s.bottomActive]}
+      >
+        {isNewSale
+          ? <View style={s.newSaleNavIcon}><SymbolView name={item.symbol} size={28} tintColor={C.white} /></View>
+          : <SymbolView name={item.symbol} size={21} tintColor={active ? C.green : C.muted} />}
+        <Text style={[s.bottomLabel, active && !isNewSale && s.bottomLabelActive]}>{item.name}</Text>
       </Pressable>;
     })}
   </View>;
 }
 
-export function KScreen({ title, subtitle, children, nav = true, back = false }: { title?: string; subtitle?: string; children: React.ReactNode; nav?: boolean; back?: boolean }) {
+export function KScreen({ title, subtitle, children, nav = true, back = false, showBrand = true, showPreviewLabel = true }: { title?: string; subtitle?: string; children: React.ReactNode; nav?: boolean; back?: boolean; showBrand?: boolean; showPreviewLabel?: boolean }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   return <KassaBackground><View style={s.screen}>
     <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: Math.max(insets.top, 12) + 14, paddingBottom: 36, paddingHorizontal: 24, flexGrow: 1 }}>
       {back ? <Pressable onPress={() => router.back()} style={{ marginBottom: 20, alignSelf: 'flex-start' }}><Text style={{ color: C.green, fontWeight: '700' }}>‹  Back</Text></Pressable> : null}
-      <KassaLogo compact />
+      {showBrand ? <KassaLogo compact /> : null}
       {title ? <Text style={s.title}>{title}</Text> : null}
       {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
-      <View style={{ marginTop: title ? 22 : 28 }}>{children}</View>
-      <Text style={s.demoLabel}>KASSA SCREEN PREVIEW  ·  SAMPLE DATA ONLY</Text>
+      <View style={{ marginTop: title ? 22 : showBrand ? 28 : 0 }}>{children}</View>
+      {showPreviewLabel ? <Text style={s.demoLabel}>KASSA SCREEN PREVIEW  ·  SAMPLE DATA ONLY</Text> : null}
     </ScrollView>
     {nav ? <DemoBottomNav /> : null}
   </View></KassaBackground>;
@@ -92,8 +104,11 @@ const s = StyleSheet.create({
   tagSelected: { backgroundColor: C.green, borderColor: C.green }, tagText: { fontSize: 12, color: C.text, fontWeight: '600' },
   linkRow: { borderBottomWidth: 1, borderBottomColor: C.border, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', gap: 10 },
   linkTitle: { fontSize: 14, fontWeight: '700', color: C.title }, linkSubtitle: { fontSize: 12, color: C.muted, paddingTop: 5 },
-  bottomNav: { backgroundColor: C.white, borderTopColor: C.border, borderTopWidth: 1, flexDirection: 'row', paddingTop: 8, paddingBottom: 10, justifyContent: 'space-around' },
-  bottomItem: { minWidth: 57, alignItems: 'center', paddingVertical: 3 }, bottomActive: { backgroundColor: C.mint, borderRadius: 9 },
-  bottomIcon: { color: C.muted, fontSize: 20, fontWeight: '500', lineHeight: 24 }, bottomLabel: { color: C.muted, fontSize: 10, marginTop: 2 },
+  bottomNav: { backgroundColor: C.white, borderTopColor: C.border, borderTopWidth: 1, flexDirection: 'row', paddingTop: 8, justifyContent: 'space-around' },
+  bottomItem: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', paddingVertical: 5, marginHorizontal: 3, borderRadius: 9 },
+  bottomActive: { backgroundColor: C.mint },
+  newSaleNavIcon: { width: 49, height: 49, borderRadius: 25, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center', marginTop: -24 },
+  bottomLabel: { color: C.muted, fontSize: 10, marginTop: 4 },
+  bottomLabelActive: { color: C.green, fontWeight: '800' },
   demoLabel: { fontSize: 9, color: C.faint, marginTop: 42, textAlign: 'center', letterSpacing: 0.6 },
 });
