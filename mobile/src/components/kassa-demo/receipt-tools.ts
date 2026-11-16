@@ -31,9 +31,8 @@ export function receiptText(payment: CompletedPayment): string {
 }
 
 function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, char =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char
-  );
+  const entities: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return value.replace(/[&<>"']/g, char => entities[char] ?? char);
 }
 
 export function receiptHtml(payment: CompletedPayment): string {
