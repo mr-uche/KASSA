@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   },
 
   brandName: {
-    fontSize: 32,
+    fontSize: 35,
     fontWeight: "bold",
     color: "#FFFFFF",
     marginTop: 18,
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   },
 
   tagline: {
-    fontSize: 15,
+    fontSize: 20,
     color: "#FFFFFF",
   },
 
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
 
   footer: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 14,
     position: "absolute",
     bottom: 35,
     zIndex: 1,

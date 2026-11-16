@@ -96,15 +96,15 @@ export default function ChangePassword() {
 }
 
 const s = StyleSheet.create({
-  title: { fontSize: 19, fontWeight: '800', color: C.title },
-  subtitle: { fontSize: 11, color: C.muted, marginTop: 4 },
+  title: { fontSize: 26, fontWeight: '800', color: C.title },
+  subtitle: { fontSize: 14, color: C.muted, marginTop: 4 },
   form: { marginTop: 27 },
   field: { marginBottom: 17 },
-  label: { fontSize: 12, color: C.title, fontWeight: '800', marginBottom: 10 },
-  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.white, height: 53, borderRadius: 10, borderWidth: 1, borderColor: C.border },
-  input: { flex: 1, minWidth: 0, height: 51, paddingLeft: 15, fontSize: 13, color: C.title },
+  label: { fontSize: 14, color: C.title, fontWeight: '800', marginBottom: 10 },
+  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.white, height: 58, borderRadius: 10, borderWidth: 1, borderColor: C.border },
+  input: { flex: 1, minWidth: 0, height: 56, paddingLeft: 15, fontSize: 14, color: C.title },
   eyeButton: { width: 47, height: 49, alignItems: 'center', justifyContent: 'center' },
   save: { minHeight: 50, borderRadius: 9, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  saveText: { color: C.white, fontSize: 13, fontWeight: '800' },
-  error: { color: C.danger, marginBottom: 12, fontSize: 11, lineHeight: 17 },
+  saveText: { color: C.white, fontSize: 14, fontWeight: '800' },
+  error: { color: C.danger, marginBottom: 12, fontSize: 14, lineHeight: 22 },
 });

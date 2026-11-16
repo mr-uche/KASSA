@@ -26,17 +26,17 @@ const styles = StyleSheet.create({
     fontWeight: 700,
   },
   default: {
-    fontSize: 16,
+    fontSize: 14,
     lineHeight: 24,
     fontWeight: 500,
   },
   title: {
-    fontSize: 48,
+    fontSize: 50,
     fontWeight: 600,
     lineHeight: 52,
   },
   subtitle: {
-    fontSize: 32,
+    fontSize: 34,
     lineHeight: 44,
     fontWeight: 600,
   },
@@ -52,6 +52,6 @@ const styles = StyleSheet.create({
   code: {
     fontFamily: Fonts.mono,
     fontWeight: Platform.select({ android: 700 }) ?? 500,
-    fontSize: 12,
+    fontSize: 14,
   },
 });

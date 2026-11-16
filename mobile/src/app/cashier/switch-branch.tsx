@@ -64,19 +64,19 @@ export default function SwitchBranch() {
 }
 
 const s = StyleSheet.create({
-  title: { color: C.title, fontSize: 19, fontWeight: '800' },
-  subtitle: { color: C.muted, fontSize: 11, marginTop: 4 },
-  label: { color: C.muted, fontSize: 10, fontWeight: '800', marginTop: 29, marginBottom: 14 },
+  title: { color: C.title, fontSize: 26, fontWeight: '800' },
+  subtitle: { color: C.muted, fontSize: 14, marginTop: 4 },
+  label: { color: C.muted, fontSize: 20, fontWeight: '800', marginTop: 29, marginBottom: 14 },
   list: { gap: 10 },
-  branch: { flexDirection: 'row', alignItems: 'center', minHeight: 68, borderWidth: 1, borderColor: C.border, backgroundColor: C.white, borderRadius: 10, padding: 13 },
+  branch: { flexDirection: 'row', alignItems: 'center', minHeight: 78, borderWidth: 1, borderColor: C.border, backgroundColor: C.white, borderRadius: 10, padding: 15 },
   selectedBranch: { backgroundColor: C.mint, borderColor: C.green },
   radio: { width: 18, height: 18, borderRadius: 10, borderWidth: 1, borderColor: '#CBD5D1', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   selectedRadio: { borderColor: C.green, borderWidth: 2 },
   radioDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: C.green },
   branchInfo: { flex: 1 },
-  branchName: { fontSize: 12, fontWeight: '800', color: C.title },
-  address: { color: C.muted, fontSize: 10, marginTop: 4 },
-  empty: { fontSize: 12, color: C.muted, padding: 12 },
+  branchName: { fontSize: 14, fontWeight: '800', color: C.title },
+  address: { color: C.muted, fontSize: 14, marginTop: 4 },
+  empty: { fontSize: 14, color: C.muted, padding: 12 },
   button: { backgroundColor: C.green, borderRadius: 9, marginTop: 20, alignItems: 'center', padding: 16 },
-  buttonText: { color: C.white, fontSize: 13, fontWeight: '800' },
+  buttonText: { color: C.white, fontSize: 14, fontWeight: '800' },
 });

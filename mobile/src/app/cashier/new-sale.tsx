@@ -108,12 +108,11 @@ export default function NewSale() {
                 <View style={s.productImage}>
                   <ProductIcon category={item.category} />
                 </View>
-                <Text numberOfLines={1} style={s.productName}>{item.name}</Text>
+                <Text numberOfLines={2} style={s.productName}>{item.name}</Text>
                 <View style={s.productInfoRow}>
                   <View style={s.productDetails}>
-                    <Text numberOfLines={1} style={s.productMeta}>
-                      {naira(item.price)} • In stock: {item.stock}
-                    </Text>
+                    <Text style={[s.productMeta, { color: C.green, fontWeight: '800' }]}>{naira(item.price)}</Text>
+                    <Text style={s.productMeta}>In stock: {item.stock}</Text>
                   </View>
                   <Pressable
                     accessibilityRole="button"
@@ -173,7 +172,7 @@ export default function NewSale() {
         {showItems && store.count > 0 && (
           <View style={s.cartDetails}>
             {store.lines.map(line => {
-              const item = products.find(product => product.id === line.id);
+              const item = store.catalog.find(product => product.id === line.id);
               if (!item) return null;
               return (
                 <View key={line.id} style={s.cartLine}>
@@ -213,59 +212,59 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: C.border, backgroundColor: C.white,
     borderRadius: 10, paddingLeft: 13, paddingRight: 7,
   },
-  searchInput: { flex: 1, minWidth: 0, height: 48, paddingHorizontal: 9, fontSize: 12, color: C.title },
+  searchInput: { flex: 1, minWidth: 0, height: 48, paddingHorizontal: 9, fontSize: 14, color: C.title },
   scanAction: { width: 34, height: 34, borderRadius: 7, backgroundColor: C.mint, alignItems: 'center', justifyContent: 'center' },
-  categoryTitle: { color: C.title, fontWeight: '800', fontSize: 14, marginTop: 23, marginBottom: 13 },
+  categoryTitle: { color: C.title, fontWeight: '800', fontSize: 20, marginTop: 23, marginBottom: 13 },
   categoryScroll: { flexGrow: 0 },
   categoryRow: { gap: 9, paddingRight: 5 },
   categoryPill: {
     borderWidth: 1, borderColor: C.border, backgroundColor: C.white,
-    borderRadius: 22, minHeight: 32, minWidth: 68,
+    borderRadius: 22, minHeight: 40, minWidth: 68,
     paddingHorizontal: 13, alignItems: 'center', justifyContent: 'center',
   },
   categorySelected: { backgroundColor: C.green, borderColor: C.green },
-  categoryText: { color: C.muted, fontSize: 11, fontWeight: '600' },
+  categoryText: { color: C.muted, fontSize: 14, fontWeight: '600' },
   categoryTextSelected: { color: C.white },
   productsHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 46, marginBottom: 14 },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: C.title },
-  itemCount: { color: C.faint, fontSize: 10 },
+  sectionTitle: { fontSize: 20, fontWeight: '800', color: C.title },
+  itemCount: { color: C.faint, fontSize: 14 },
   productsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
   productCard: {
     width: '48.4%', backgroundColor: C.white, borderWidth: 1,
-    borderColor: C.border, borderRadius: 12, padding: 10, minHeight: 147,
+    borderColor: C.border, borderRadius: 12, padding: 10, minHeight: 196,
   },
-  productImage: { height: 65, backgroundColor: C.mint, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 9 },
+  productImage: { height: 75, backgroundColor: C.mint, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 9 },
   productIconCircle: { width: 43, height: 43, backgroundColor: '#D7EBE4', borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  productName: { color: C.title, fontWeight: '800', fontSize: 11 },
+  productName: { color: C.title, fontWeight: '800', fontSize: 14 },
   productInfoRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 3 },
   productDetails: { flex: 1, minWidth: 0 },
-  productMeta: { color: C.muted, fontSize: 9 },
-  addCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
+  productMeta: { color: C.muted, fontSize: 14 },
+  addCircle: { width: 33, height: 33, borderRadius: 17, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
   addedCircle: { backgroundColor: '#08765B' },
   emptyResults: { borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 20, backgroundColor: C.white },
-  emptyText: { color: C.muted, fontSize: 12 },
+  emptyText: { color: C.muted, fontSize: 14 },
   cartCard: { marginTop: 22, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 13, padding: 13 },
   cartSummary: { flexDirection: 'row', alignItems: 'center' },
   cartIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.mint, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   cartInfo: { flex: 1 },
-  cartTitle: { fontSize: 12, fontWeight: '800', color: C.title },
-  cartCount: { color: C.faint, fontSize: 10, marginTop: 5 },
-  cartTotal: { fontSize: 14, fontWeight: '800', color: C.title },
+  cartTitle: { fontSize: 20, fontWeight: '800', color: C.title },
+  cartCount: { color: C.faint, fontSize: 14, marginTop: 5 },
+  cartTotal: { fontSize: 20, fontWeight: '800', color: C.title },
   cartActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 13, gap: 10 },
   editButton: { paddingHorizontal: 6, paddingVertical: 7 },
-  editText: { color: C.green, fontSize: 10, fontWeight: '700' },
-  paymentButton: { borderRadius: 7, backgroundColor: C.green, minHeight: 33, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
+  editText: { color: C.green, fontSize: 14, fontWeight: '700' },
+  paymentButton: { borderRadius: 7, backgroundColor: C.green, minHeight: 45, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
   paymentDisabled: { backgroundColor: '#E5E7EB' },
-  paymentText: { color: C.white, fontWeight: '800', fontSize: 10 },
+  paymentText: { color: C.white, fontWeight: '800', fontSize: 14 },
   paymentDisabledText: { color: C.faint },
   cartDetails: { borderTopWidth: 1, borderTopColor: C.border, marginTop: 14, paddingTop: 6 },
-  cartLine: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 6 },
+  cartLine: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, gap: 6 },
   cartLineName: { flex: 1 },
-  lineName: { fontSize: 11, fontWeight: '700', color: C.title },
-  lineMeta: { color: C.muted, fontSize: 10, marginTop: 3 },
+  lineName: { fontSize: 14, fontWeight: '700', color: C.title },
+  lineMeta: { color: C.muted, fontSize: 14, marginTop: 3 },
   quantityButton: { width: 27, height: 27, borderRadius: 7, backgroundColor: C.mint, alignItems: 'center', justifyContent: 'center' },
-  quantityText: { color: C.green, fontSize: 18, fontWeight: '800' },
-  quantityCount: { color: C.title, fontWeight: '700', fontSize: 12, minWidth: 16, textAlign: 'center' },
+  quantityText: { color: C.green, fontSize: 20, fontWeight: '800' },
+  quantityCount: { color: C.title, fontWeight: '700', fontSize: 14, minWidth: 16, textAlign: 'center' },
   clearButton: { alignSelf: 'flex-end', paddingVertical: 9, paddingHorizontal: 5 },
-  clearText: { color: C.danger, fontSize: 11, fontWeight: '700' },
+  clearText: { color: C.danger, fontSize: 14, fontWeight: '700' },
 });
