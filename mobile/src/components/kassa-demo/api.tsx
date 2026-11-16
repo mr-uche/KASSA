@@ -20,6 +20,7 @@ type Business = {
 export type CheckoutSale = {
   id: string;
   reference: string;
+  createdAt: string;
   status: string;
   total: string;
   subtotal: string;
