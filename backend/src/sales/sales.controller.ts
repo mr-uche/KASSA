@@ -22,6 +22,12 @@ export class SalesController {
   list(@Req() request: AuthenticatedRequest, @Query() query: SalesListQueryDto) {
     return this.sales.list(request.userId, query);
   }
+  @Get('dashboard')
+  @ApiOperation({ summary: 'Today's cashier-specific sales, received revenue and recent transactions' })
+  dashboard(@Req() request: AuthenticatedRequest, @Query() query: SalesListQueryDto) {
+    return this.sales.dashboard(request.userId, query);
+  }
+
   @Get('catalog') @ApiOperation({ summary: 'Checkout-safe product catalogue for permitted cashiers' })
   catalog(@Req() request: AuthenticatedRequest, @Query() query: SalesListQueryDto) {
     return this.sales.catalog(request.userId, query);
