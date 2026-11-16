@@ -43,7 +43,7 @@ export default function CompletedSale() {
       icon: { ios: 'printer', android: 'print', web: 'print' },
       run: () => Print.printAsync({ html: receiptHtml(complete) }),
     },
-  ];
+  ] as const;
 
   return <KScreen showBrand={false} showPreviewLabel={false}>
     <View style={s.header}>
