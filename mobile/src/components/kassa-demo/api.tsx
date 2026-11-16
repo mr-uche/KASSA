@@ -5,6 +5,8 @@ export type KassaScope = {
   businessName: string;
   branchId: string;
   branchName: string;
+  branchAddress?: string | null;
+  myRole?: string;
 };
 type Account = { id: string; email: string; fullName: string };
 type LoginResponse = { user: Account; accessToken: string; refreshToken?: string };
@@ -12,7 +14,8 @@ type Business = {
   id: string;
   name: string;
   myPermissions: string[];
-  branches: { id: string; name: string; isActive: boolean }[];
+  myRole: string;
+  branches: { id: string; name: string; address?: string | null; isActive: boolean }[];
 };
 export type CheckoutSale = {
   id: string;
@@ -92,6 +95,7 @@ export function KassaSessionProvider({ children }: { children: React.ReactNode }
       .filter(b => b.myPermissions.includes('*') || b.myPermissions.includes('Manage sales & transactions'))
       .flatMap(b => b.branches.filter(branch => branch.isActive).map(branch => ({
         businessId: b.id, businessName: b.name, branchId: branch.id, branchName: branch.name,
+        branchAddress: branch.address ?? null, myRole: b.myRole,
       })));
     if (!permitted.length) throw new Error('No active branch with sales access is assigned to this account.');
     setAccessToken(login.accessToken);
