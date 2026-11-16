@@ -9,7 +9,7 @@ import KassaBackground from '@/components/KassaBackground';
 export function KassaLogo({ compact = false }: { compact?: boolean }) {
   return <View style={s.brand}>
     <Image source={require('../../../assets/images/logo.png')} style={[s.logo, compact && { width: 31, height: 31 }]} resizeMode="contain" />
-    <Text style={[s.brandText, compact && { fontSize: 20 }]}>KASSA</Text>
+    <Text style={[s.brandText, compact && { fontSize: 23 }]}>KASSA</Text>
   </View>;
 }
 
@@ -84,32 +84,32 @@ export function KTag({ text, selected = false, onPress }: { text: string; select
   return <Pressable onPress={onPress} disabled={!onPress} style={[s.tag, selected && s.tagSelected]}><Text style={[s.tagText, selected && { color: '#FFFFFF' }]}>{text}</Text></Pressable>;
 }
 export function KLinkRow({ title, subtitle, onPress, symbol = '›' }: { title: string; subtitle?: string; onPress: () => void; symbol?: string }) {
-  return <Pressable accessibilityRole="button" onPress={onPress} style={s.linkRow}><View style={{ flex: 1 }}><Text style={s.linkTitle}>{title}</Text>{subtitle && <Text style={s.linkSubtitle}>{subtitle}</Text>}</View><Text style={{ fontSize: 23, color: C.green }}>{symbol}</Text></Pressable>;
+  return <Pressable accessibilityRole="button" onPress={onPress} style={s.linkRow}><View style={{ flex: 1 }}><Text style={s.linkTitle}>{title}</Text>{subtitle && <Text style={s.linkSubtitle}>{subtitle}</Text>}</View><Text style={{ fontSize: 24, color: C.green }}>{symbol}</Text></Pressable>;
 }
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' },
-  logo: { width: 55, height: 55 }, brandText: { fontWeight: '800', color: C.green, fontSize: 26, letterSpacing: 0.5 },
-  title: { fontSize: 27, fontWeight: '800', color: C.title, marginTop: 24 },
-  subtitle: { fontSize: 13, color: C.muted, lineHeight: 20, marginTop: 6 },
+  logo: { width: 55, height: 55 }, brandText: { fontWeight: '800', color: C.green, fontSize: 28, letterSpacing: 0.5 },
+  title: { fontSize: 30, fontWeight: '800', color: C.title, marginTop: 24 },
+  subtitle: { fontSize: 14, color: C.muted, lineHeight: 22, marginTop: 6 },
   card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 14, padding: 17, marginBottom: 14 },
-  section: { fontSize: 16, color: C.title, fontWeight: '800' },
-  label: { fontSize: 12, color: C.text, fontWeight: '700', marginBottom: 9 },
+  section: { fontSize: 20, color: C.title, fontWeight: '800' },
+  label: { fontSize: 14, color: C.text, fontWeight: '700', marginBottom: 9 },
   field: { height: 51, borderRadius: 9, borderWidth: 1, borderColor: '#D1D5DB', backgroundColor: C.white, paddingHorizontal: 15, fontSize: 14, color: C.title },
   button: { borderRadius: 10, minHeight: 52, paddingVertical: 14, paddingHorizontal: 16, backgroundColor: C.green, justifyContent: 'center', alignItems: 'center', marginTop: 6 },
   buttonText: { color: C.white, fontSize: 14, fontWeight: '800', textAlign: 'center' },
   outlineButton: { backgroundColor: C.white, borderWidth: 1, borderColor: C.green },
   subtleButton: { backgroundColor: C.mint },
   tag: { borderRadius: 24, borderWidth: 1, borderColor: C.mintBorder, paddingVertical: 9, paddingHorizontal: 15, backgroundColor: C.white, marginRight: 7 },
-  tagSelected: { backgroundColor: C.green, borderColor: C.green }, tagText: { fontSize: 12, color: C.text, fontWeight: '600' },
+  tagSelected: { backgroundColor: C.green, borderColor: C.green }, tagText: { fontSize: 14, color: C.text, fontWeight: '600' },
   linkRow: { borderBottomWidth: 1, borderBottomColor: C.border, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  linkTitle: { fontSize: 14, fontWeight: '700', color: C.title }, linkSubtitle: { fontSize: 12, color: C.muted, paddingTop: 5 },
+  linkTitle: { fontSize: 14, fontWeight: '700', color: C.title }, linkSubtitle: { fontSize: 14, color: C.muted, paddingTop: 5 },
   bottomNav: { backgroundColor: C.white, borderTopColor: C.border, borderTopWidth: 1, flexDirection: 'row', paddingTop: 8, justifyContent: 'space-around' },
   bottomItem: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', paddingVertical: 5, marginHorizontal: 3, borderRadius: 9 },
   bottomActive: { backgroundColor: C.mint },
   newSaleNavIcon: { width: 49, height: 49, borderRadius: 25, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center', marginTop: -24 },
-  bottomLabel: { color: C.muted, fontSize: 10, marginTop: 4 },
+  bottomLabel: { color: C.muted, fontSize: 12, marginTop: 4 },
   bottomLabelActive: { color: C.green, fontWeight: '800' },
-  demoLabel: { fontSize: 9, color: C.faint, marginTop: 42, textAlign: 'center', letterSpacing: 0.6 },
+  demoLabel: { fontSize: 12, color: C.faint, marginTop: 42, textAlign: 'center', letterSpacing: 0.6 },
 });
