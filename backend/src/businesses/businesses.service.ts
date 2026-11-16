@@ -183,7 +183,7 @@ export class BusinessesService {
         business: {
           select: {
             id: true, name: true, type: true, createdAt: true,
-            branches: { select: { id: true, name: true, isActive: true } },
+            branches: { select: { id: true, name: true, address: true, isActive: true } },
           },
         },
       },
