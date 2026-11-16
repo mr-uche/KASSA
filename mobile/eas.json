@@ -13,13 +13,6 @@
       "env": {
         "EXPO_PUBLIC_KASSA_API_URL": "https://kassa-api-18he.onrender.com/api/v1"
       }
-    },
-    "production": {
-      "distribution": "store",
-      "environment": "production",
-      "android": {
-        "buildType": "app-bundle"
-      }
     }
   }
 }
