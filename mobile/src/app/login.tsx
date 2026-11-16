@@ -12,9 +12,26 @@ import {
     ScrollView,
 } from "react-native";
 import {SymbolView} from "expo-symbols";
+import { useKassaSession, type KassaScope } from '@/components/kassa-demo/api';
 
 export default function LoginScreen() {
     const[showPassword, setShowPassword] =useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [choices, setChoices] = useState<KassaScope[]>([]);
+    const session = useKassaSession();
+    const signIn = async () => {
+      if (submitting) return;
+      setSubmitting(true);
+      try {
+        const options = await session.signIn(email, password);
+        if (options.length === 1) router.replace('/cashier');
+        else setChoices(options);
+      } catch (error) {
+        Alert.alert('Unable to sign in', error instanceof Error ? error.message : 'Try again.');
+      } finally { setSubmitting(false); }
+    };
   return (
  <KassaBackground>
    <ScrollView
@@ -43,7 +60,9 @@ export default function LoginScreen() {
   <Text style={styles.label}>Email or phone number</Text>
   <TextInput
     style={styles.input}
-    placeholder="Enter your email or phone number"
+    placeholder="Enter your email address"
+    value={email}
+    onChangeText={setEmail}
     placeholderTextColor="#9CA3AF"
     autoCapitalize="none"
     keyboardType="email-address"
@@ -55,6 +74,8 @@ export default function LoginScreen() {
   <TextInput
     style={[styles.input, styles.passwordInput]}
     placeholder="Enter your password"
+    value={password}
+    onChangeText={setPassword}
     placeholderTextColor="#9CA3AF"
     secureTextEntry={!showPassword}
   />
@@ -106,17 +127,28 @@ export default function LoginScreen() {
 {/* Sign In Button */}
 <Pressable
   style={styles.signInButton}
-  onPress={() =>
-    Alert.alert(
-      "Sign In",
-      "We'll connect the login functionality next."
-    )
-  }
+  onPress={() => { void signIn(); }}
+  disabled={submitting}
 >
   <Text style={styles.signInText}>
-    Sign In
+    {submitting ? 'Signing in…' : 'Sign In'}
   </Text>
 </Pressable>
+
+{choices.length > 1 && (
+  <View style={styles.branchChoices}>
+    <Text style={styles.branchTitle}>Choose your assigned branch</Text>
+    {choices.map(choice => (
+      <Pressable
+        key={choice.businessId + ':' + choice.branchId}
+        style={styles.branchChoice}
+        onPress={() => { session.selectScope(choice); router.replace('/cashier'); }}
+      >
+        <Text style={styles.branchChoiceText}>{choice.businessName} • {choice.branchName}</Text>
+      </Pressable>
+    ))}
+  </View>
+)}
  
 
 {/* Cashier Account Information */}
@@ -169,6 +201,10 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  branchChoices: { marginTop: 17, gap: 8 },
+  branchTitle: { color: '#111827', fontWeight: '700', fontSize: 13 },
+  branchChoice: { padding: 12, borderColor: '#D6EAE1', borderWidth: 1, borderRadius: 9, backgroundColor: '#EAF5F0' },
+  branchChoiceText: { color: '#0F6E56', fontWeight: '700', fontSize: 12 },
   container: {
     flex: 1,
   },
