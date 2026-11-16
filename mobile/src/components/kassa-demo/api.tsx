@@ -37,6 +37,7 @@ export type CatalogItem = {
   category: string;
   price: string;
   stock: number;
+  lowStockThreshold: number;
 };
 
 function urlFor(path: string): string {
