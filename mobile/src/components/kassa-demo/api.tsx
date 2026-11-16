@@ -23,7 +23,7 @@ export type CheckoutSale = {
   currency: string;
   branchId: string;
   items: { id: string; productId: string; name: string; quantity: number; unitPrice: string; lineTotal: string }[];
-  payments: { channel: string; status: string; confirmedAt: string | null }[];
+  payments: { channel: string; status: string; confirmedAt: string | null; provider?: string | null }[];
 };
 export type CatalogItem = {
   id: string;
