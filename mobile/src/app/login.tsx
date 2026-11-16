@@ -202,9 +202,9 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   branchChoices: { marginTop: 17, gap: 8 },
-  branchTitle: { color: '#111827', fontWeight: '700', fontSize: 13 },
+  branchTitle: { color: '#111827', fontWeight: '700', fontSize: 20 },
   branchChoice: { padding: 12, borderColor: '#D6EAE1', borderWidth: 1, borderRadius: 9, backgroundColor: '#EAF5F0' },
-  branchChoiceText: { color: '#0F6E56', fontWeight: '700', fontSize: 12 },
+  branchChoiceText: { color: '#0F6E56', fontWeight: '700', fontSize: 14 },
   container: {
     flex: 1,
   },
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
  },
 
   heading: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "bold",
     color: "#111827",
   },
@@ -238,7 +238,7 @@ logo: {
 },
 
 brandName: {
-  fontSize: 27,
+  fontSize: 30,
   fontWeight: "bold",
   color: "#0F6E56",
   marginTop: 8,
@@ -250,14 +250,14 @@ formContainer: {
 },
 
 label: {
-  fontSize: 12,
+  fontSize: 14,
   fontWeight: "bold",
   color: "#374151",
   marginBottom: 10,
 },
 
 input: {
-  height: 52,
+  height: 56,
   borderWidth: 1,
   borderColor: "#D1D5DB",
   borderRadius: 10,
@@ -282,7 +282,7 @@ eyeButton: {
   right: 10,
   top: 0,
   width: 44,
-  height: 52,
+  height: 56,
   justifyContent: "center",
   alignItems: "center",
 },
@@ -294,14 +294,14 @@ forgotPasswordContainer: {
 },
 
 forgotPassword: {
-  fontSize: 12,
+  fontSize: 14,
   fontWeight: "bold",
   color: "#0F6E56",
 },
 
 signInButton: {
   backgroundColor: "#0F6E56",
-  height: 52,
+  height: 56,
   borderRadius: 10,
   justifyContent: "center",
   alignItems: "center",
@@ -367,16 +367,16 @@ infoContent: {
 },
 
 infoTitle: {
-  fontSize: 12,
+  fontSize: 20,
   fontWeight: "bold",
   color: "#174B3D",
   marginBottom: 6,
 },
 
 infoDescription: {
-  fontSize: 11,
+  fontSize: 14,
   color: "#4B635D",
-  lineHeight: 17,
+  lineHeight: 22,
 },
 
 
@@ -389,12 +389,12 @@ signUpContainer: {
 },
 
 signUpText: {
-  fontSize: 12,
+  fontSize: 14,
   color: "#6B7280",
 },
 
 signUpLink: {
-  fontSize: 12,
+  fontSize: 14,
   fontWeight: "bold",
   color: "#0F6E56",
 },
@@ -407,7 +407,7 @@ dot: {
 },
 
 footer: {
-  fontSize: 10,
+  fontSize: 14,
   color: "#9CA3AF",
   textAlign: "center",
   marginTop: 60,
