@@ -7,6 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshSessionDto } from './dto/refresh-session.dto';
 import { RegisterDto } from './dto/register.dto';
 import { DeleteAccountDto } from './dto/delete-account.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 const ACCESS_TOKEN_SECONDS = 15 * 60;
 const REMEMBER_DAYS = 30;
@@ -118,6 +119,30 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
     return { message: 'Signed out' };
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, passwordHash: true },
+    });
+    if (!user || !(await compare(dto.currentPassword, user.passwordHash))) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+    if (dto.currentPassword === dto.newPassword ||
+        await compare(dto.newPassword, user.passwordHash)) {
+      throw new ConflictException('Choose a new password that differs from your current password');
+    }
+    const nextHash = await hash(dto.newPassword, 12);
+    await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.user.updateMany({
+        where: { id: userId, passwordHash: user.passwordHash },
+        data: { passwordHash: nextHash },
+      });
+      if (claim.count !== 1) throw new ConflictException('Password changed in another session; sign in again');
+      await tx.authSession.deleteMany({ where: { userId } });
+    });
+    return { changed: true, message: 'Password updated. Sign in again with your new password.' };
   }
 
   async deleteAccount(userId: string, dto: DeleteAccountDto) {
