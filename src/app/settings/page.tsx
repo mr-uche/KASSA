@@ -8,7 +8,9 @@ import { CheckCircle2, Loader2, Menu, ShieldAlert } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import { getInventoryContext } from "@/lib/inventory-client";
 import {
-  getBusinessSettings, updateBusinessSettings, type BusinessSettings,
+  getBusinessSettings, updateBusinessSettings, getMerchantBankAccounts,
+  addMerchantBankAccount, updateMerchantBankAccount, deleteMerchantBankAccount,
+  type BusinessSettings, type MerchantBankAccount,
 } from "@/lib/business-settings";
 import {
   getBusinessExport, downloadBusinessExport,
@@ -19,7 +21,6 @@ const navigation = [
   "Business profile",
   "Subscription & Billing",
   "Merchant Payment Details",
-  "Payment Verification",
   "Notifications",
   "Data Export",
   "Delete Account",
@@ -82,6 +83,13 @@ export default function SettingsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [merchantAccounts, setMerchantAccounts] = useState<MerchantBankAccount[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountsSaving, setAccountsSaving] = useState(false);
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [accountForm, setAccountForm] = useState({
+    bankName: "", accountNumber: "", accountName: "", isDefault: false,
+  });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [notifications, setNotifications] = useState<NotificationPreferences>(defaultNotifications);
@@ -167,6 +175,74 @@ export default function SettingsPage() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not save business settings.");
     } finally { setSaving(false); }
+  }
+
+  const refreshReceivingAccounts = useCallback(async () => {
+    if (!context) return;
+    setAccountsLoading(true);
+    try {
+      setMerchantAccounts(await getMerchantBankAccounts(context.businessId));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load receiving accounts.");
+    } finally { setAccountsLoading(false); }
+  }, [context?.businessId]);
+
+  useEffect(() => {
+    if (section === "Merchant Payment Details") void refreshReceivingAccounts();
+  }, [section, refreshReceivingAccounts]);
+
+  function resetAccountForm() {
+    setEditingAccountId(null);
+    setAccountForm({ bankName: "", accountNumber: "", accountName: "", isDefault: false });
+  }
+
+  async function saveReceivingAccount() {
+    if (!context || accountsSaving || accountsLoading) return;
+    const bankName = accountForm.bankName.trim();
+    const accountName = accountForm.accountName.trim();
+    if (!bankName || !accountName || !/^\d{10}$/.test(accountForm.accountNumber)) {
+      setError("Enter a bank name, 10-digit account number and the merchant account name.");
+      return;
+    }
+    setAccountsSaving(true); setError(""); setSuccess("");
+    try {
+      const body = { ...accountForm, bankName, accountName };
+      if (editingAccountId) {
+        await updateMerchantBankAccount(context.businessId, editingAccountId, body);
+      } else {
+        await addMerchantBankAccount(context.businessId, body);
+      }
+      resetAccountForm();
+      await refreshReceivingAccounts();
+      setSuccess("Receiving account saved. The account name is supplied by the business owner and is not bank-verified.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not save receiving account.");
+    } finally { setAccountsSaving(false); }
+  }
+
+  async function makeDefaultReceivingAccount(accountId: string) {
+    if (!context || accountsSaving) return;
+    setAccountsSaving(true); setError(""); setSuccess("");
+    try {
+      await updateMerchantBankAccount(context.businessId, accountId, { isDefault: true });
+      await refreshReceivingAccounts();
+      setSuccess("Default receiving account updated.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to set default account.");
+    } finally { setAccountsSaving(false); }
+  }
+
+  async function removeReceivingAccount(accountId: string) {
+    if (!context || accountsSaving || !window.confirm("Remove this receiving bank account from checkout?")) return;
+    setAccountsSaving(true); setError(""); setSuccess("");
+    try {
+      await deleteMerchantBankAccount(context.businessId, accountId);
+      if (editingAccountId === accountId) resetAccountForm();
+      await refreshReceivingAccounts();
+      setSuccess("Receiving account removed.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not remove account.");
+    } finally { setAccountsSaving(false); }
   }
 
   async function runExport() {
@@ -352,39 +428,91 @@ export default function SettingsPage() {
 
             {section === "Merchant Payment Details" && (
               <section className={cardClass}>
-                <h2 className="text-lg font-semibold text-gray-900">Your business receives customer payments</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Business Bank Accounts</h2>
                 <p className="mt-2 text-sm leading-6 text-gray-600">
-                  Bank transfers go directly to your business bank account, and card/POS payments go to your own terminal provider.
-                  KASSA is not a payment intermediary and does not issue merchant payouts or hold a settlement balance.
+                  Add the accounts customers can pay directly. You can use any Nigerian bank or supported
+                  receiving institution; KASSA does not hold or settle customer funds.
                 </p>
-                <div className="mt-5 rounded-lg border border-gray-200 p-4">
-                  <p className="text-xs font-medium uppercase text-gray-500">Previously stored bank preference (unverified)</p>
-                  <p className="mt-1 text-sm font-semibold text-gray-900">{settings?.settlementBankName || "No saved bank name"}</p>
-                  <p className="mt-1 text-xs text-gray-500">{settings?.settlementAccountLast4
-                    ? "Account ending in " + settings.settlementAccountLast4 : "No bank account on file"}</p>
-                </div>
-                <p className="mt-3 text-xs leading-5 text-amber-800">
-                  This bank preference is not a verified payment instruction. Confirm the correct business bank account directly with the owner before accepting transfers.
+                <p className="mt-2 text-xs text-amber-800">
+                  Account names are entered by you, not verified against bank records.
+                  Adding an account does not activate automatic incoming-payment notifications.
                 </p>
-              </section>
-            )}
 
-            {section === "Payment Verification" && (
-              <section className={cardClass}>
-                <h2 className="text-lg font-semibold text-gray-900">Cashier payment verification</h2>
-                <p className="mt-2 text-sm leading-6 text-gray-600">
-                  Cashiers confirm physically collected cash, or attest that the business received the full bank transfer or a successful POS/card payment.
-                  The system saves the cashier ID, time and confirmation details in a payment audit record.
-                  KASSA does not independently inspect bank balances or process the customer's funds.
-                </p>
-                <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
-                  Do not confirm transfers from customer screenshots, debit alerts or unverified POS slips.
-                  Verify against your own merchant bank or terminal records.
-                  Historical Paystack TEST sales remain test-only and must not be used to release real goods.
-                </p>
-                <Link href="/transactions" className="mt-4 inline-block text-sm font-semibold text-emerald-800 hover:underline">
-                  Review business transactions
-                </Link>
+                <div className="mt-5 space-y-3">
+                  {accountsLoading && <p className="text-sm text-gray-500">Loading receiving accounts…</p>}
+                  {!accountsLoading && merchantAccounts.length === 0 && (
+                    <p className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                      No receiving account saved yet. Add your first business account below.
+                    </p>
+                  )}
+                  {merchantAccounts.map(account => (
+                    <div key={account.id} className={"rounded-xl border p-4 " +
+                      (account.isDefault ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white")}>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-900">{account.bankName}</p>
+                          <p className="mt-1 font-mono text-sm text-gray-800">{account.accountNumber}</p>
+                          <p className="mt-1 text-sm text-gray-600">{account.accountName}</p>
+                          {account.isDefault && <span className="mt-2 inline-block rounded-full bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white">Default checkout account</span>}
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                          {!account.isDefault && <button type="button" disabled={accountsSaving}
+                            onClick={() => void makeDefaultReceivingAccount(account.id)}
+                            className="rounded-lg border border-emerald-600 px-3 py-2 text-emerald-800 disabled:opacity-50">
+                            Make default
+                          </button>}
+                          <button type="button" disabled={accountsSaving}
+                            onClick={() => {
+                              setEditingAccountId(account.id);
+                              setAccountForm({ bankName: account.bankName, accountNumber: account.accountNumber,
+                                accountName: account.accountName, isDefault: account.isDefault });
+                              setError(""); setSuccess("");
+                            }}
+                            className="rounded-lg border border-gray-300 px-3 py-2 text-gray-700 disabled:opacity-50">Edit</button>
+                          <button type="button" disabled={accountsSaving}
+                            onClick={() => void removeReceivingAccount(account.id)}
+                            className="rounded-lg border border-red-200 px-3 py-2 text-red-700 disabled:opacity-50">Remove</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 border-t border-gray-200 pt-5">
+                  <h3 className="text-base font-semibold text-gray-900">{editingAccountId ? "Edit bank account" : "Add bank account"}</h3>
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <label className="block text-sm font-medium text-gray-700">Bank name (any bank)
+                      <input className={fieldClass + " mt-2"} maxLength={120}
+                        placeholder="Type your bank or digital bank name"
+                        value={accountForm.bankName} onChange={e => setAccountForm(v => ({ ...v, bankName: e.target.value }))}/>
+                    </label>
+                    <label className="block text-sm font-medium text-gray-700">Account number
+                      <input className={fieldClass + " mt-2"} maxLength={10} inputMode="numeric"
+                        autoComplete="off" placeholder="10-digit account number"
+                        value={accountForm.accountNumber}
+                        onChange={e => setAccountForm(v => ({ ...v, accountNumber: e.target.value.replace(/\D/g, "").slice(0, 10) }))}/>
+                    </label>
+                    <label className="block text-sm font-medium text-gray-700 sm:col-span-2">Account holder name
+                      <input className={fieldClass + " mt-2"} maxLength={150}
+                        placeholder="Name on your receiving account"
+                        value={accountForm.accountName} onChange={e => setAccountForm(v => ({ ...v, accountName: e.target.value }))}/>
+                    </label>
+                  </div>
+                  <label className="mt-4 flex items-center gap-2 text-sm text-gray-700">
+                    <input type="checkbox" className="accent-emerald-700" checked={accountForm.isDefault}
+                      onChange={e => setAccountForm(v => ({ ...v, isDefault: e.target.checked }))}/>
+                    Show as default bank account at checkout
+                  </label>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => void saveReceivingAccount()}
+                      disabled={!context || accountsLoading || accountsSaving}
+                      className="rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">
+                      {accountsSaving ? "Saving…" : editingAccountId ? "Save account changes" : "Add bank account"}
+                    </button>
+                    {editingAccountId && <button type="button" onClick={resetAccountForm}
+                      className="rounded-lg border border-gray-200 px-5 py-3 text-sm text-gray-700">Cancel edit</button>}
+                  </div>
+                </div>
               </section>
             )}
 
