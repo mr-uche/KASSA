@@ -4,7 +4,7 @@ import KassaHeaderActions from "@/components/KassaHeaderActions";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createSale, type PaymentMethod, type SaleDraft } from "@/lib/sales-client";
+import { createSale, type PaymentMethod, type SaleDraft, type SavedSale } from "@/lib/sales-client";
 import { formatNaira } from "@/lib/inventory-client";
 import KassaSidebar from "@/components/KassaSidebar";
 import { Check, Menu } from "lucide-react";
@@ -21,9 +21,10 @@ export default function ConfirmPaymentContent() {
   const [items, setItems] = useState<SaleItem[]>([]);
   const [draft, setDraft] = useState<DraftWithPreview | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingReview, setPendingReview] = useState<SavedSale | null>(null);
   const [error, setError] = useState("");
 
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const subtotal = items.reduce((kobo, item) => kobo + Math.round(item.price * 100) * item.qty, 0) / 100;
   const total = subtotal;
   const discount = 0;
   const method = draft?.channel ?? "BANK_TRANSFER";
@@ -78,6 +79,12 @@ export default function ConfirmPaymentContent() {
 
   const handleConfirm = async () => {
     if (!draft || submitting) return;
+    // A saved pending sale must not be created twice.
+    if (pendingReview) {
+      sessionStorage.removeItem("kassa_sale_draft");
+      router.replace("/sales/payment?saleId=" + encodeURIComponent(pendingReview.id));
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
@@ -86,6 +93,19 @@ export default function ConfirmPaymentContent() {
         clientRequestId: draft.clientRequestId, channel: draft.channel,
         customerId: draft.customerId, items: draft.items,
       });
+      if (Math.round(Number(sale.total) * 100) !== Math.round(total * 100)) {
+        // The backend owns prices and totals. Show its confirmed pending amount
+        // and require a fresh user action before the payment screen.
+        setPendingReview(sale);
+        setItems(sale.items.map(item => ({
+          id: item.productId,
+          name: item.name,
+          price: Number(item.unitPrice),
+          qty: item.quantity,
+        })));
+        setError("The catalogue prices changed. Review the updated total below before proceeding. No payment has been confirmed.");
+        return;
+      }
       sessionStorage.removeItem("kassa_sale_draft");
       router.replace("/sales/payment?saleId=" + encodeURIComponent(sale.id));
     } catch (cause) {
@@ -332,7 +352,9 @@ export default function ConfirmPaymentContent() {
                 disabled={!draft || !items.length || submitting}
                 className="disabled:opacity-50 mb-2 w-full rounded-lg bg-emerald-800 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
               >
-                {submitting ? "Saving sale..." : "Create pending sale • " + formatNaira(total)}
+                {submitting ? "Saving sale..." : pendingReview
+                  ? "I reviewed the updated total • Continue to payment"
+                  : "Create pending sale • " + formatNaira(total)}
               </button>
 
               <p className="text-center text-xs text-gray-500">
