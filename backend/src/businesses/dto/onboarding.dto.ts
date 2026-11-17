@@ -96,6 +96,10 @@ export class OnboardingDto {
   @Matches(/^\d{10}$/)
   accountNumber?: string;
 
+  @ApiPropertyOptional({ description: 'Account name supplied by business owner. Not independently verified by KASSA.' })
+  @IsOptional() @IsString() @MaxLength(150)
+  accountName?: string;
+
   @ApiPropertyOptional({ type: [StaffDraftDto], description: 'Staff names saved as drafts, not active user accounts' })
   @IsOptional()
   @IsArray()
