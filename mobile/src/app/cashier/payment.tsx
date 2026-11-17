@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import * as Crypto from 'expo-crypto';
 import { SymbolView } from 'expo-symbols';
 import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api';
@@ -11,25 +10,20 @@ import { KScreen } from '@/components/kassa-demo/ui';
 import { recordOfflineCash } from '@/components/kassa-demo/offline-cash';
 
 const methods = [
-  { name: 'Cash', channel: 'CASH', detail: 'Confirm after collecting cash' },
-  { name: 'Card', channel: 'CARD', detail: 'Paystack test checkout (not live POS)' },
-  { name: 'Transfer', channel: 'BANK_TRANSFER', detail: 'Paystack test transfer (not live bank confirmation)' },
+  { name: 'Cash', channel: 'CASH', detail: 'Count and confirm physical cash received' },
+  { name: 'Transfer', channel: 'BANK_TRANSFER', detail: 'Confirm credit in the business bank account' },
+  { name: 'Card', channel: 'CARD', detail: 'Confirm a successful transaction on the business POS terminal' },
+  { name: 'POS', channel: 'POS', detail: 'Check the business terminal success record' },
 ] as const;
-
-type Verification = {
-  testMode: true;
-  saleStatus: string;
-  paymentStatus: string;
-  providerStatus: string;
-  needsAttention: boolean;
-};
-type CheckoutResult = { saleId: string; authorizationUrl: string; reference: string; testMode: true };
 
 export default function Payment() {
   const router = useRouter();
   const store = useKassaDemo();
   const session = useKassaSession();
   const [cashInput, setCashInput] = useState('');
+  const [merchantChecked, setMerchantChecked] = useState(false);
+  const [verificationNote, setVerificationNote] = useState('');
+  const [externalReference, setExternalReference] = useState('');
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
   // A stable request ID prevents a double sale when a request is retried on this screen.
@@ -190,46 +184,60 @@ export default function Payment() {
     );
   };
 
-  const openTestCheckout = async () => {
+  const finishMerchantPayment = async () => {
     if (working || offline) return;
-    setWorking(true); setError('');
+    if (!merchantChecked) {
+      setError('Confirm that you checked the business bank credit or successful POS record.');
+      return;
+    }
+    if (verificationNote.trim().length < 12) {
+      setError('Describe how the business payment was checked (at least 12 characters).');
+      return;
+    }
+    if (pending?.payments[0]?.provider) {
+      setError('This existing payment is provider-managed and requires business-owner reconciliation.');
+      return;
+    }
+    setWorking(true);
+    setError('');
+    let sale: CheckoutSale;
     try {
-      const sale = await prepareSale();
-      const result = await session.request<CheckoutResult>('payments/paystack/initialize', {
-        saleId: sale.id, email: session.user!.email,
-      });
-      // Checkout is hosted by Paystack; secret keys are never sent to the app.
-      if (result.testMode !== true || !/^https:\/\/checkout\.paystack\.com\//.test(result.authorizationUrl)) {
-        throw new Error('The server did not return a valid Paystack test checkout URL.');
-      }
-      await WebBrowser.openBrowserAsync(result.authorizationUrl);
-      // Do not mark paid here: on Android the browser call can resolve before checkout ends.
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to open test checkout.');
-    } finally { setWorking(false); }
-  };
-
-  const verifyTestPayment = async () => {
-    if (!pending || working || offline) return;
-    setWorking(true); setError('');
-    try {
-      const verified = await session.request<Verification>('payments/paystack/verify', {
-        saleId: pending.id,
-      });
-      if (verified.testMode !== true || verified.saleStatus !== 'PAID' ||
-          verified.paymentStatus !== 'SUCCEEDED' || verified.needsAttention) {
-        setError('Payment is not confirmed yet (' + verified.providerStatus + '). Retry verification after test checkout.');
-        return;
-      }
-      const confirmed = await session.request<CheckoutSale>('sales/' + encodeURIComponent(pending.id));
-      if (confirmed.status !== 'PAID' || confirmed.payments[0]?.status !== 'SUCCEEDED') {
-        throw new Error('The sale is awaiting confirmed payment.');
-      }
-      store.setCompletedPayment({ sale: confirmed, cashReceived: null, change: 0 });
-      router.replace('/cashier/complete');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Payment verification failed. Try again.');
-    } finally { setWorking(false); }
+      sale = await prepareSale();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not create the pending sale.');
+      setWorking(false);
+      return;
+    }
+    setWorking(false);
+    Alert.alert(
+      'Confirm direct business payment',
+      'Confirm the business actually received ' + naira(Number(sale.total)) + ' via ' +
+        method.name + '. A customer screenshot or debit alert does NOT prove receipt. ' +
+        'KASSA does not hold or transfer these funds. This action records YOUR confirmation and deducts stock.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Payment received', onPress: () => { void (async () => {
+          setWorking(true);
+          setError('');
+          try {
+            const confirmed = await session.request<CheckoutSale>(
+              'sales/' + encodeURIComponent(sale.id) + '/confirm-merchant-payment', {
+                confirmedReceived: true,
+                verificationNote: verificationNote.trim(),
+                ...(externalReference.trim() ? { externalReference: externalReference.trim() } : {}),
+              });
+            if (confirmed.status !== 'PAID' ||
+                !confirmed.payments.some(p => p.status === 'SUCCEEDED' && p.provider === 'MERCHANT_ATTESTED')) {
+              throw new Error('The business payment was not recorded. Do not issue goods.');
+            }
+            store.setCompletedPayment({ sale: confirmed, cashReceived: null, change: 0 });
+            router.replace('/cashier/complete');
+          } catch (cause) {
+            setError(cause instanceof Error ? cause.message : 'Could not record confirmation. Recheck sale status before retrying.');
+          } finally { setWorking(false); }
+        })(); } },
+      ],
+    );
   };
 
   return <KScreen showBrand={false} showPreviewLabel={false}>
@@ -305,23 +313,63 @@ export default function Payment() {
         style={s.cashInput}
       />
       <View style={s.changeRow}><Text style={s.changeLabel}>Change to customer</Text><Text style={s.changeNumber}>{naira(change)}</Text></View>
-    </> : <View style={s.note}><Text style={s.noteText}>Paystack TEST MODE • No real charge. After completing checkout, return here and tap Verify payment.</Text></View>}
+    </> : <View style={s.note}>
+      <Text style={s.noteText}>The customer pays the BUSINESS directly. KASSA never receives or holds the money. Check the business bank credit or terminal success record — never a customer screenshot alone.</Text>
+      <Text style={[s.sectionTitle, { marginTop: 14 }]}>What payment evidence did you check?</Text>
+      <TextInput
+        accessibilityLabel="Describe verified payment receipt"
+        placeholder="e.g. Credit confirmed in merchant bank app"
+        placeholderTextColor={C.faint}
+        value={verificationNote}
+        onChangeText={setVerificationNote}
+        editable={!working}
+        maxLength={300} multiline
+        style={[s.cashInput, { minHeight: 78, textAlignVertical: 'top', paddingTop: 12 }]}
+      />
+      <Text style={[s.sectionTitle, { marginTop: 12 }]}>Bank/POS reference (optional)</Text>
+      <TextInput
+        accessibilityLabel="Bank or POS transaction reference"
+        placeholder="Reference (never enter PIN, OTP or card details)"
+        placeholderTextColor={C.faint}
+        value={externalReference}
+        onChangeText={setExternalReference}
+        editable={!working}
+        maxLength={100} style={s.cashInput}
+      />
+      <Pressable accessibilityRole="checkbox"
+        accessibilityState={{ checked: merchantChecked }}
+        onPress={() => setMerchantChecked(value => !value)}
+        style={[s.method, { gap: 12, marginTop: 12 }]}>
+        <View style={[s.radio, merchantChecked && s.radioSelected]}>
+          {merchantChecked && <View style={s.dot}/>}
+        </View>
+        <Text style={[s.noteText, { flex: 1 }]}>
+          I checked that the business actually received the full amount.
+        </Text>
+      </Pressable>
+    </View>}
 
-    {offline && pending && <Text style={s.error}>This pending online transaction cannot be recorded again offline. Reconnect to complete or verify it.</Text>}
+    {offline && pending && <Text style={s.error}>This pending online transaction cannot be recorded again offline. Reconnect to complete or reconcile it.</Text>}
+    {pending?.payments[0]?.provider === 'PAYSTACK_TEST' &&
+      <Text style={s.error}>This is an older Paystack TEST checkout. No new checkout is available; contact the business owner for reconciliation.</Text>}
     {!session.scope && <Text style={s.error}>Sign in to KASSA before completing payments.</Text>}
     {error ? <Text style={s.error}>{error}</Text> : null}
     <Pressable
       accessibilityRole="button"
-      disabled={working || !session.scope || !store.count || (offline && (!cacheFresh || !!pending || method.channel !== 'CASH')) || (method.channel === 'CASH' && !validCash)}
-      onPress={method.channel === 'CASH' ? finishCash : () => { void openTestCheckout(); }}
-      style={[s.primary, (working || !session.scope || !store.count || (offline && (!cacheFresh || !!pending || method.channel !== 'CASH')) || (method.channel === 'CASH' && !validCash)) && { opacity: 0.5 }]}
+      disabled={working || !session.scope || !store.count ||
+        (offline && (!cacheFresh || !!pending || method.channel !== 'CASH')) ||
+        (method.channel === 'CASH' && !validCash) ||
+        (method.channel !== 'CASH' && (offline || !merchantChecked || verificationNote.trim().length < 12 || !!pending?.payments[0]?.provider))}
+      onPress={method.channel === 'CASH' ? finishCash : () => { void finishMerchantPayment(); }}
+      style={[s.primary, (working || !session.scope || !store.count ||
+        (offline && (!cacheFresh || !!pending || method.channel !== 'CASH')) ||
+        (method.channel === 'CASH' && !validCash) ||
+        (method.channel !== 'CASH' && (offline || !merchantChecked || verificationNote.trim().length < 12 || !!pending?.payments[0]?.provider))) && { opacity: 0.5 }]}
     >
-      <Text style={s.primaryText}>{working ? 'Please wait…' : method.channel === 'CASH' ? (offline ? 'Save offline cash sale' : 'Complete sale') : pending ? 'Reopen test checkout' : 'Pay with Paystack (test)'}</Text>
+      <Text style={s.primaryText}>{working ? 'Please wait…' :
+        method.channel === 'CASH' ? (offline ? 'Save offline cash sale' : 'Confirm cash received') :
+        'Confirm business received payment'}</Text>
     </Pressable>
-    {pending && !offline && method.channel !== 'CASH' &&
-      <Pressable style={s.verify} disabled={working} onPress={() => { void verifyTestPayment(); }}>
-        <Text style={s.verifyText}>Verify payment</Text>
-      </Pressable>}
     {!session.scope && <Pressable onPress={() => router.push('/login')} style={s.verify}><Text style={s.verifyText}>Go to sign in</Text></Pressable>}
   </KScreen>;
 }
