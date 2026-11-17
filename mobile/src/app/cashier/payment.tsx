@@ -76,45 +76,66 @@ export default function Payment() {
     });
     store.setPendingSale(saved);
     if (toKobo(Number(saved.total)) !== toKobo(store.total)) {
+      setCashInput('');
       throw new Error('Catalogue prices changed. Review the updated amount and enter cash received again.');
     }
     return saved;
   };
 
-  const finishCash = () => {
-    if (!validCash) {
-      setError('Enter the amount actually received. It must cover the total.');
+  const finishCash = async () => {
+    if (!validCash || working) {
+      setError('Enter the cash actually received. It must cover the total.');
       return;
     }
+    setWorking(true);
+    setError('');
+    let sale: CheckoutSale;
+    try {
+      // Create or recover the sale BEFORE showing a cash confirmation prompt.
+      // Its price may have changed since the cashier selected the products.
+      sale = await prepareSale();
+      const serverDueKobo = toKobo(Number(sale.total));
+      if (toKobo(received) < serverDueKobo) {
+        setCashInput('');
+        throw new Error('The final price is higher than the cash received. Enter the revised amount.');
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not calculate the final amount.');
+      setWorking(false);
+      return;
+    }
+    setWorking(false);
+    const serverDueKobo = toKobo(Number(sale.total));
+    const serverChange = (toKobo(received) - serverDueKobo) / 100;
     Alert.alert(
       'Confirm cash received',
-      'Only continue if you have physically received ' + naira(received) +
-      ' for a total of ' + naira(amountDueKobo / 100) + '. Change: ' + naira(change) +
-      '. This will record the sale as paid and reduce stock in KASSA.',
+      'Please confirm you physically received ' + naira(received) +
+      ' for the final total of ' + naira(serverDueKobo / 100) +
+      '. Change to return: ' + naira(serverChange) +
+      '. Stock will be reduced after confirmation.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Cash received', onPress: () => { void (async () => {
-          setWorking(true); setError('');
+          setWorking(true);
+          setError('');
           try {
-            const sale = await prepareSale();
-            if (toKobo(received) < toKobo(Number(sale.total))) {
-              throw new Error('The server total is higher than the cash received. Enter the correct amount.');
-            }
             const confirmed = await session.request<CheckoutSale>(
               'sales/' + encodeURIComponent(sale.id) + '/confirm-cash',
               { cashReceived: true }
             );
             if (confirmed.status !== 'PAID' || confirmed.payments[0]?.status !== 'SUCCEEDED') {
-              throw new Error('Cash confirmation was not completed on the server.');
+              throw new Error('The cash payment was not confirmed by the server.');
             }
             store.setCompletedPayment({
               sale: confirmed, cashReceived: received,
               change: (toKobo(received) - toKobo(Number(confirmed.total))) / 100,
             });
             router.replace('/cashier/complete');
-          } catch (e) {
-            setError(e instanceof Error ? e.message : 'Unable to confirm cash payment.');
-          } finally { setWorking(false); }
+          } catch (cause) {
+            setError(cause instanceof Error ? cause.message : 'Unable to confirm cash payment.');
+          } finally {
+            setWorking(false);
+          }
         })(); } },
       ]
     );
