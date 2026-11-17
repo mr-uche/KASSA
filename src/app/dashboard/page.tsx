@@ -56,6 +56,10 @@ export default function DashboardPage() {
   const [salesError, setSalesError] = useState("");
   const [canViewSales, setCanViewSales] = useState<boolean | null>(null);
   const [canManageCustomers, setCanManageCustomers] = useState(false);
+  const [canManageInventory, setCanManageInventory] = useState(false);
+  const [canViewProfit, setCanViewProfit] = useState(false);
+  const [profit, setProfit] = useState<{ estimatedGrossProfit: string | null; missingCostUnits: number } | null>(null);
+  const [profitError, setProfitError] = useState("");
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
       .then((response) => response.ok ? response.json() : null)
@@ -80,6 +84,8 @@ export default function DashboardPage() {
         if (cancelled) return;
         setCanViewSales(hasBusinessAccess(current, "Manage sales & transactions"));
         setCanManageCustomers(hasBusinessAccess(current, "Manage customers"));
+        setCanManageInventory(hasBusinessAccess(current, "Manage products & inventory"));
+        setCanViewProfit(hasBusinessAccess(current, "View reports & analytics"));
         if (cancelled) return;
         setBranches(activeBranches);
         if (!activeBranches.length) {
@@ -136,13 +142,35 @@ export default function DashboardPage() {
     };
   }, [canViewSales]);
 
+  useEffect(() => {
+    if (!canViewProfit) { setProfit(null); setProfitError(""); return; }
+    let live = true;
+    const loadProfit = async () => {
+      if (!live) return;
+      setProfit(null); setProfitError("");
+      try {
+        const context = await getInventoryContext();
+        const query = new URLSearchParams({ businessId: context.businessId, branchId: context.branchId });
+        const response = await fetch("/api/reports/profit-today?" + query.toString(), { cache: "no-store" });
+        const data: unknown = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(response.status === 403 ? "Access denied" : "Profit estimate unavailable");
+        if (!data || typeof data !== "object" || !("estimatedGrossProfit" in data)) throw new Error("Invalid profit response");
+        if (live) setProfit(data as { estimatedGrossProfit: string | null; missingCostUnits: number });
+      } catch (cause) {
+        if (live) setProfitError(cause instanceof Error ? cause.message : "Profit unavailable");
+      }
+    };
+    void loadProfit();
+    window.addEventListener("branchChanged", loadProfit);
+    return () => { live = false; window.removeEventListener("branchChanged", loadProfit); };
+  }, [canViewProfit]);
+
   const today = new Date().toDateString();
   const salesToday = sales
     .filter((sale) => sale.status === "PAID" &&
       !sale.payments.some((payment) => payment.provider === "PAYSTACK_TEST") &&
       new Date(sale.createdAt).toDateString() === today)
     .reduce((sum, sale) => sum + Number(sale.total), 0);
-  const failedPayments = sales.filter((sale) => sale.payments.some((p) => p.status === "FAILED")).length;
   const transactions = sales.slice(0, 6).map((sale) => ({
     id: sale.id,
     customer: sale.customer,
@@ -284,11 +312,13 @@ export default function DashboardPage() {
             />
 
             <StatCard
-              title="Failed payments"
-              value={canViewSales ? String(failedPayments) : "Restricted"}
-              subtitle={canViewSales ? "Recorded failures" : "Sales permission required"}
-              valueClass="text-[#B82E2E]"
-              subtitleClass="text-[#C73737]"
+              title="Estimated gross profit"
+              value={!canViewProfit ? "Restricted"
+                : profitError ? "Unavailable" : !profit ? "Loading…"
+                : profit.estimatedGrossProfit === null ? "—" : formatNaira(profit.estimatedGrossProfit)}
+              subtitle={!canViewProfit ? "Reports permission required"
+                : profitError || (profit?.missingCostUnits ? "Enter missing product costs" : "Based on current cost prices")}
+              subtitleClass="text-[#70798A]"
             />
 
             <StatCard
@@ -305,7 +335,7 @@ export default function DashboardPage() {
               Quick actions
             </h2>
 
-           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {/* New sale */}
               {canViewSales && <Link
                 href="/sales/new"
@@ -337,7 +367,16 @@ export default function DashboardPage() {
               </Link>}
 
               {/* Customers */}
-              {canManageCustomers && <Link
+              {canManageInventory && <Link
+                 href="/products/add"
+                 className="flex h-[72px] w-full flex-col items-center justify-center rounded-[9px] border border-[#D2D7DE] bg-white text-[#182033] transition hover:bg-[#F8FAFA]"
+               >
+                 <div className="flex items-center gap-2 text-[14px] font-semibold">
+                   <Plus size={17} /> Add product
+                 </div>
+                 <span className="mt-1 text-[11px] text-[#70798A]">Create in inventory</span>
+               </Link>}
+               {canManageCustomers && <Link
                 href="/customers"
                 className="flex h-[72px] w-full flex-col items-center justify-center rounded-[9px] border border-[#D2D7DE] bg-white text-[#182033] transition hover:bg-[#F8FAFA] sm:w-auto sm:min-w-[164px]"
               >
@@ -350,7 +389,7 @@ export default function DashboardPage() {
                   Manage records
                 </span>
               </Link>}
-              {canViewSales === false && !canManageCustomers && (
+              {canViewSales === false && !canManageCustomers && !canManageInventory && (
                 <p className="col-span-full text-sm text-gray-500">No quick actions are assigned to this role.</p>
               )}
             </div>
