@@ -72,6 +72,42 @@ async function http<T>(path: string, token?: string, body?: unknown): Promise<T>
   return result as T;
 }
 
+export type MerchantRegistration = {
+  fullName: string;
+  email: string;
+  password: string;
+  phone?: string;
+  businessName: string;
+  businessType: string;
+  branchName: string;
+};
+
+// The server's existing registration and onboarding endpoints are authoritative.
+// Do not send KASSA passwords to any third-party identity provider.
+export async function registerMerchantUser(details: MerchantRegistration): Promise<void> {
+  await http('auth/register', undefined, {
+    fullName: details.fullName.trim(),
+    email: details.email.trim().toLowerCase(),
+    password: details.password,
+    ...(details.phone?.trim() ? { phone: details.phone.trim() } : {}),
+  });
+}
+
+// Can be retried after a network interruption without creating another account
+// or another business for the same owner.
+export async function onboardMerchantBusiness(details: MerchantRegistration): Promise<void> {
+  const signedIn = await http<LoginResponse>('auth/login', undefined, {
+    email: details.email.trim().toLowerCase(), password: details.password, rememberMe: false,
+  });
+  const existing = await http<Business[]>('businesses/mine', signedIn.accessToken);
+  if (existing.length > 0) return;
+  await http('businesses/onboarding', signedIn.accessToken, {
+    businessName: details.businessName.trim(),
+    businessType: details.businessType.trim(),
+    branches: [{ name: details.branchName.trim() || 'Main Branch' }],
+  });
+}
+
 type Session = {
   user: Account | null;
   scope: KassaScope | null;
