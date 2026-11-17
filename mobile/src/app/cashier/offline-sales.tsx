@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useKassaSession, type CatalogItem } from '@/components/kassa-demo/api';
-import { C, naira } from '@/components/kassa-demo/theme';
+import { C, naira, toKobo } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 import {
   cacheOfflineCatalog, getOfflineSales, loadOfflineCatalogue,
@@ -12,6 +12,8 @@ import {
 
 export default function OfflineSales() {
   const session = useKassaSession();
+  const router = useRouter();
+  const { savedRef } = useLocalSearchParams<{ savedRef?: string }>();
   const [products, setProducts] = useState<CachedProduct[]>([]);
   const [cachedAt, setCachedAt] = useState<number | null>(null);
   const [history, setHistory] = useState<OfflineCashRecord[]>([]);
@@ -83,9 +85,13 @@ export default function OfflineSales() {
   }, [products, query]);
 
   const count = Object.values(selected).reduce((sum, n) => sum + n, 0);
-  const total = products.reduce((sum, item) => sum + (selected[item.id] ?? 0) * Number(item.price), 0);
-  const received = Number(cash.replace(/,/g, ''));
-  const validCash = count > 0 && cash.trim() !== '' && Number.isFinite(received) && received >= total;
+  const total = products.reduce((sum, item) =>
+    sum + toKobo(Number(item.price)) * (selected[item.id] ?? 0), 0) / 100;
+  const cashText = cash.replace(/,/g, '').trim();
+  const validMoney = /^(?:0|[1-9][0-9]{0,11})(?:[.][0-9]{1,2})?$/.test(cashText);
+  const received = validMoney ? Number(cashText) : 0;
+  const validCash = count > 0 && validMoney && Number.isSafeInteger(toKobo(received)) &&
+    toKobo(received) >= toKobo(total);
   const outdated = !cachedAt || Date.now() - cachedAt > 48 * 60 * 60 * 1000;
   const pending = history.filter(item => item.status === 'QUEUED');
   const reviews = history.filter(item => item.status === 'REVIEW');
@@ -173,7 +179,7 @@ export default function OfflineSales() {
     <Text style={s.info}>{session.scope?.branchName} · Cash only</Text>
     <View style={s.banner}>
       <Text style={s.bannerTitle}>Saved locally until verified</Text>
-      <Text style={s.info}>Do not treat queued payments as cloud sales. Transfer, Card and POS must be verified online.</Text>
+      <Text style={s.info}>Queued cash stays on this phone until synced. Transfers, Card and POS must be verified online. Reconnect and sync within 8 days.</Text>
     </View>
     <View style={s.stats}>
       <View style={s.stat}><Text style={s.number}>{pending.length}</Text><Text style={s.info}>Queued</Text></View>
@@ -196,6 +202,14 @@ export default function OfflineSales() {
           { text: 'Cancel', style: 'cancel' },
           { text: 'Retry reviewed sales', onPress: () => { void sync(true); } },
         ])}><Text style={s.reviewText}>{reviews.length} sale(s) need reconciliation</Text></Pressable>}
+    {typeof savedRef === 'string' && <View style={s.banner}>
+      <Text style={s.bannerTitle}>Cash saved on this phone</Text>
+      <Text style={s.info}>Local reference #{savedRef.slice(0, 8).toUpperCase()}. This is not yet a cloud-confirmed sale. Your record remains below until synchronized.</Text>
+    </View>}
+    <Pressable accessibilityRole="button" onPress={() => router.push('/cashier/scan-product')}
+      style={s.scanEntry}>
+      <Text style={s.scanEntryText}>Scan a barcode in New Sale (works offline)</Text>
+    </Pressable>
     {notice ? <Text style={s.notice}>{notice}</Text> : null}
     {error ? <Text style={s.error}>{error}</Text> : null}
 
@@ -249,6 +263,8 @@ const s = StyleSheet.create({
   stat: { flex: 1, backgroundColor: C.white, padding: 15, borderColor: C.border, borderWidth: 1, borderRadius: 11 },
   number: { fontSize: 25, fontWeight: '800', color: C.green },
   actions: { flexDirection: 'row', gap: 11, marginTop: 14 },
+  scanEntry: { padding: 13, borderRadius: 9, borderWidth: 1, borderColor: C.green, marginTop: 15 },
+  scanEntryText: { color: C.green, fontWeight: '800', fontSize: 14, textAlign: 'center' },
   outline: { flex: 1, borderWidth: 1, borderColor: C.green, borderRadius: 10, paddingVertical: 14, alignItems: 'center', backgroundColor: C.white },
   outlineText: { color: C.green, fontSize: 14, fontWeight: '800' },
   primary: { flex: 1, backgroundColor: C.green, borderRadius: 10, minHeight: 48, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' },
