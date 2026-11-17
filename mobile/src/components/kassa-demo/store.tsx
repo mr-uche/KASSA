@@ -116,10 +116,13 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
     setPaymentMethod('Cash');
   };
 
-  const total = useMemo(() => lines.reduce((sum, line) => {
-    const product = catalog.find(item => item.id === line.id);
-    return sum + (product?.price ?? 0) * line.quantity;
-  }, 0), [lines, catalog]);
+  const total = useMemo(() => {
+    const totalKobo = lines.reduce((sum, line) => {
+      const product = catalog.find(item => item.id === line.id);
+      return sum + toKobo(product?.price ?? 0) * line.quantity;
+    }, 0);
+    return totalKobo / 100;
+  }, [lines, catalog]);
   const count = lines.reduce((sum, line) => sum + line.quantity, 0);
 
   return <DemoContext.Provider value={{
