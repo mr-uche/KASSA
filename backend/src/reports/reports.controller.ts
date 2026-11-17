@@ -2,7 +2,7 @@ import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AccessTokenGuard, type AuthenticatedRequest } from '../auth/access-token.guard';
 import { ReportsService } from './reports.service';
-import { ReportsQueryDto } from './dto/reports-query.dto';
+import { ProfitTodayQueryDto, ReportsQueryDto } from './dto/reports-query.dto';
 
 @ApiTags('Reports & Analytics')
 @ApiBearerAuth()
@@ -10,6 +10,12 @@ import { ReportsQueryDto } from './dto/reports-query.dto';
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reports: ReportsService) {}
+
+  @Get('profit-today')
+  @ApiOperation({ summary: 'Permission-gated estimated gross profit for current Lagos day' })
+  profitToday(@Req() req: AuthenticatedRequest, @Query() query: ProfitTodayQueryDto) {
+    return this.reports.profitToday(req.userId, query.businessId, query.branchId);
+  }
 
   @Get('summary')
   @ApiOperation({
