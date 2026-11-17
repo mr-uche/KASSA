@@ -5,15 +5,16 @@ import { receiptQrDataUrl } from './receipt-qr';
 
 export function receiptMethod(channel: string): string {
   if (channel === 'CASH') return 'Cash';
-  if (channel === 'CARD') return 'Card (Paystack test)';
-  if (channel === 'BANK_TRANSFER') return 'Transfer (Paystack test)';
+  if (channel === 'CARD') return 'Card / POS';
+  if (channel === 'POS') return 'POS terminal';
+  if (channel === 'BANK_TRANSFER') return 'Bank transfer';
   return channel.replaceAll('_', ' ');
 }
 
 export function receiptText(payment: CompletedPayment): string {
   const { sale, cashReceived, change } = payment;
   const channel = sale.payments[0]?.channel ?? '';
-  const test = channel !== 'CASH';
+  const test = sale.payments.some(p => p.provider === 'PAYSTACK_TEST');
   return [
     'KASSA — ' + (test ? 'TEST RECEIPT' : 'SALE RECEIPT'),
     'Reference: ' + sale.reference,
@@ -27,7 +28,8 @@ export function receiptText(payment: CompletedPayment): string {
       'Cash received: ' + naira(cashReceived),
       'Change given: ' + naira(change),
     ]),
-    test ? 'PAYSTACK TEST MODE — Not proof of a live charge.' : 'Cash receipt confirmed by KASSA.',
+    test ? 'PAYSTACK TEST MODE — Not proof of a live charge.' :
+      'Payment recorded as received by merchant staff. KASSA did not handle or independently verify customer funds.',
   ].join('\n');
 }
 
@@ -39,7 +41,7 @@ function escapeHtml(value: string): string {
 export function receiptHtml(payment: CompletedPayment): string {
   const { sale, cashReceived, change } = payment;
   const channel = sale.payments[0]?.channel ?? '';
-  const test = channel !== 'CASH';
+  const test = sale.payments.some(p => p.provider === 'PAYSTACK_TEST');
   const qrDataUrl = receiptQrDataUrl(sale);
   const rows = sale.items.map(item => '<tr><td>' + escapeHtml(item.name) +
     '<div class="small">' + item.quantity + ' × ' + naira(Number(item.unitPrice)) +
@@ -65,7 +67,8 @@ export function receiptHtml(payment: CompletedPayment): string {
     '<div class="qrinfo"><p><strong>Scan for receipt details</strong></p>' +
     '<p class="ref">' + escapeHtml(sale.reference) + '</p>' +
     '<p class="hint">Reference only. Verify payments with the merchant.</p></div></div>' +
-    '<footer>' + (test ? 'Test mode only. No live Paystack charge was made.' : 'Confirmed cash sale.') +
+    '<footer>' + (test ? 'Test mode only. No live Paystack charge was made.' :
+      'Payment recorded as received by merchant staff. KASSA did not process customer funds.') +
     '</footer></body></html>';
 }
 
