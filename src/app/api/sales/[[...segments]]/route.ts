@@ -20,7 +20,7 @@ async function handler(request: NextRequest, context: Context, method: "GET" | "
   const path = pathFrom(segments);
   if (!path || (method === "GET" && segments.length === 2))
     return NextResponse.json({ message: "Not found" }, { status: 404 });
-  if (method === "POST" && !(segments.length === 0 || (segments.length === 1 && segments[0] === "offline-sync") || (segments.length === 2 && segments[1] === "confirm-cash")))
+  if (method === "POST" && !(segments.length === 0 || (segments.length === 1 && segments[0] === "offline-sync") || (segments.length === 2 && ["confirm-cash", "confirm-merchant-payment"].includes(segments[1]))))
     return NextResponse.json({ message: "Not found" }, { status: 404 });
 
   let body: unknown;
