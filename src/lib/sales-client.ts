@@ -58,6 +58,15 @@ export function confirmCash(id: string): Promise<SavedSale> {
     cashReceived: true,
   });
 }
+
+/** Cashier verifies the business received money directly; not a bank API check. */
+export function confirmMerchantPayment(id: string, verificationNote: string, externalReference?: string): Promise<SavedSale> {
+  return kassaPost<SavedSale>("/api/sales/" + encodeURIComponent(id) + "/confirm-merchant-payment", {
+    confirmedReceived: true,
+    verificationNote,
+    ...(externalReference?.trim() ? { externalReference: externalReference.trim() } : {}),
+  });
+}
 export function saleStatusLabel(status: SavedSale["status"]) {
   if (status === "PAID") return "Success";
   if (status === "PENDING_PAYMENT" || status === "DRAFT") return "Pending";
