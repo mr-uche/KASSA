@@ -56,7 +56,7 @@ export default function PaymentSuccessfulContent() {
                 <h2 className="text-xl font-semibold text-gray-900">{paid ? "Payment confirmed" : "Payment not yet verified"}</h2>
                 <p className="mt-3 text-sm text-gray-500">
                   {paid
-                    ? "The sale is recorded as paid, and its inventory movement has been saved."
+                    ? "The cashier recorded that the business received payment, and the inventory movement has been saved. KASSA does not process customer money."
                     : "This sale is still pending. A receipt is available only after confirmed payment."}
                 </p>
                 <p className="mt-5 text-2xl font-bold text-emerald-700">{formatNaira(sale.total)}</p>
