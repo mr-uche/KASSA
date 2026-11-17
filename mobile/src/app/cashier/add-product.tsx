@@ -164,7 +164,7 @@ const s = StyleSheet.create({
   subtitle: { color: C.muted, fontSize: 14, marginBottom: 22 },
   label: { color: C.title, fontSize: 14, fontWeight: '800', marginTop: 13, marginBottom: 8 },
   input: { minHeight: 51, backgroundColor: C.white, borderColor: C.border, borderWidth: 1, borderRadius: 9, paddingHorizontal: 13, fontSize: 14, color: C.title, marginBottom: 5 },
-  hint: { color: C.muted, fontSize: 12, marginBottom: 7 },
+  hint: { color: C.muted, fontSize: 14, marginBottom: 7 },
   categories: { flexDirection: 'row', gap: 8, paddingBottom: 6 },
   category: { borderColor: C.border, borderWidth: 1, borderRadius: 19, paddingVertical: 10, paddingHorizontal: 13, backgroundColor: C.white },
   categoryActive: { backgroundColor: C.green, borderColor: C.green },
