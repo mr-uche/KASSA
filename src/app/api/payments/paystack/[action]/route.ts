@@ -13,6 +13,9 @@ export async function POST(request: NextRequest, context: Context) {
   if (invalid) return invalid;
   const { action } = await context.params;
   if (!allowed.has(action)) return NextResponse.json({ message: "Not found" }, { status: 404 });
+  if (action === "initialize") return NextResponse.json({
+    message: "Customer payments are made directly to the merchant. Paystack checkout is not available for sales.",
+  }, { status: 410 });
 
   let body: unknown;
   try { body = await request.json(); }
