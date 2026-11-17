@@ -1,0 +1,245 @@
+import React, { useCallback, useMemo, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { useKassaSession, type CatalogItem } from '@/components/kassa-demo/api';
+import { C, naira } from '@/components/kassa-demo/theme';
+import { KScreen } from '@/components/kassa-demo/ui';
+import {
+  cacheOfflineCatalog, getOfflineSales, loadOfflineCatalogue,
+  recordOfflineCash, syncOfflineCash,
+  type CachedProduct, type OfflineCashRecord, type OfflineScope,
+} from '@/components/kassa-demo/offline-cash';
+
+export default function OfflineSales() {
+  const session = useKassaSession();
+  const [products, setProducts] = useState<CachedProduct[]>([]);
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
+  const [history, setHistory] = useState<OfflineCashRecord[]>([]);
+  const [selected, setSelected] = useState<Record<string, number>>({});
+  const [query, setQuery] = useState('');
+  const [cash, setCash] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const scope: OfflineScope | null = session.user && session.scope ? {
+    userId: session.user.id,
+    businessId: session.scope.businessId,
+    branchId: session.scope.branchId,
+  } : null;
+
+  const load = useCallback(async (isCurrent: () => boolean = () => true) => {
+    if (!scope) return;
+    try {
+      const [cached, records] = await Promise.all([
+        loadOfflineCatalogue(scope), getOfflineSales(scope),
+      ]);
+      if (isCurrent()) {
+        setProducts(cached.products);
+        setCachedAt(cached.savedAt);
+        setHistory(records);
+      }
+    } catch (cause) {
+      if (isCurrent()) setError(cause instanceof Error ? cause.message : 'Offline data unavailable.');
+    }
+  }, [scope?.userId, scope?.businessId, scope?.branchId]);
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setSelected({});
+    setCash('');
+    void load(() => active);
+    return () => { active = false; };
+  }, [load]));
+
+  const displayed = useMemo(() => {
+    const value = query.trim().toLowerCase();
+    return products.filter(item => !value ||
+      [item.name, item.sku, item.barcode ?? ''].some(text => text.toLowerCase().includes(value)));
+  }, [products, query]);
+
+  const count = Object.values(selected).reduce((sum, n) => sum + n, 0);
+  const total = products.reduce((sum, item) => sum + (selected[item.id] ?? 0) * Number(item.price), 0);
+  const received = Number(cash.replace(/,/g, ''));
+  const validCash = count > 0 && cash.trim() !== '' && Number.isFinite(received) && received >= total;
+  const outdated = !cachedAt || Date.now() - cachedAt > 48 * 60 * 60 * 1000;
+  const pending = history.filter(item => item.status === 'QUEUED');
+  const reviews = history.filter(item => item.status === 'REVIEW');
+
+  const refreshCatalogue = async () => {
+    if (!scope || busy) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const catalog = await session.request<CatalogItem[]>(
+        'sales/catalog?businessId=' + encodeURIComponent(scope.businessId) +
+        '&branchId=' + encodeURIComponent(scope.branchId));
+      if (!Array.isArray(catalog)) throw new Error('Invalid catalogue returned.');
+      await cacheOfflineCatalog(scope, catalog);
+      setSelected({});
+      await load();
+      setNotice('Latest prices and stock are saved on this phone for this cashier and branch.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Connect to the internet before refreshing products.');
+    } finally { setBusy(false); }
+  };
+
+  const record = async () => {
+    if (!scope || !validCash || busy) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const items = Object.entries(selected)
+        .filter(([, quantity]) => quantity > 0)
+        .map(([productId, quantity]) => ({ productId, quantity }));
+      const sale = await recordOfflineCash(scope, items, received);
+      setSelected({});
+      setCash('');
+      await load();
+      setNotice('Cash recorded on THIS phone: ' + naira(Number(sale.total)) +
+        '. Local reference: ' + sale.id.slice(0, 8).toUpperCase() +
+        '. Awaiting sync. Do not collect this payment again.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save offline cash. Do not collect again.');
+    } finally { setBusy(false); }
+  };
+
+  const sync = async (review = false) => {
+    if (!scope || busy) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const result = await syncOfflineCash(scope, session.request, review);
+      if (result.synced) {
+        try {
+          const catalog = await session.request<CatalogItem[]>(
+            'sales/catalog?businessId=' + encodeURIComponent(scope.businessId) +
+            '&branchId=' + encodeURIComponent(scope.branchId));
+          await cacheOfflineCatalog(scope, catalog);
+        } catch { /* The queue still has server-confirmed results. */ }
+      }
+      await load();
+      setNotice(result.synced + ' synced, ' + result.review +
+        ' need reconciliation, ' + result.remaining + ' unsynced.');
+      if (result.remaining && !result.synced) setError('Some sales remain on this phone. Check internet and review the queue.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Sync failed. No records were deleted.');
+    } finally { setBusy(false); }
+  };
+
+  const confirm = () => {
+    if (!validCash || busy) return;
+    Alert.alert('Confirm cash collected', 'Confirm you received ' + naira(received) +
+      '. This saves a LOCAL record only, not a cloud receipt. It will sync when the server accepts it.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Cash received — save', onPress: () => { void record(); } },
+    ]);
+  };
+
+  const updateQty = (item: CachedProduct, delta: number) => {
+    setSelected(previous => ({
+      ...previous,
+      [item.id]: Math.max(0, Math.min(item.stock, (previous[item.id] ?? 0) + delta)),
+    }));
+  };
+
+  if (!scope) return <KScreen title="Offline cash sales" back showBrand={false} showPreviewLabel={false}>
+    <Text style={s.info}>Sign in online and choose a branch before recording offline cash sales.</Text>
+  </KScreen>;
+
+  return <KScreen showBrand={false} showPreviewLabel={false} back>
+    <Text style={s.title}>Offline cash sales</Text>
+    <Text style={s.info}>{session.scope?.branchName} · Cash only</Text>
+    <View style={s.banner}>
+      <Text style={s.bannerTitle}>Saved locally until verified</Text>
+      <Text style={s.info}>Do not treat queued payments as cloud sales. Transfer, Card and POS must be verified online.</Text>
+    </View>
+    <View style={s.stats}>
+      <View style={s.stat}><Text style={s.number}>{pending.length}</Text><Text style={s.info}>Queued</Text></View>
+      <View style={s.stat}><Text style={s.number}>{reviews.length}</Text><Text style={s.info}>Needs review</Text></View>
+    </View>
+    <Text style={s.info}>Stock last cached: {cachedAt ? new Date(cachedAt).toLocaleString('en-NG') : 'Not available'}</Text>
+    {outdated && <Text style={s.error}>Connect and refresh: offline stock must be less than 48 hours old.</Text>}
+    <View style={s.actions}>
+      <Pressable accessibilityRole="button" disabled={busy} onPress={() => { void refreshCatalogue(); }} style={s.outline}>
+        <Text style={s.outlineText}>Refresh stock</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" disabled={busy || (!pending.length && !reviews.length)}
+        onPress={() => { void sync(); }} style={s.primary}>
+        <Text style={s.primaryText}>Sync queued</Text>
+      </Pressable>
+    </View>
+    {reviews.length > 0 && <Pressable accessibilityRole="button" style={s.review}
+      onPress={() => Alert.alert('Owner reconciliation needed',
+        'These cash payments were already collected. Review inventory or price conflicts with your manager before retrying.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Retry reviewed sales', onPress: () => { void sync(true); } },
+        ])}><Text style={s.reviewText}>{reviews.length} sale(s) need reconciliation</Text></Pressable>}
+    {notice ? <Text style={s.notice}>{notice}</Text> : null}
+    {error ? <Text style={s.error}>{error}</Text> : null}
+
+    <Text style={s.heading}>New offline sale</Text>
+    <TextInput value={query} onChangeText={setQuery} placeholder="Search saved products / barcode"
+      placeholderTextColor={C.faint} style={s.input}/>
+    {!products.length && <Text style={s.info}>Connect online and use Refresh stock before your first offline sale.</Text>}
+    {displayed.slice(0, 80).map(item => <View key={item.id} style={s.product}>
+      <View style={{ flex: 1 }}>
+        <Text style={s.name}>{item.name}</Text>
+        <Text style={s.info}>{naira(Number(item.price))} · {item.stock} locally available</Text>
+      </View>
+      <Pressable accessibilityRole="button" onPress={() => updateQty(item, -1)}
+        disabled={!selected[item.id] || busy} style={s.qtyButton}><Text style={s.qtyText}>−</Text></Pressable>
+      <Text style={s.qty}>{selected[item.id] ?? 0}</Text>
+      <Pressable accessibilityRole="button" onPress={() => updateQty(item, 1)}
+        disabled={outdated || busy || (selected[item.id] ?? 0) >= item.stock}
+        style={s.qtyButton}><Text style={s.qtyText}>+</Text></Pressable>
+    </View>)}
+
+    <View style={s.checkout}>
+      <View style={s.totalRow}><Text style={s.heading}>{count} items</Text><Text style={s.total}>{naira(total)}</Text></View>
+      <Text style={s.name}>Cash actually received (₦)</Text>
+      <TextInput value={cash} onChangeText={setCash} keyboardType="decimal-pad"
+        placeholder="Enter cash received" placeholderTextColor={C.faint} style={s.input}/>
+      {validCash && <Text style={s.info}>Change: {naira(received - total)}</Text>}
+      <Pressable accessibilityRole="button" disabled={busy || outdated || !validCash}
+        onPress={confirm} style={[s.primary, { marginTop: 15 }, (busy || outdated || !validCash) && { opacity: 0.5 }]}>
+        <Text style={s.primaryText}>{busy ? 'Saving…' : 'Confirm collected cash and save'}</Text>
+      </Pressable>
+    </View>
+    <Text style={s.heading}>Recent offline records</Text>
+    {!history.length && <Text style={s.info}>No offline sales on this phone.</Text>}
+    {history.slice(0, 25).map(item => <View key={item.id} style={s.record}>
+      <View style={{ flex: 1 }}><Text style={s.name}>#{item.id.slice(0, 8).toUpperCase()}</Text>
+        <Text style={s.info}>{new Date(item.recordedAt).toLocaleString('en-NG')} · {item.status}</Text>
+        {item.error ? <Text style={s.error}>{item.error}</Text> : null}</View>
+      <Text style={s.name}>{naira(Number(item.total))}</Text>
+    </View>)}
+    <Text style={s.info}>Offline cash supports a previously signed-in cashier with a recent stock cache. Keep the device and its local data safe until all cash is synchronized.</Text>
+  </KScreen>;
+}
+
+const s = StyleSheet.create({
+  title: { fontSize: 28, color: C.title, fontWeight: '800', marginBottom: 5 },
+  heading: { fontSize: 20, color: C.title, fontWeight: '800', marginTop: 23, marginBottom: 13 },
+  info: { color: C.muted, fontSize: 14, lineHeight: 21 },
+  banner: { backgroundColor: '#FFF7EB', borderColor: '#F8D8AD', borderWidth: 1, borderRadius: 11, padding: 14, marginTop: 19 },
+  bannerTitle: { color: C.orange, fontSize: 16, fontWeight: '800', marginBottom: 5 },
+  stats: { flexDirection: 'row', gap: 12, marginTop: 19, marginBottom: 13 },
+  stat: { flex: 1, backgroundColor: C.white, padding: 15, borderColor: C.border, borderWidth: 1, borderRadius: 11 },
+  number: { fontSize: 25, fontWeight: '800', color: C.green },
+  actions: { flexDirection: 'row', gap: 11, marginTop: 14 },
+  outline: { flex: 1, borderWidth: 1, borderColor: C.green, borderRadius: 10, paddingVertical: 14, alignItems: 'center', backgroundColor: C.white },
+  outlineText: { color: C.green, fontSize: 14, fontWeight: '800' },
+  primary: { flex: 1, backgroundColor: C.green, borderRadius: 10, minHeight: 48, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' },
+  primaryText: { color: C.white, fontSize: 14, fontWeight: '800', textAlign: 'center' },
+  review: { padding: 14, backgroundColor: '#FFF7EB', borderRadius: 9, marginTop: 13 },
+  reviewText: { color: C.orange, fontWeight: '800', fontSize: 14 },
+  notice: { color: C.greenDark, fontSize: 14, marginVertical: 13 },
+  error: { color: C.danger, fontSize: 14, marginVertical: 10, lineHeight: 20 },
+  input: { marginTop: 10, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 9, fontSize: 14, color: C.title, minHeight: 50, paddingHorizontal: 12 },
+  product: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 9, padding: 11, marginBottom: 9, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  name: { color: C.title, fontWeight: '700', fontSize: 14 },
+  qtyButton: { backgroundColor: C.mint, borderRadius: 7, width: 32, height: 34, justifyContent: 'center', alignItems: 'center' },
+  qtyText: { fontSize: 20, fontWeight: '800', color: C.green, textAlign: 'center' },
+  qty: { fontSize: 14, fontWeight: '800', color: C.title, width: 20, textAlign: 'center' },
+  checkout: { marginTop: 18, padding: 15, borderColor: C.border, borderWidth: 1, backgroundColor: C.white, borderRadius: 12 },
+  totalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  total: { color: C.green, fontSize: 23, fontWeight: '800' },
+  record: { flexDirection: 'row', gap: 10, backgroundColor: C.white, borderColor: C.border, borderBottomWidth: 1, padding: 11 },
+});
