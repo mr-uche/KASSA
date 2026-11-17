@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -8,6 +8,7 @@ import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api'
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira, toKobo } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
+import { recordOfflineCash } from '@/components/kassa-demo/offline-cash';
 
 const methods = [
   { name: 'Cash', channel: 'CASH', detail: 'Confirm after collecting cash' },
@@ -37,6 +38,12 @@ export default function Payment() {
   const method = methods.find(item => item.name === store.paymentMethod) ?? methods[0];
   const pending = store.pendingSale;
   const locked = pending !== null;
+  const offline = store.offlineMode;
+  const cacheFresh = !!store.catalogSavedAt &&
+    Date.now() - store.catalogSavedAt <= 48 * 60 * 60 * 1000;
+  useEffect(() => {
+    if (offline && !pending && store.paymentMethod !== 'Cash') store.setPaymentMethod('Cash');
+  }, [offline, pending, store.paymentMethod, store.setPaymentMethod]);
   // Once the sale exists, the backend amount is authoritative.
   const amountDueKobo = toKobo(pending ? Number(pending.total) : store.total);
   const enteredCash = cashInput.replace(/,/g, '').trim();
@@ -58,6 +65,7 @@ export default function Payment() {
 
   const prepareSale = async (): Promise<CheckoutSale> => {
     if (!session.scope || !session.user) throw new Error('Sign in and select an assigned branch first.');
+    if (offline && !pending) throw new Error('Offline sales must be recorded on this phone before synchronizing.');
     if (pending) {
       if (pending.payments[0]?.channel !== method.channel)
         throw new Error('This pending sale uses another payment method. Verify it before starting another.');
@@ -85,6 +93,47 @@ export default function Payment() {
   const finishCash = async () => {
     if (!validCash || working) {
       setError('Enter the cash actually received. It must cover the total.');
+      return;
+    }
+    if (offline) {
+      if (pending) {
+        setError('This online sale is already pending. Reconnect and verify it; do not record it again offline.');
+        return;
+      }
+      if (!cacheFresh || !session.user || !session.scope) {
+        setError('Offline product data must be downloaded within the last 48 hours. Reconnect and refresh stock first.');
+        return;
+      }
+      if (!store.count || orderItems.length !== store.lines.length) {
+        setError('Some products in this sale are missing from the saved catalogue.');
+        return;
+      }
+      Alert.alert(
+        'Confirm offline cash',
+        'You received ' + naira(received) + ' for ' + naira(amountDueKobo / 100) +
+        ' (change ' + naira(change) + '). This sale will be stored on THIS PHONE until it can sync. Do not collect cash twice.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Cash collected — save', onPress: () => { void (async () => {
+            setWorking(true);
+            setError('');
+            try {
+              const scope = { userId: session.user!.id, businessId: session.scope!.businessId,
+                branchId: session.scope!.branchId };
+              const saved = await recordOfflineCash(scope,
+                store.lines.map(line => ({ productId: line.id, quantity: line.quantity })), received);
+              store.beginNewSale();
+              await store.refreshCatalog();
+              router.replace({
+                pathname: '/cashier/offline-sales',
+                params: { savedRef: saved.id },
+              });
+            } catch (cause) {
+              setError(cause instanceof Error ? cause.message : 'Could not store offline sale. Do not collect cash again.');
+            } finally { setWorking(false); }
+          })(); } },
+        ]
+      );
       return;
     }
     setWorking(true);
@@ -142,7 +191,7 @@ export default function Payment() {
   };
 
   const openTestCheckout = async () => {
-    if (working) return;
+    if (working || offline) return;
     setWorking(true); setError('');
     try {
       const sale = await prepareSale();
@@ -161,7 +210,7 @@ export default function Payment() {
   };
 
   const verifyTestPayment = async () => {
-    if (!pending || working) return;
+    if (!pending || working || offline) return;
     setWorking(true); setError('');
     try {
       const verified = await session.request<Verification>('payments/paystack/verify', {
@@ -191,6 +240,15 @@ export default function Payment() {
       <View><Text style={s.title}>Payment</Text><Text style={s.subtitle}>Complete customer purchase</Text></View>
     </View>
 
+    {offline && <View style={{ backgroundColor: C.mint, borderWidth: 1, borderColor: C.mintBorder, borderRadius: 10, padding: 13, marginBottom: 15 }}>
+      <Text style={{ color: C.greenDark, fontWeight: '800', fontSize: 14 }}>OFFLINE MODE · Cash only</Text>
+      <Text style={{ color: C.muted, fontSize: 13, lineHeight: 20, marginTop: 4 }}>
+        Barcode lookup and totals use saved branch products. Cash sales are queued locally, not immediately verified by the cloud.
+      </Text>
+      {!cacheFresh && <Text style={{ color: C.danger, fontSize: 13, marginTop: 6 }}>
+        Saved product stock is missing or older than 48 hours. Connect to refresh before accepting cash.
+      </Text>}
+    </View>}
     <Text style={s.sectionTitle}>Order summary</Text>
     <View style={s.summary}>
       {pending ? pending.items.map(item => (
@@ -221,10 +279,10 @@ export default function Payment() {
     {methods.map(item => {
       const selected = method.name === item.name;
       return <Pressable key={item.name} accessibilityRole="button"
-        accessibilityState={{ selected, disabled: locked && !selected }}
-        disabled={locked && !selected}
+        accessibilityState={{ selected, disabled: (locked && !selected) || (offline && item.channel !== 'CASH') }}
+        disabled={(locked && !selected) || (offline && item.channel !== 'CASH')}
         onPress={() => store.setPaymentMethod(item.name)}
-        style={[s.method, selected && s.methodSelected, locked && !selected && { opacity: 0.55 }]}>
+        style={[s.method, selected && s.methodSelected, ((locked && !selected) || (offline && item.channel !== 'CASH')) && { opacity: 0.45 }]}>
         <View style={[s.radio, selected && s.radioSelected]}>{selected && <View style={s.dot} />}</View>
         <View><Text style={s.methodName}>{item.name}</Text><Text style={s.methodDesc}>{item.detail}</Text></View>
       </Pressable>;
@@ -245,17 +303,18 @@ export default function Payment() {
       <View style={s.changeRow}><Text style={s.changeLabel}>Change to customer</Text><Text style={s.changeNumber}>{naira(change)}</Text></View>
     </> : <View style={s.note}><Text style={s.noteText}>Paystack TEST MODE • No real charge. After completing checkout, return here and tap Verify payment.</Text></View>}
 
+    {offline && pending && <Text style={s.error}>This pending online transaction cannot be recorded again offline. Reconnect to complete or verify it.</Text>}
     {!session.scope && <Text style={s.error}>Sign in to KASSA before completing payments.</Text>}
     {error ? <Text style={s.error}>{error}</Text> : null}
     <Pressable
       accessibilityRole="button"
-      disabled={working || !session.scope || !store.count || (method.channel === 'CASH' && !validCash)}
+      disabled={working || !session.scope || !store.count || (offline && (!cacheFresh || !!pending || method.channel !== 'CASH')) || (method.channel === 'CASH' && !validCash)}
       onPress={method.channel === 'CASH' ? finishCash : () => { void openTestCheckout(); }}
-      style={[s.primary, (working || !session.scope || !store.count || (method.channel === 'CASH' && !validCash)) && { opacity: 0.5 }]}
+      style={[s.primary, (working || !session.scope || !store.count || (offline && (!cacheFresh || !!pending || method.channel !== 'CASH')) || (method.channel === 'CASH' && !validCash)) && { opacity: 0.5 }]}
     >
-      <Text style={s.primaryText}>{working ? 'Please wait…' : method.channel === 'CASH' ? 'Complete sale' : pending ? 'Reopen test checkout' : 'Pay with Paystack (test)'}</Text>
+      <Text style={s.primaryText}>{working ? 'Please wait…' : method.channel === 'CASH' ? (offline ? 'Save offline cash sale' : 'Complete sale') : pending ? 'Reopen test checkout' : 'Pay with Paystack (test)'}</Text>
     </Pressable>
-    {pending && method.channel !== 'CASH' &&
+    {pending && !offline && method.channel !== 'CASH' &&
       <Pressable style={s.verify} disabled={working} onPress={() => { void verifyTestPayment(); }}>
         <Text style={s.verifyText}>Verify payment</Text>
       </Pressable>}
