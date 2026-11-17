@@ -66,7 +66,7 @@ export default function SaleReceipt({ sale }: { sale: SavedSale }) {
             <p className="mt-1 text-sm text-gray-500">{merchant.branchName}</p>
           )}
           <p className="mt-3 text-sm font-semibold text-emerald-700">
-            {testPayment ? "PAYSTACK TEST RECEIPT" : "PAYMENT RECEIPT"}
+            {testPayment ? "PAYSTACK TEST RECEIPT" : "MERCHANT SALE RECEIPT"}
           </p>
           {testPayment && (
             <div className="mt-4 rounded-lg border-2 border-amber-500 bg-amber-50 p-3 text-sm font-bold uppercase tracking-wide text-amber-900">
