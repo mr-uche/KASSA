@@ -34,6 +34,12 @@ export class SalesController {
     return this.sales.mine(request.userId, query);
   }
 
+  @Get('receiving-accounts')
+  @ApiOperation({ summary: 'Show business-owned receiving accounts to authorised cashiers at checkout' })
+  receivingAccounts(@Req() request: AuthenticatedRequest, @Query() query: SalesListQueryDto) {
+    return this.sales.merchantReceivingAccounts(request.userId, query);
+  }
+
   @Get('catalog') @ApiOperation({ summary: 'Checkout-safe product catalogue for permitted cashiers' })
   catalog(@Req() request: AuthenticatedRequest, @Query() query: SalesListQueryDto) {
     return this.sales.catalog(request.userId, query);
@@ -47,6 +53,12 @@ export class SalesController {
   one(@Req() request: AuthenticatedRequest, @Param('saleId', ParseUUIDPipe) id: string) {
     return this.sales.getOne(request.userId, id);
   }
+  @Get(':saleId/verification-status')
+  @ApiOperation({ summary: 'Return actual payment record status; bank/POS auto verification is unavailable until connected' })
+  verificationStatus(@Req() request: AuthenticatedRequest, @Param('saleId', ParseUUIDPipe) id: string) {
+    return this.sales.merchantVerificationStatus(request.userId, id);
+  }
+
   @Post(':saleId/confirm-merchant-payment')
   @ApiOperation({ summary: 'Record a cashier attestation of direct merchant bank/POS receipt, with audit trail; KASSA does not verify or hold funds' })
   confirmMerchantPayment(
