@@ -46,8 +46,6 @@ export default function CashierHome() {
   const [error, setError] = useState('');
   const [profit, setProfit] = useState<{ estimatedGrossProfit: string | null; missingCostUnits: number } | null>(null);
   const [profitError, setProfitError] = useState('');
-  const inventoryAllowed = !!scope && (scope.myRole === 'Owner' || scope.myPermissions?.includes('*') ||
-    scope.myPermissions?.includes('Manage products & inventory'));
   const reportsAllowed = !!scope && (scope.myRole === 'Owner' || scope.myPermissions?.includes('*') ||
     scope.myPermissions?.includes('View reports & analytics'));
   const go = (path: string) => router.push(path as Href);
