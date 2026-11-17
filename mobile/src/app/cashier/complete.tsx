@@ -52,7 +52,7 @@ export default function CompletedSale() {
       <Pressable accessibilityRole="button" accessibilityLabel="Return to home" onPress={() => router.replace('/cashier')} style={s.back}>
         <SymbolView name={{ ios: 'arrow.left', android: 'arrow_back', web: 'arrow_back' }} size={20} tintColor={C.green} />
       </Pressable>
-      <View><Text style={s.headerTitle}>Sale complete</Text><Text style={s.headerSub}>{isTest ? 'Paystack test payment verified' : 'Cash receipt confirmed'}</Text></View>
+      <View><Text style={s.headerTitle}>Sale complete</Text><Text style={s.headerSub}>{isTest ? 'Paystack test payment verified' : 'Payment recorded by cashier'}</Text></View>
     </View>
 
     <View style={s.checkCircle}>
