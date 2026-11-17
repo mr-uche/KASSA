@@ -44,6 +44,38 @@ export default function ScanProduct() {
     setFound(null);
     setError('');
     try {
+      if (store.offlineMode) {
+        if (!store.catalogSavedAt) {
+          throw new Error('This branch has no saved catalogue. Reconnect and refresh your products first.');
+        }
+        const normalized = code.toLowerCase();
+        const alternateCodes = [normalized];
+        if (/^[0-9]{12}$/.test(normalized)) alternateCodes.push('0' + normalized);
+        if (/^0[0-9]{12}$/.test(normalized)) alternateCodes.push(normalized.slice(1));
+        const matches = store.catalog.filter(item =>
+          item.sku?.toLowerCase() === normalized ||
+          (item.barcode && alternateCodes.includes(item.barcode.toLowerCase())));
+        if (matches.length > 1) {
+          throw new Error('More than one cached product matches this barcode. Resolve the duplicate online.');
+        }
+        if (!matches.length) {
+          throw new Error('Product is not in the saved catalogue. Connect to refresh products before selling it.');
+        }
+        const cached = matches[0];
+        const alreadySelected = store.lines.find(line => line.id === cached.id)?.quantity ?? 0;
+        if (cached.stock <= alreadySelected) {
+          throw new Error('No more cached stock is available for ' + cached.name + '.');
+        }
+        store.add(cached.id);
+        setFound({
+          id: cached.id, name: cached.name, sku: cached.sku ?? '',
+          barcode: cached.barcode, category: cached.category,
+          price: cached.price.toFixed(2), stock: cached.stock,
+          lowStockThreshold: cached.lowStockThreshold,
+        });
+        setManual('');
+        return;
+      }
       const product = await session.request<CatalogItem>(
         'sales/lookup?businessId=' + encodeURIComponent(scope.businessId) +
         '&branchId=' + encodeURIComponent(scope.branchId) +
@@ -72,10 +104,14 @@ export default function ScanProduct() {
       inFlight.current = false;
     }
   }, [scope?.businessId, scope?.branchId, session.user?.id, session.request,
-      store.pendingSale, store.catalog, store.lines, store.add, store.refreshCatalog]);
+      store.pendingSale, store.catalog, store.lines, store.add, store.refreshCatalog,
+      store.offlineMode, store.catalogSavedAt]);
 
   return <KScreen title="Scan product" subtitle="Scan a product barcode to add it to the current sale."
     showBrand={false} showPreviewLabel={false} back>
+    {store.offlineMode && <View style={s.offlineBanner}>
+      <Text style={s.offlineBannerText}>OFFLINE SCANNER — barcodes are matched against saved branch products. Cash sales are queued until synchronized.</Text>
+    </View>}
     <View style={s.frame}>
       {permission?.granted ? (
         <CameraView
@@ -138,7 +174,7 @@ export default function ScanProduct() {
         <View style={{ flex: 1 }}>
           <Text style={s.foundName}>{found.name}</Text>
           <Text style={s.foundMeta}>{naira(Number(found.price))} · In stock: {found.stock}</Text>
-          <Text style={s.added}>Added to current sale</Text>
+          <Text style={s.added}>{store.offlineMode ? 'Added to offline cash sale' : 'Added to current sale'}</Text>
         </View>
       </View>
       <View style={s.row}>
@@ -154,6 +190,8 @@ export default function ScanProduct() {
 }
 
 const s = StyleSheet.create({
+  offlineBanner: { padding: 12, backgroundColor: C.mint, borderColor: C.mintBorder, borderWidth: 1, borderRadius: 9, marginBottom: 13 },
+  offlineBannerText: { color: C.greenDark, fontSize: 13, lineHeight: 20, fontWeight: '700' },
   frame: { height: 295, borderRadius: 14, overflow: 'hidden', position: 'relative', backgroundColor: '#DDECE5' },
   emptyCamera: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   cameraMessage: { color: C.greenDark, textAlign: 'center', fontSize: 14, marginTop: 13 },
