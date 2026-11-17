@@ -211,7 +211,7 @@ export default function Sales() {
         </Pressable>
       </View>
       {visibleLocal.map(sale => <Pressable key={sale.id} style={s.saleCard}
-        accessibilityRole="button" onPress={() => router.push('/cashier/offline-sales')}>
+        accessibilityRole="button" onPress={() => router.push({ pathname: '/cashier/offline-receipt', params: { id: sale.id } })}>
         <View style={[s.saleIcon, s.pendingIcon]}>
           <SymbolView name={{ ios: 'wifi.slash', android: 'wifi_off', web: 'wifi_off' }}
             size={19} tintColor={C.orange}/>
