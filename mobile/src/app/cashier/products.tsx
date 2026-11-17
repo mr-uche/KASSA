@@ -58,13 +58,13 @@ export default function Products() {
             <SymbolView name={{ ios: 'bag', android: 'shopping_bag', web: 'shopping_bag' }} size={25} tintColor={C.green}/>
           </View>
           <View style={s.details}>
-            <Text numberOfLines={1} style={s.name}>{item.name}</Text>
+            <Text numberOfLines={2} style={s.name}>{item.name}</Text>
             <Text numberOfLines={1} style={s.meta}>{item.sku || 'No SKU'} • {item.stock} in stock</Text>
             {lowStock && <Text style={s.lowStock}>Low stock</Text>}
             {item.stock === 0 && <Text style={s.lowStock}>Out of stock</Text>}
+            <Text style={s.price} accessibilityLabel={'Price ' + naira(item.price)}>{naira(item.price)}</Text>
             {quantity > 0 && <Text style={s.inCart}>{quantity} added to sale</Text>}
           </View>
-          <Text style={s.price}>{naira(item.price)}</Text>
           <Pressable accessibilityRole="button"
             accessibilityLabel={'Add ' + item.name + ' to sale'}
             disabled={outOfStock}
@@ -94,13 +94,13 @@ const s = StyleSheet.create({
   categoryActiveName: { color: C.white },
   groupTitle: { color: C.muted, fontSize: 20, fontWeight: '800', marginTop: 30, marginBottom: 12 },
   products: { gap: 12 },
-  card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 11, padding: 13, flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 94 },
-  productIcon: { width: 54, height: 60, borderRadius: 10, backgroundColor: C.mint, justifyContent: 'center', alignItems: 'center' },
-  details: { flex: 1, minWidth: 0 },
+  card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 11, padding: 13, flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 94, width: '100%', minWidth: 0 },
+  productIcon: { width: 54, height: 60, borderRadius: 10, backgroundColor: C.mint, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
+  details: { flex: 1, minWidth: 0, flexShrink: 1 },
   name: { fontSize: 14, color: C.title, fontWeight: '800' },
   meta: { fontSize: 14, color: C.muted, marginTop: 4 },
-  price: { color: C.title, fontSize: 14, fontWeight: '800' },
-  add: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
+  price: { color: C.title, fontSize: 17, fontWeight: '800', marginTop: 6, flexShrink: 1, flexWrap: 'wrap' },
+  add: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   addDisabled: { opacity: 0.4 },
   lowStock: { color: C.orange, fontSize: 14, marginTop: 3, fontWeight: '700' },
   inCart: { color: C.green, fontSize: 14, marginTop: 4, fontWeight: '700' },

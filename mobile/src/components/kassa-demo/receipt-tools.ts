@@ -49,8 +49,10 @@ export function receiptHtml(payment: CompletedPayment): string {
     'h1{text-align:center;color:#0F6E56}.small{color:#667085;font-size:11px;margin-top:4px}' +
     'table{width:100%;border-collapse:collapse}td{padding:11px 0;border-bottom:1px solid #eee}' +
     '.right{text-align:right;font-weight:bold}.total{font-weight:bold;font-size:18px}' +
-    'p{font-size:12px}.qr{text-align:center;margin-top:24px;padding-top:16px;border-top:1px dashed #ccc}' +
-    '.qr img{width:178px;height:178px;image-rendering:pixelated}' +
+    'p{font-size:12px}.qr{display:flex;align-items:center;gap:12px;margin-top:18px;padding-top:14px;border-top:1px solid #e5e7eb}' +
+    '.qr img{width:96px;height:96px;flex-shrink:0;image-rendering:pixelated}' +
+    '.qr .qrinfo{min-width:0;flex:1;overflow-wrap:anywhere}' +
+    '.qr .ref{font-size:10px;color:#0F6E56;margin:5px 0;overflow-wrap:anywhere}' +
     '.qr .hint{font-size:10px;color:#667085;line-height:1.5}' +
     'footer{margin-top:25px;font-size:10px;color:#666}</style></head><body>' +
     '<h1>KASSA</h1><p>' + (test ? 'PAYSTACK TEST RECEIPT' : 'SALE RECEIPT') + '</p>' +
@@ -60,8 +62,9 @@ export function receiptHtml(payment: CompletedPayment): string {
     (cashReceived === null ? '' : '<tr><td>Cash received</td><td class="right">' + naira(cashReceived) +
       '</td></tr><tr><td>Change</td><td class="right">' + naira(change) + '</td></tr>') +
     '</table><div class="qr"><img alt="Receipt QR code" src="' + qrDataUrl + '"/>' +
-    '<p><strong>Scan for receipt details</strong></p>' +
-    '<p class="hint">Receipt reference information only. Contact the merchant to verify.</p></div>' +
+    '<div class="qrinfo"><p><strong>Scan for receipt details</strong></p>' +
+    '<p class="ref">' + escapeHtml(sale.reference) + '</p>' +
+    '<p class="hint">Reference only. Verify payments with the merchant.</p></div></div>' +
     '<footer>' + (test ? 'Test mode only. No live Paystack charge was made.' : 'Confirmed cash sale.') +
     '</footer></body></html>';
 }

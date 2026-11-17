@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import * as Print from 'expo-print';
@@ -11,6 +11,8 @@ import { receiptHtml, receiptMethod, shareReceiptSms, shareReceiptWhatsApp } fro
 export default function CompletedSale() {
   const router = useRouter();
   const store = useKassaDemo();
+  const { width, fontScale } = useWindowDimensions();
+  const compact = width < 420 || fontScale > 1.1;
   const complete = store.completedPayment;
   const [error, setError] = useState('');
 
@@ -26,7 +28,7 @@ export default function CompletedSale() {
 
   const { sale, cashReceived, change } = complete;
   const channel = sale.payments[0].channel;
-  const isTest = channel !== 'CASH';
+  const isTest = sale.payments.some(payment => payment.provider === 'PAYSTACK_TEST');
   const actions = [
     {
       title: 'Send via WhatsApp',
@@ -60,11 +62,30 @@ export default function CompletedSale() {
     <Text style={s.subtitle}>{isTest ? 'Paystack TEST payment verified by the backend.' : 'Sale has been saved to Transactions.'}</Text>
 
     <View style={s.detailsCard}>
-      <View style={s.detail}><Text style={s.detailLabel}>Amount charged</Text><Text style={s.value}>{naira(Number(sale.total))}</Text></View>
-      <View style={s.detail}><Text style={s.detailLabel}>Payment method</Text><Text style={s.value}>{receiptMethod(channel)}</Text></View>
+      <View style={[s.detail, compact && s.detailCompact]}>
+        <Text style={s.detailLabel}>Amount charged</Text>
+        <Text style={[s.value, compact && s.valueCompact]} numberOfLines={1}
+          adjustsFontSizeToFit minimumFontScale={0.75}
+          accessibilityLabel={'Amount charged ' + naira(Number(sale.total))}>
+          {naira(Number(sale.total))}
+        </Text>
+      </View>
+      <View style={[s.detail, compact && s.detailCompact]}>
+        <Text style={s.detailLabel}>Payment method</Text>
+        <Text style={[s.value, compact && s.valueCompact]} numberOfLines={2}
+          adjustsFontSizeToFit minimumFontScale={0.85}>{receiptMethod(channel)}</Text>
+      </View>
       {cashReceived !== null && <>
-        <View style={s.detail}><Text style={s.detailLabel}>Cash received</Text><Text style={s.value}>{naira(cashReceived)}</Text></View>
-        <View style={[s.detail, { borderBottomWidth: 0 }]}><Text style={s.detailLabel}>Change given</Text><Text style={s.changeValue}>{naira(change)}</Text></View>
+        <View style={[s.detail, compact && s.detailCompact]}>
+          <Text style={s.detailLabel}>Cash received</Text>
+          <Text style={[s.value, compact && s.valueCompact]} numberOfLines={1}
+            adjustsFontSizeToFit minimumFontScale={0.75}>{naira(cashReceived)}</Text>
+        </View>
+        <View style={[s.detail, compact && s.detailCompact, { borderBottomWidth: 0 }]}>
+          <Text style={s.detailLabel}>Change given</Text>
+          <Text style={[s.changeValue, compact && s.valueCompact]} numberOfLines={1}
+            adjustsFontSizeToFit minimumFontScale={0.75}>{naira(change)}</Text>
+        </View>
       </>}
       {isTest && <Text style={s.testWarning}>TEST MODE — not a live payment.</Text>}
     </View>
@@ -108,10 +129,14 @@ const s = StyleSheet.create({
   title: { color: C.title, fontSize: 28, fontWeight: '800', textAlign: 'center' },
   subtitle: { color: C.muted, fontSize: 14, marginTop: 6, textAlign: 'center', marginBottom: 23 },
   detailsCard: { borderWidth: 1, borderColor: C.border, borderRadius: 11, backgroundColor: C.white, paddingHorizontal: 15, paddingVertical: 13, marginBottom: 24 },
-  detail: { paddingVertical: 13, borderBottomColor: C.border, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between' },
-  detailLabel: { color: C.muted, fontSize: 14 },
-  value: { color: C.title, fontSize: 14, fontWeight: '800' },
-  changeValue: { color: C.green, fontSize: 20, fontWeight: '800' },
+  detail: { paddingVertical: 13, borderBottomColor: C.border, borderBottomWidth: 1,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, minWidth: 0 },
+  detailCompact: { flexDirection: 'column', alignItems: 'stretch', gap: 6 },
+  detailLabel: { color: C.muted, fontSize: 14, flexShrink: 1, minWidth: 0 },
+  value: { color: C.title, fontSize: 15, fontWeight: '800',
+    textAlign: 'right', flexShrink: 1, maxWidth: '63%', minWidth: 0 },
+  valueCompact: { maxWidth: '100%', textAlign: 'right', alignSelf: 'stretch' },
+  changeValue: { color: C.green, fontSize: 20, fontWeight: '800', maxWidth: '63%', minWidth: 0, flexShrink: 1, textAlign: 'right' },
   testWarning: { color: C.greenDark, fontSize: 14, paddingTop: 12, paddingBottom: 6 },
   sectionTitle: { color: C.title, fontSize: 20, fontWeight: '800', marginBottom: 12 },
   shareRow: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
