@@ -59,13 +59,37 @@ export function confirmCash(id: string): Promise<SavedSale> {
   });
 }
 
-/** Cashier verifies the business received money directly; not a bank API check. */
-export function confirmMerchantPayment(id: string, verificationNote: string, externalReference?: string): Promise<SavedSale> {
+/** One-tap staff attestation; never described as independent bank verification. */
+export function confirmMerchantPayment(id: string, bankAccountId?: string): Promise<SavedSale> {
   return kassaPost<SavedSale>("/api/sales/" + encodeURIComponent(id) + "/confirm-merchant-payment", {
     confirmedReceived: true,
-    verificationNote,
-    ...(externalReference?.trim() ? { externalReference: externalReference.trim() } : {}),
+    ...(bankAccountId ? { bankAccountId } : {}),
   });
+}
+
+export type CheckoutReceivingAccount = {
+  id: string;
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  isDefault: boolean;
+};
+
+export function listReceivingAccounts(context: InventoryContext): Promise<CheckoutReceivingAccount[]> {
+  const query = new URLSearchParams({ businessId: context.businessId, branchId: context.branchId });
+  return inventoryFetch<CheckoutReceivingAccount[]>("/api/sales/receiving-accounts?" + query);
+}
+
+export type PaymentVerificationStatus = {
+  status: "NOT_CONNECTED" | "STAFF_CONFIRMED" | "HISTORICAL_TEST" | "PAID";
+  saleStatus: string;
+  paymentStatus: string;
+  independentlyVerified: boolean;
+  detail: string;
+};
+
+export function getPaymentVerificationStatus(saleId: string): Promise<PaymentVerificationStatus> {
+  return inventoryFetch<PaymentVerificationStatus>("/api/sales/" + encodeURIComponent(saleId) + "/verification-status");
 }
 export function saleStatusLabel(status: SavedSale["status"]) {
   if (status === "PAID") return "Success";
