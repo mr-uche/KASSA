@@ -196,6 +196,18 @@ export class BusinessesService {
         },
       });
 
+      if (dto.accountNumber && dto.settlementBank?.trim()) {
+        await tx.merchantBankAccount.create({
+          data: {
+            businessId: business.id,
+            bankName: dto.settlementBank.trim(),
+            accountNumber: dto.accountNumber,
+            accountName: dto.accountName?.trim() || dto.businessName.trim(),
+            isDefault: true,
+          },
+        });
+      }
+
       const ownerRole = await tx.businessRole.create({
         data: {
           businessId: business.id,
@@ -240,10 +252,10 @@ export class BusinessesService {
         name: business.name,
         type: business.type,
         payoutSchedule: business.payoutSchedule,
-        payoutSetupStatus: 'PENDING_VERIFICATION',
+        receivingAccountStatus: dto.accountNumber ? 'OWNER_SUPPLIED_UNVERIFIED' : 'NOT_CONFIGURED',
         branches,
         savedStaffDrafts: dto.staff?.length ?? 0,
-        message: 'Business onboarded. Staff entries are drafts; payouts are not enabled.',
+        message: 'Business onboarded. Customer payments go directly to the business; no KASSA payouts occur.',
       };
     });
   }
