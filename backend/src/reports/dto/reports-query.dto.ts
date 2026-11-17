@@ -23,3 +23,13 @@ export class ReportsQueryDto {
   @IsIn(['day', 'week', 'month'])
   granularity!: 'day' | 'week' | 'month';
 }
+
+export class ProfitTodayQueryDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID('4')
+  businessId!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID('4')
+  branchId!: string;
+}
