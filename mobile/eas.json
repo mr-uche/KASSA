@@ -11,7 +11,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_KASSA_API_URL": "https://kassa-api-18he.onrender.com/api/v1"
+        "EXPO_PUBLIC_KASSA_API_URL": "https://kassa-api-18he.onrender.com/api/v1",
+        "EAS_NO_FROZEN_LOCKFILE": "1"
       }
     }
   }
