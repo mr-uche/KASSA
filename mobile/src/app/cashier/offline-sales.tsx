@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useKassaSession, type CatalogItem } from '@/components/kassa-demo/api';
 import { C, naira } from '@/components/kassa-demo/theme';
@@ -48,8 +48,33 @@ export default function OfflineSales() {
     setSelected({});
     setCash('');
     void load(() => active);
-    return () => { active = false; };
-  }, [load]));
+    const attemptSync = async () => {
+      if (!scope || !active) return;
+      try {
+        const records = await getOfflineSales(scope);
+        if (!active || !records.some(item => item.status === 'QUEUED')) return;
+        const result = await syncOfflineCash(scope, session.request);
+        if (!active) return;
+        if (result.synced) {
+          try {
+            const fresh = await session.request<CatalogItem[]>(
+              'sales/catalog?businessId=' + encodeURIComponent(scope.businessId) +
+              '&branchId=' + encodeURIComponent(scope.branchId));
+            await cacheOfflineCatalog(scope, fresh);
+          } catch { /* A later refresh retries the catalogue. */ }
+        }
+        await load(() => active);
+      } catch {
+        // Offline is expected: keep the immutable local queue for next attempt.
+      }
+    };
+    void attemptSync();
+    const timer = setInterval(() => { void attemptSync(); }, 60000);
+    const listener = AppState.addEventListener('change', state => {
+      if (state === 'active') void attemptSync();
+    });
+    return () => { active = false; clearInterval(timer); listener.remove(); };
+  }, [load, scope?.userId, scope?.businessId, scope?.branchId, session.request]));
 
   const displayed = useMemo(() => {
     const value = query.trim().toLowerCase();
