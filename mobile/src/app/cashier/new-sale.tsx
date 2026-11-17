@@ -39,6 +39,15 @@ export default function NewSale() {
 
   return (
     <KScreen showBrand={false} showPreviewLabel={false}>
+      {store.offlineMode && <View style={s.offlineBanner}>
+        <Text style={s.offlineTitle}>OFFLINE MODE · Cash sales only</Text>
+        <Text style={s.offlineDesc}>
+          Products, barcode scanning and totals use saved branch data. Completed cash sales will sync after reconnecting.
+          {!store.catalogSavedAt ? ' Connect online once to save the catalogue.' : ''}
+        </Text>
+        {store.catalogSavedAt && Date.now() - store.catalogSavedAt > 48 * 60 * 60 * 1000 &&
+          <Text style={s.offlineError}>Stock is over 48 hours old. Refresh online before accepting cash.</Text>}
+      </View>}
       <View style={s.searchRow}>
         <SymbolView
           name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
@@ -228,6 +237,10 @@ export default function NewSale() {
 }
 
 const s = StyleSheet.create({
+  offlineBanner: { padding: 13, borderWidth: 1, borderColor: C.mintBorder, borderRadius: 9, backgroundColor: C.mint, marginBottom: 16 },
+  offlineTitle: { color: C.greenDark, fontSize: 14, fontWeight: '800' },
+  offlineDesc: { color: C.muted, fontSize: 13, lineHeight: 20, marginTop: 5 },
+  offlineError: { color: C.danger, fontSize: 13, marginTop: 6 },
   searchRow: {
     flexDirection: 'row', alignItems: 'center', height: 49,
     borderWidth: 1, borderColor: C.border, backgroundColor: C.white,
