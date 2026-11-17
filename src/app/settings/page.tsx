@@ -40,7 +40,7 @@ const notificationRows: { key: NotificationKey; title: string; description: stri
   { key: "successfulPayments", title: "Successful payments", description: "Alert after a verified payment" },
   { key: "failedPayments", title: "Failed payments", description: "Alert when payment attempts fail" },
   { key: "lowStockAlerts", title: "Low stock", description: "Alert when items need restocking" },
-  { key: "payoutUpdates", title: "Payout updates", description: "Changes to payout processing" },
+  { key: "payoutUpdates", title: "Merchant payment reviews", description: "Updates to cashier payment confirmations" },
   { key: "staffActivity", title: "Staff activity", description: "Important changes made by staff" },
   { key: "securityAlerts", title: "Security alerts", description: "Important account security events" },
   { key: "productUpdates", title: "Product updates", description: "Inventory and product changes" },
