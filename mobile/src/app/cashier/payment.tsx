@@ -125,8 +125,8 @@ export default function Payment() {
               store.beginNewSale();
               await store.refreshCatalog();
               router.replace({
-                pathname: '/cashier/offline-sales',
-                params: { savedRef: saved.id },
+                pathname: '/cashier/offline-receipt',
+                params: { id: saved.id },
               });
             } catch (cause) {
               setError(cause instanceof Error ? cause.message : 'Could not store offline sale. Do not collect cash again.');
