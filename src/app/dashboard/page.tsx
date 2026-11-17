@@ -450,8 +450,15 @@ export default function DashboardPage() {
                       key={transaction.id}
                       className="h-[52px] border-b border-[#EEF0F3] last:border-0 hover:bg-[#FAFBFB]"
                     >
-                      <td className="whitespace-nowrap px-4 text-[13px] text-[#354052] sm:px-6">
-                        {transaction.customer}
+                      <td className="whitespace-nowrap px-4 text-[13px] sm:px-6">
+                        <Link
+                          href={"/transactions/" + encodeURIComponent(transaction.id)}
+                          aria-label={"View transaction for " + transaction.customer}
+                          className="inline-flex items-center gap-1.5 rounded-md bg-[#EAF5F0] px-2.5 py-1.5 font-semibold text-[#0F6E56] underline decoration-[#0F6E56]/40 underline-offset-2 transition-colors hover:bg-[#D6EAE1] hover:text-[#174B3D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F6E56]"
+                        >
+                          {transaction.customer}
+                          <span aria-hidden="true" className="text-base leading-none">›</span>
+                        </Link>
                       </td>
 
                       <td className="whitespace-nowrap px-4 text-[13px] text-[#536074] sm:px-6">
