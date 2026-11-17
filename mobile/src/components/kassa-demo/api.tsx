@@ -80,6 +80,9 @@ export type MerchantRegistration = {
   businessName: string;
   businessType: string;
   branchName: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
 };
 
 // The server's existing registration and onboarding endpoints are authoritative.
@@ -105,6 +108,11 @@ export async function onboardMerchantBusiness(details: MerchantRegistration): Pr
     businessName: details.businessName.trim(),
     businessType: details.businessType.trim(),
     branches: [{ name: details.branchName.trim() || 'Main Branch' }],
+    ...(details.bankAccountNumber ? {
+      settlementBank: details.bankName?.trim(),
+      accountNumber: details.bankAccountNumber,
+      accountName: details.bankAccountName?.trim(),
+    } : {}),
   });
 }
 
