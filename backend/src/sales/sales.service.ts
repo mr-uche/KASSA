@@ -293,6 +293,23 @@ export class SalesService {
     return sales.map((sale) => this.serialize(sale));
   }
 
+  // Only sales created by this cashier, within their authorised branch.
+  // Keeps the mobile "My sales" view distinct from the business-wide list.
+  async mine(userId: string, query: SalesListQueryDto) {
+    await this.checkAccess(userId, query.businessId, query.branchId);
+    const sales = await this.prisma.sale.findMany({
+      where: {
+        businessId: query.businessId,
+        branchId: query.branchId,
+        cashierId: userId,
+      },
+      include: this.include,
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    return sales.map((sale) => this.serialize(sale));
+  }
+
   async getOne(userId: string, id: string) {
     const sale = await this.prisma.sale.findUnique({ where: { id }, include: this.include });
     if (!sale) throw new NotFoundException('Sale not found');
