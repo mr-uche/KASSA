@@ -18,6 +18,10 @@ export default function ReviewSale() {
   })).filter((entry): entry is typeof entry & { item: NonNullable<typeof entry.item> } => !!entry.item);
 
   return <KScreen showBrand={false} showPreviewLabel={false}>
+    {store.offlineMode && <View style={{ borderWidth: 1, borderColor: C.mintBorder, backgroundColor: C.mint, borderRadius: 9, padding: 12, marginBottom: 15 }}>
+      <Text style={{ color: C.greenDark, fontWeight: '800', fontSize: 14 }}>OFFLINE · Cash only</Text>
+      <Text style={{ color: C.muted, fontSize: 13, marginTop: 5 }}>Prices and stock come from this phone. Cash sales are queued until synchronized.</Text>
+    </View>}
     <View style={s.header}>
       <Pressable accessibilityRole="button" accessibilityLabel="Back to product selection" onPress={() => router.replace('/cashier/new-sale')} style={s.back}>
         {icon({ ios: 'arrow.left', android: 'arrow_back', web: 'arrow_back' })}
