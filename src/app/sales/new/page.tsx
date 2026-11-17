@@ -154,9 +154,9 @@ export default function NewSalePage() {
   };
 
   const subtotal = sale.reduce(
-    (sum, i) => sum + i.price * i.qty,
+    (kobo, item) => kobo + Math.round(item.price * 100) * item.qty,
     0
-  );
+  ) / 100;
 
   const discount = 0;
   const total = subtotal - discount;
