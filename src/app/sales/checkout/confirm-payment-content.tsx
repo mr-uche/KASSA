@@ -27,7 +27,7 @@ export default function ConfirmPaymentContent() {
   const subtotal = items.reduce((kobo, item) => kobo + Math.round(item.price * 100) * item.qty, 0) / 100;
   const total = subtotal;
   const discount = 0;
-  const method = draft?.channel ?? "BANK_TRANSFER";
+  const method = draft?.channel ?? "CASH";
 
   useEffect(() => {
     try {
