@@ -36,7 +36,7 @@ export default function NewSalePage() {
   const [sale, setSale] = useState<SaleItem[]>([]);
   const [cartReady, setCartReady] = useState(false);
 
-  const [paymentMethod, setPaymentMethod] = useState("Transfer");
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Branch selected from the dashboard
