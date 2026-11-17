@@ -374,9 +374,11 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
                     <td className="whitespace-nowrap px-4 text-[13px] sm:px-[23px]">
                       <Link
                         href={"/transactions/" + encodeURIComponent(transaction.id)}
-                        className="text-[#354052] hover:text-emerald-700 hover:underline"
+                        aria-label={"View transaction for " + transaction.customer}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-[#EAF5F0] px-2.5 py-1.5 font-semibold text-[#0F6E56] underline decoration-[#0F6E56]/40 underline-offset-2 transition-colors hover:bg-[#D6EAE1] hover:text-[#174B3D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F6E56]"
                       >
                         {transaction.customer}
+                        <span aria-hidden="true" className="text-base leading-none">›</span>
                       </Link>
                     </td>
 
