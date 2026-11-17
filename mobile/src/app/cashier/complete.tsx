@@ -63,7 +63,7 @@ export default function CompletedSale() {
 
     <View style={s.detailsCard}>
       <View style={[s.detail, compact && s.detailCompact]}>
-        <Text style={s.detailLabel}>Amount charged</Text>
+        <Text style={s.detailLabel}>Sale amount</Text>
         <Text style={[s.value, compact && s.valueCompact]} numberOfLines={1}
           adjustsFontSizeToFit minimumFontScale={0.75}
           accessibilityLabel={'Amount charged ' + naira(Number(sale.total))}>
