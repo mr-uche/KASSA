@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { requireBusinessPermission } from '../business-access';
-import { ConfirmCashDto, CreateSaleDto, OfflineCashSaleDto, SalesListQueryDto, ScanLookupQueryDto } from './dto/sales.dto';
+import { ConfirmCashDto, ConfirmMerchantPaymentDto, CreateSaleDto, OfflineCashSaleDto, SalesListQueryDto, ScanLookupQueryDto } from './dto/sales.dto';
 
 function toKobo(value: string): bigint {
   if (!/^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(value)) throw new BadRequestException('Invalid product price');
@@ -352,6 +352,72 @@ export class SalesService {
       });
     });
 
+    return this.getOne(userId, id);
+  }
+
+  /**
+   * Records an authorised cashier's confirmation that money reached the
+   * BUSINESS directly. KASSA neither processes customer funds nor asserts
+   * independent verification of a bank/POS provider. Retain who, when and
+   * what was checked in an immutable PaymentEvent audit trail.
+   */
+  async confirmMerchantPayment(userId: string, id: string, dto: ConfirmMerchantPaymentDto) {
+    if (dto.confirmedReceived !== true) {
+      throw new BadRequestException('Confirm receipt into the merchant account or successful POS record');
+    }
+    const note = dto.verificationNote?.trim();
+    const externalRef = dto.externalReference?.trim() || null;
+    if (!note || note.length < 12 || note.length > 300) {
+      throw new BadRequestException('Describe what merchant-side payment evidence you checked (12–300 characters)');
+    }
+    if (externalRef && externalRef.length > 100) throw new BadRequestException('Invalid payment reference');
+    const sale = await this.prisma.sale.findUnique({ where: { id }, include: this.include });
+    if (!sale) throw new NotFoundException('Sale not found');
+    await this.checkAccess(userId, sale.businessId, sale.branchId, true);
+    const payment = sale.payments[0];
+    const merchantChannels = ['BANK_TRANSFER', 'POS', 'CARD'];
+    if (!payment || sale.payments.length !== 1 || !merchantChannels.includes(payment.channel)) {
+      throw new ConflictException('Only bank transfer, POS or card payments to the business can be confirmed here');
+    }
+    if (sale.status === 'PAID' && payment.status === 'SUCCEEDED' &&
+        payment.provider === 'MERCHANT_ATTESTED') return this.serialize(sale);
+    if (sale.status !== 'PENDING_PAYMENT' || payment.status !== 'PENDING' ||
+        payment.provider !== null || payment.providerReference !== null) {
+      throw new ConflictException('This payment cannot be manually confirmed. Check for an existing or provider-managed transaction.');
+    }
+    await this.prisma.$transaction(async tx => {
+      const claim = await tx.sale.updateMany({
+        where: { id: sale.id, status: 'PENDING_PAYMENT' },
+        data: { status: 'PAID' },
+      });
+      if (claim.count !== 1) throw new ConflictException('Sale was already processed');
+      for (const item of [...sale.items].sort((a, b) => a.productId.localeCompare(b.productId))) {
+        const stock = await tx.stockBalance.updateMany({
+          where: { productId: item.productId, branchId: sale.branchId, quantity: { gte: item.quantity } },
+          data: { quantity: { decrement: item.quantity } },
+        });
+        if (stock.count !== 1) throw new ConflictException('Insufficient stock for ' + item.productNameSnapshot);
+        await tx.stockMovement.create({
+          data: { productId: item.productId, branchId: sale.branchId, delta: -item.quantity,
+            reason: 'SALE', reference: sale.reference },
+        });
+      }
+      const paidAt = new Date();
+      const updated = await tx.payment.updateMany({
+        where: { id: payment.id, status: 'PENDING', provider: null },
+        data: { status: 'SUCCEEDED', confirmedAt: paidAt, provider: 'MERCHANT_ATTESTED' },
+      });
+      if (updated.count !== 1) throw new ConflictException('Payment is already processed');
+      await tx.paymentEvent.create({
+        data: {
+          paymentId: payment.id, providerEventId: 'merchant-attested-' + sale.id,
+          eventType: 'merchant.payment.confirmed.by.staff',
+          payload: { confirmedByUserId: userId, confirmedAt: paidAt.toISOString(),
+            channel: payment.channel, verificationNote: note, externalReference: externalRef,
+            independentlyVerifiedByKassa: false, fundsProcessedByKassa: false },
+        },
+      });
+    });
     return this.getOne(userId, id);
   }
 
