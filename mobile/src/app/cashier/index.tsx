@@ -38,7 +38,7 @@ const quickActions = [
 
 export default function CashierHome() {
   const router = useRouter();
-  const { count } = useKassaDemo();
+  const { count, offlineMode, catalogSavedAt } = useKassaDemo();
   const session = useKassaSession();
   const { scope, user } = session;
   const [dashboard, setDashboard] = useState<CashierDashboard | null>(null);
@@ -119,6 +119,13 @@ export default function CashierHome() {
 
   return (
     <KScreen showBrand={false} showPreviewLabel={false}>
+      {offlineMode && <Pressable accessibilityRole="button" accessibilityLabel="View offline cash sales"
+        onPress={() => go('/cashier/offline-sales')} style={s.offlineBanner}>
+        <Text style={s.offlineTitle}>OFFLINE · Cash sales are available</Text>
+        <Text style={s.offlineBody}>Scan saved barcodes, calculate totals and queue cash sales.
+          {catalogSavedAt ? ' Last stock download: ' + new Date(catalogSavedAt).toLocaleString('en-NG') : ' Connect once to save branch stock.'}
+        </Text>
+      </Pressable>}
       <Text style={s.greeting}>{greeting}, {firstName}</Text>
       <Text style={s.intro}>Ready to make today's sales quick and easy.</Text>
 
@@ -258,6 +265,9 @@ export default function CashierHome() {
 }
 
 const s = StyleSheet.create({
+  offlineBanner: { borderWidth: 1, borderColor: C.mintBorder, borderRadius: 10, backgroundColor: C.mint, padding: 13, marginBottom: 16 },
+  offlineTitle: { fontSize: 14, color: C.greenDark, fontWeight: '800' },
+  offlineBody: { fontSize: 13, lineHeight: 20, color: C.muted, marginTop: 4 },
   greeting: { color: C.title, fontSize: 28, fontWeight: '800', letterSpacing: -0.45 },
   loginButton: { backgroundColor: C.green, borderRadius: 10, paddingVertical: 16, paddingHorizontal: 18, alignItems: 'center' },
   loginButtonText: { color: C.white, fontSize: 14, fontWeight: '800' },
