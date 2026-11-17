@@ -269,7 +269,11 @@ export default function Payment() {
         </View>
       ))}
       <View style={s.divider} />
-      <View style={s.totalRow}><Text style={s.totalText}>Total</Text><Text style={s.totalValue}>{naira(amountDueKobo / 100)}</Text></View>
+      <View style={s.totalRow}>
+        <Text style={s.totalText}>Total</Text>
+        <Text style={s.totalValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}
+          accessibilityLabel={'Amount to collect ' + naira(amountDueKobo / 100)}>{naira(amountDueKobo / 100)}</Text>
+      </View>
       {changedPrice && <Text style={{ color: C.orange, fontWeight: '700', fontSize: 14, lineHeight: 20, marginTop: 12 }}>
         Catalogue prices changed. The amount above comes from the backend. Review the items and re-enter cash received before confirming.
       </Text>}
@@ -334,9 +338,9 @@ const s = StyleSheet.create({
   productQty: { color: C.faint, fontSize: 14, marginTop: 4 },
   amount: { color: C.title, fontSize: 14, fontWeight: '800' },
   divider: { backgroundColor: C.border, height: 1, marginVertical: 10 },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, minWidth: 0 },
   totalText: { color: C.title, fontSize: 14, fontWeight: '800' },
-  totalValue: { fontSize: 22, color: C.green, fontWeight: '800' },
+  totalValue: { fontSize: 22, color: C.green, fontWeight: '800', flexShrink: 1, maxWidth: '75%', textAlign: 'right', minWidth: 0 },
   method: { backgroundColor: C.white, borderColor: C.border, borderWidth: 1, borderRadius: 9, padding: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   methodSelected: { backgroundColor: C.mint, borderColor: C.green },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: C.faint, justifyContent: 'center', alignItems: 'center', marginRight: 13 },
