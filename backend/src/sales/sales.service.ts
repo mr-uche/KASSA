@@ -346,9 +346,24 @@ export class SalesService {
             delta: -item.quantity, reason: 'SALE', reference: sale.reference },
         });
       }
+      const paidAt = new Date();
       await tx.payment.update({
         where: { id: sale.payments[0].id },
-        data: { status: 'SUCCEEDED', confirmedAt: new Date() },
+        data: { status: 'SUCCEEDED', confirmedAt: paidAt },
+      });
+      await tx.paymentEvent.create({
+        data: {
+          paymentId: sale.payments[0].id,
+          providerEventId: 'cashier-cash-' + sale.id,
+          eventType: 'merchant.cash.received.by.staff',
+          payload: {
+            confirmedByUserId: userId,
+            confirmedAt: paidAt.toISOString(),
+            channel: 'CASH',
+            independentlyVerifiedByKassa: false,
+            fundsProcessedByKassa: false,
+          },
+        },
       });
     });
 
