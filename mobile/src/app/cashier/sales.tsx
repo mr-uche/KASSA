@@ -84,6 +84,15 @@ export default function Sales() {
     } catch {
       if (isCurrent()) setLocalSales([]);
     }
+    if (disconnected) {
+      if (isCurrent()) {
+        setSales([]);
+        setSummary(null);
+        setError('The cloud sales history requires internet. Your queued cash sales are still shown above.');
+        setLoading(false);
+      }
+      return;
+    }
     try {
       const query = '?businessId=' + encodeURIComponent(scope.businessId) +
         '&branchId=' + encodeURIComponent(scope.branchId);
@@ -108,7 +117,7 @@ export default function Sales() {
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [scope?.businessId, scope?.branchId, user?.id, session.request]);
+  }, [scope?.businessId, scope?.branchId, user?.id, session.request, disconnected]);
 
   useFocusEffect(useCallback(() => {
     let active = true;
