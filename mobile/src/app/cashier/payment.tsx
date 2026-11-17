@@ -6,7 +6,7 @@ import * as Crypto from 'expo-crypto';
 import { SymbolView } from 'expo-symbols';
 import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api';
 import { useKassaDemo } from '@/components/kassa-demo/store';
-import { C, naira } from '@/components/kassa-demo/theme';
+import { C, naira, toKobo } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 
 const methods = [
@@ -35,25 +35,36 @@ export default function Payment() {
   const requestId = useRef<string | null>(null);
 
   const method = methods.find(item => item.name === store.paymentMethod) ?? methods[0];
-  const received = Number(cashInput.replace(/,/g, '').trim());
-  const validCash = cashInput.trim().length > 0 && Number.isFinite(received) && received >= store.total;
-  const change = validCash ? received - store.total : 0;
   const pending = store.pendingSale;
   const locked = pending !== null;
+  // Once the sale exists, the backend amount is authoritative.
+  const amountDueKobo = toKobo(pending ? Number(pending.total) : store.total);
+  const enteredCash = cashInput.replace(/,/g, '').trim();
+  const enteredCashKobo = /^(?:0|[1-9][0-9]{0,11})(?:[.][0-9]{1,2})?$/.test(enteredCash)
+    ? toKobo(Number(enteredCash)) : null;
+  const validCash = enteredCashKobo !== null && Number.isSafeInteger(enteredCashKobo) &&
+    amountDueKobo > 0 && enteredCashKobo >= amountDueKobo;
+  const received = (enteredCashKobo ?? 0) / 100;
+  const change = validCash ? (enteredCashKobo - amountDueKobo) / 100 : 0;
   const orderItems = store.lines.map(line => ({
     line,
     product: store.catalog.find(item => item.id === line.id),
   })).filter((entry): entry is typeof entry & { product: NonNullable<typeof entry.product> } => !!entry.product);
+  const changedPrice = !!pending && (amountDueKobo !== toKobo(store.total) ||
+    pending.items.some(item => {
+      const local = store.catalog.find(product => product.id === item.productId);
+      return !local || toKobo(Number(item.unitPrice)) !== toKobo(local.price);
+    }));
 
   const prepareSale = async (): Promise<CheckoutSale> => {
     if (!session.scope || !session.user) throw new Error('Sign in and select an assigned branch first.');
-    if (!store.count || orderItems.length !== store.lines.length) {
-      throw new Error('Your cart is empty or a product could not be found.');
-    }
     if (pending) {
       if (pending.payments[0]?.channel !== method.channel)
         throw new Error('This pending sale uses another payment method. Verify it before starting another.');
       return pending;
+    }
+    if (!store.count || orderItems.length !== store.lines.length) {
+      throw new Error('Your cart is empty or a product could not be found.');
     }
     if (!requestId.current) requestId.current = Crypto.randomUUID();
     const saved = await session.request<CheckoutSale>('sales', {
@@ -64,8 +75,8 @@ export default function Payment() {
       items: store.lines.map(line => ({ productId: line.id, quantity: line.quantity })),
     });
     store.setPendingSale(saved);
-    if (Math.round(Number(saved.total) * 100) !== Math.round(store.total * 100)) {
-      throw new Error('Prices changed on the server. Please review the saved sale before accepting payment.');
+    if (toKobo(Number(saved.total)) !== toKobo(store.total)) {
+      throw new Error('Catalogue prices changed. Review the updated amount and enter cash received again.');
     }
     return saved;
   };
@@ -78,6 +89,7 @@ export default function Payment() {
     Alert.alert(
       'Confirm cash received',
       'Only continue if you have physically received ' + naira(received) +
+      ' for a total of ' + naira(amountDueKobo / 100) + '. Change: ' + naira(change) +
       '. This will record the sale as paid and reduce stock in KASSA.',
       [
         { text: 'Cancel', style: 'cancel' },
@@ -85,6 +97,9 @@ export default function Payment() {
           setWorking(true); setError('');
           try {
             const sale = await prepareSale();
+            if (toKobo(received) < toKobo(Number(sale.total))) {
+              throw new Error('The server total is higher than the cash received. Enter the correct amount.');
+            }
             const confirmed = await session.request<CheckoutSale>(
               'sales/' + encodeURIComponent(sale.id) + '/confirm-cash',
               { cashReceived: true }
@@ -92,7 +107,10 @@ export default function Payment() {
             if (confirmed.status !== 'PAID' || confirmed.payments[0]?.status !== 'SUCCEEDED') {
               throw new Error('Cash confirmation was not completed on the server.');
             }
-            store.setCompletedPayment({ sale: confirmed, cashReceived: received, change: received - Number(confirmed.total) });
+            store.setCompletedPayment({
+              sale: confirmed, cashReceived: received,
+              change: (toKobo(received) - toKobo(Number(confirmed.total))) / 100,
+            });
             router.replace('/cashier/complete');
           } catch (e) {
             setError(e instanceof Error ? e.message : 'Unable to confirm cash payment.');
@@ -154,17 +172,28 @@ export default function Payment() {
 
     <Text style={s.sectionTitle}>Order summary</Text>
     <View style={s.summary}>
-      {orderItems.map(({ line, product }) => (
+      {pending ? pending.items.map(item => (
+        <View style={s.itemRow} key={item.id}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.productName}>{item.name}</Text>
+            <Text style={s.productQty}>{item.quantity} × {naira(Number(item.unitPrice))}</Text>
+          </View>
+          <Text style={s.amount}>{naira(Number(item.lineTotal))}</Text>
+        </View>
+      )) : orderItems.map(({ line, product }) => (
         <View style={s.itemRow} key={product.id}>
           <View style={{ flex: 1 }}>
             <Text style={s.productName}>{product.name}</Text>
             <Text style={s.productQty}>{line.quantity} × {naira(product.price)}</Text>
           </View>
-          <Text style={s.amount}>{naira(product.price * line.quantity)}</Text>
+          <Text style={s.amount}>{naira(toKobo(product.price) * line.quantity / 100)}</Text>
         </View>
       ))}
       <View style={s.divider} />
-      <View style={s.totalRow}><Text style={s.totalText}>Total</Text><Text style={s.totalValue}>{naira(pending ? Number(pending.total) : store.total)}</Text></View>
+      <View style={s.totalRow}><Text style={s.totalText}>Total</Text><Text style={s.totalValue}>{naira(amountDueKobo / 100)}</Text></View>
+      {changedPrice && <Text style={{ color: C.orange, fontWeight: '700', fontSize: 14, lineHeight: 20, marginTop: 12 }}>
+        Catalogue prices changed. The amount above comes from the backend. Review the items and re-enter cash received before confirming.
+      </Text>}
     </View>
 
     <Text style={[s.sectionTitle, { marginTop: 26 }]}>How did the customer pay?</Text>
