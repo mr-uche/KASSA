@@ -96,9 +96,14 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
       if (!Array.isArray(raw)) throw new Error('The product catalogue response was invalid.');
       // Persist the authoritative product catalogue whenever internet is available.
       // A cache failure must not turn an online checkout into an offline sale.
+      let reservedStock: Map<string, number> | null = null;
       try {
         await cacheOfflineCatalog(offlineScope, raw);
-        setCatalogSavedAt(Date.now());
+        const cached = await loadOfflineCatalogue(offlineScope);
+        setCatalogSavedAt(cached.savedAt);
+        // Cash already received offline must reserve local inventory until
+        // accepted or reconciled by the backend; do not oversell it online.
+        reservedStock = new Map(cached.products.map(item => [item.id, item.stock]));
       } catch {
         setCatalogSavedAt(null);
       }
@@ -106,7 +111,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
         id: item.id,
         name: item.name,
         price: Number(item.price),
-        stock: item.stock,
+        stock: reservedStock?.get(item.id) ?? item.stock,
         category: item.category,
         icon: '▣',
         sku: item.sku,
