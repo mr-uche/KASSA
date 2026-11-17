@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { PrismaService } from '../prisma/prisma.service';
 import { OnboardingDto } from './dto/onboarding.dto';
 import { UpdateBusinessSettingsDto } from './dto/update-business-settings.dto';
+import { CreateMerchantBankAccountDto, UpdateMerchantBankAccountDto } from './dto/merchant-bank-account.dto';
 
 @Injectable()
 export class BusinessesService {
@@ -94,6 +95,79 @@ export class BusinessesService {
       }
     });
     return this.settings(userId, businessId, dto.branchId);
+  }
+
+  // Only business owners may register or manage receiving instructions.
+  // Bank ownership and account-name verification are NOT implied.
+  async listMerchantAccounts(userId: string, businessId: string) {
+    await this.requireOwner(userId, businessId);
+    return this.prisma.merchantBankAccount.findMany({
+      where: { businessId }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async createMerchantAccount(userId: string, businessId: string, dto: CreateMerchantBankAccountDto) {
+    await this.requireOwner(userId, businessId);
+    const bankName = dto.bankName.trim();
+    const accountName = dto.accountName.trim();
+    if (!bankName || !accountName || !/^\d{10}$/.test(dto.accountNumber)) {
+      throw new BadRequestException('Enter a bank name, a 10-digit receiving account and an account name');
+    }
+    return this.prisma.$transaction(async tx => {
+      const count = await tx.merchantBankAccount.count({ where: { businessId } });
+      if (count >= 10) throw new BadRequestException('Maximum of ten receiving accounts per business');
+      const makeDefault = dto.isDefault === true || count === 0;
+      if (makeDefault) await tx.merchantBankAccount.updateMany({ where: { businessId, isDefault: true }, data: { isDefault: false } });
+      return tx.merchantBankAccount.create({
+        data: { businessId, bankName, accountNumber: dto.accountNumber,
+          accountName, isDefault: makeDefault },
+      });
+    });
+  }
+
+  async updateMerchantAccount(userId: string, businessId: string, accountId: string, dto: UpdateMerchantBankAccountDto) {
+    await this.requireOwner(userId, businessId);
+    const account = await this.prisma.merchantBankAccount.findFirst({ where: { id: accountId, businessId } });
+    if (!account) throw new NotFoundException('Receiving account not found');
+    if (dto.isDefault === false && account.isDefault) {
+      throw new BadRequestException('Choose a different default account instead');
+    }
+    if (dto.bankName !== undefined && !dto.bankName.trim() ||
+        dto.accountName !== undefined && !dto.accountName.trim()) {
+      throw new BadRequestException('Bank and account names cannot be blank');
+    }
+    if (dto.bankName === undefined && dto.accountName === undefined &&
+        dto.accountNumber === undefined && dto.isDefault === undefined) {
+      throw new BadRequestException('No account changes provided');
+    }
+    return this.prisma.$transaction(async tx => {
+      if (dto.isDefault === true) await tx.merchantBankAccount.updateMany({
+        where: { businessId, isDefault: true }, data: { isDefault: false },
+      });
+      return tx.merchantBankAccount.update({
+        where: { id: accountId },
+        data: {
+          ...(dto.bankName !== undefined ? { bankName: dto.bankName.trim() } : {}),
+          ...(dto.accountName !== undefined ? { accountName: dto.accountName.trim() } : {}),
+          ...(dto.accountNumber !== undefined ? { accountNumber: dto.accountNumber } : {}),
+          ...(dto.isDefault === true ? { isDefault: true } : {}),
+        },
+      });
+    });
+  }
+
+  async deleteMerchantAccount(userId: string, businessId: string, accountId: string) {
+    await this.requireOwner(userId, businessId);
+    return this.prisma.$transaction(async tx => {
+      const account = await tx.merchantBankAccount.findFirst({ where: { id: accountId, businessId } });
+      if (!account) throw new NotFoundException('Receiving account not found');
+      await tx.merchantBankAccount.delete({ where: { id: accountId } });
+      if (account.isDefault) {
+        const next = await tx.merchantBankAccount.findFirst({ where: { businessId }, orderBy: { createdAt: 'asc' } });
+        if (next) await tx.merchantBankAccount.update({ where: { id: next.id }, data: { isDefault: true } });
+      }
+      return { deleted: true };
+    });
   }
 
   async onboard(userId: string, dto: OnboardingDto) {
