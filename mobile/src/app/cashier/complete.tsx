@@ -66,7 +66,7 @@ export default function CompletedSale() {
         <Text style={s.detailLabel}>Sale amount</Text>
         <Text style={[s.value, compact && s.valueCompact]} numberOfLines={1}
           adjustsFontSizeToFit minimumFontScale={0.75}
-          accessibilityLabel={'Amount charged ' + naira(Number(sale.total))}>
+          accessibilityLabel={'Sale amount ' + naira(Number(sale.total))}>
           {naira(Number(sale.total))}
         </Text>
       </View>
