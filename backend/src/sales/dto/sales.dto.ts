@@ -35,9 +35,13 @@ export class ConfirmMerchantPaymentDto {
   @ApiProperty({ example: true, description: 'The cashier has checked the merchant bank credit or successful POS terminal record, not a customer screenshot' })
   @IsIn([true]) confirmedReceived!: true;
 
-  @ApiProperty({ example: 'Bank credit confirmed in merchant banking app' })
-  @IsString() @IsNotEmpty() @MaxLength(300)
-  verificationNote!: string;
+  @ApiPropertyOptional({ description: 'Optional additional note. No typing is required at normal checkout.' })
+  @IsOptional() @IsString() @MaxLength(300)
+  verificationNote?: string;
+
+  @ApiPropertyOptional({ format: 'uuid', description: 'Receiving bank account selected at checkout; merchant-owned only' })
+  @IsOptional() @IsUUID('4')
+  bankAccountId?: string;
 
   @ApiPropertyOptional({ example: 'BANK-TRX-12345', description: 'Business bank or POS transaction reference; do not enter PIN, OTP, or card details' })
   @IsOptional() @IsString() @MaxLength(100)
