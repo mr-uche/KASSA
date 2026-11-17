@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { products as sampleProducts, type Product } from './data';
+import { type Product } from './data';
 import { useKassaSession, type CatalogItem, type CheckoutSale } from './api';
 
 export type SaleLine = { id: string; quantity: number };
@@ -34,7 +34,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
   const [lines, setLines] = useState<SaleLine[]>([]);
   const [branch, setBranch] = useState('Main Branch');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
-  const [catalog, setCatalog] = useState<Product[]>(sampleProducts);
+  const [catalog, setCatalog] = useState<Product[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [pendingSale, setPendingSale] = useState<CheckoutSale | null>(null);
@@ -42,7 +42,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
 
   const refreshCatalog = useCallback(async () => {
     if (!scope) {
-      setCatalog(sampleProducts);
+      setCatalog([]);
       setCatalogError(null);
       setLoadingCatalog(false);
       return;
