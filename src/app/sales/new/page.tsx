@@ -448,7 +448,7 @@ export default function NewSalePage() {
             </div>
 
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-              Payment method
+              How did the customer pay?
             </p>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
