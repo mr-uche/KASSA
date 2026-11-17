@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useKassaDemo } from '@/components/kassa-demo/store';
@@ -13,6 +13,8 @@ const icon = (name: IconName, size = 20, color: string = C.green) =>
 export default function ReviewSale() {
   const store = useKassaDemo();
   const router = useRouter();
+  const { width, fontScale } = useWindowDimensions();
+  const compact = width < 420 || fontScale > 1.1;
   const selected = store.lines.map(line => ({
     line, item: store.catalog.find(item => item.id === line.id),
   })).filter((entry): entry is typeof entry & { item: NonNullable<typeof entry.item> } => !!entry.item);
@@ -34,10 +36,20 @@ export default function ReviewSale() {
       <Text style={s.searchText}>Search products or scan barcode</Text>
     </Pressable>
 
-    <View style={s.current}>
-      <View style={s.cartSymbol}>{icon({ ios: 'basket', android: 'shopping_basket', web: 'shopping_basket' }, 22)}</View>
-      <View style={s.currentText}><Text style={s.currentTitle}>Current sale</Text><Text style={s.currentSubtitle}>{store.count} items selected</Text></View>
-      <Text style={s.totalAccent}>{naira(store.total)}</Text>
+    <View style={[s.current, compact && s.currentCompact]}>
+      <View style={s.currentHeading}>
+        <View style={s.cartSymbol}>{icon({ ios: 'basket', android: 'shopping_basket', web: 'shopping_basket' }, 22)}</View>
+        <View style={s.currentText}>
+          <Text style={s.currentTitle}>Current sale</Text>
+          <Text style={s.currentSubtitle}>{store.count} items selected</Text>
+        </View>
+      </View>
+      <View style={[s.currentAmountWrap, compact && s.currentAmountWrapCompact]}>
+        <Text style={s.totalAccent} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
+          accessibilityLabel={'Current sale total ' + naira(store.total)}>
+          {naira(store.total)}
+        </Text>
+      </View>
     </View>
 
     <View style={s.heading}><Text style={s.sectionTitle}>Products</Text><Text style={s.hint}>Adjust quantity</Text></View>
@@ -65,9 +77,15 @@ export default function ReviewSale() {
 
     <View style={s.summary}>
       <View style={s.sumRow}><Text style={s.label}>Items</Text><Text style={s.smallBold}>{store.count}</Text></View>
-      <View style={s.sumRow}><Text style={s.label}>Subtotal</Text><Text style={s.smallBold}>{naira(store.total)}</Text></View>
+      <View style={s.sumRow}>
+        <Text style={s.label}>Subtotal</Text>
+        <Text style={[s.smallBold, s.summaryAmount]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{naira(store.total)}</Text>
+      </View>
       <View style={s.divider} />
-      <View style={s.sumRow}><Text style={s.totalLabel}>Total</Text><Text style={s.totalAccent}>{naira(store.total)}</Text></View>
+      <View style={s.sumRow}>
+        <Text style={s.totalLabel}>Total</Text>
+        <Text style={[s.totalAccent, s.summaryAmount]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{naira(store.total)}</Text>
+      </View>
     </View>
     <Pressable
       accessibilityRole="button"
@@ -88,12 +106,16 @@ const s = StyleSheet.create({
   headerCaption: { color: C.muted, fontSize: 14, marginTop: 3 },
   search: { height: 49, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: 10 },
   searchText: { color: C.faint, fontSize: 14 },
-  current: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, padding: 12, backgroundColor: C.mint, marginTop: 18 },
+  current: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, padding: 12, backgroundColor: C.mint, marginTop: 18, width: '100%', minWidth: 0 },
+  currentCompact: { flexDirection: 'column', alignItems: 'stretch' },
+  currentHeading: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 },
+  currentAmountWrap: { maxWidth: '48%', flexShrink: 1, minWidth: 0, alignItems: 'flex-end', marginLeft: 8 },
+  currentAmountWrapCompact: { maxWidth: '100%', marginLeft: 0, marginTop: 8, alignSelf: 'stretch' },
   cartSymbol: { width: 36, height: 36, backgroundColor: '#D7EBE4', borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-  currentText: { flex: 1 },
+  currentText: { flex: 1, minWidth: 0, flexShrink: 1 },
   currentTitle: { color: C.title, fontSize: 20, fontWeight: '800' },
   currentSubtitle: { color: C.muted, fontSize: 14, marginTop: 3 },
-  totalAccent: { fontSize: 22, fontWeight: '800', color: C.green },
+  totalAccent: { fontSize: 22, fontWeight: '800', color: C.green, textAlign: 'right', flexShrink: 1 },
   heading: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 26, marginBottom: 14 },
   sectionTitle: { color: C.title, fontSize: 20, fontWeight: '800' },
   hint: { color: C.faint, fontSize: 14 },
@@ -109,7 +131,8 @@ const s = StyleSheet.create({
   plusButton: { width: 27, height: 27, backgroundColor: C.green, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
   plus: { color: C.white, fontWeight: '800', fontSize: 20 },
   summary: { borderWidth: 1, borderColor: C.border, backgroundColor: C.white, borderRadius: 11, padding: 15, marginTop: 7 },
-  sumRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 7, alignItems: 'center' },
+  sumRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 7, alignItems: 'center', gap: 12, minWidth: 0 },
+  summaryAmount: { flexShrink: 1, maxWidth: '72%', textAlign: 'right', minWidth: 0 },
   label: { color: C.muted, fontSize: 14 },
   smallBold: { fontSize: 14, fontWeight: '700', color: C.title },
   divider: { height: 1, backgroundColor: C.border, marginVertical: 3 },
