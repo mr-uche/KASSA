@@ -77,7 +77,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       setCatalog(cached.products.map(item => ({
-        ...item, icon: '▣', lowStockThreshold: 0,
+        ...item, price: Number(item.price), icon: '▣', lowStockThreshold: 0,
       })));
       setCatalogSource('cached');
       setCatalogSavedAt(cached.savedAt);
