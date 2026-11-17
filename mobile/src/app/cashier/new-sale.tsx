@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useKassaDemo } from '@/components/kassa-demo/store';
@@ -24,6 +24,8 @@ function ProductIcon({ category }: { category: string }) {
 export default function NewSale() {
   const router = useRouter();
   const store = useKassaDemo();
+  const { width, fontScale } = useWindowDimensions();
+  const compact = width < 420 || fontScale > 1.1;
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
   const categories = useMemo(() => ['All', ...Array.from(new Set(store.catalog.map(p => p.category)))], [store.catalog]);
@@ -166,15 +168,20 @@ export default function NewSale() {
         <Text style={s.lockNotice}>This sale is awaiting payment. Finish or verify payment before changing its items.</Text>
       )}
       <View style={s.cartCard}>
-        <View style={s.cartSummary}>
-          <View style={s.cartIconCircle}>
-            <SymbolView name={{ ios: 'basket', android: 'shopping_basket', web: 'shopping_basket' }} size={22} tintColor={C.green} />
+        <View style={[s.cartSummary, compact && s.cartSummaryCompact]}>
+          <View style={s.cartHeading}>
+            <View style={s.cartIconCircle}>
+              <SymbolView name={{ ios: 'basket', android: 'shopping_basket', web: 'shopping_basket' }} size={22} tintColor={C.green} />
+            </View>
+            <View style={s.cartInfo}>
+              <Text style={s.cartTitle}>Current sale</Text>
+              <Text style={s.cartCount}>{store.count} {store.count === 1 ? 'item' : 'items'} selected</Text>
+            </View>
           </View>
-          <View style={s.cartInfo}>
-            <Text style={s.cartTitle}>Current sale</Text>
-            <Text style={s.cartCount}>{store.count} {store.count === 1 ? 'item' : 'items'} selected</Text>
+          <View style={[s.cartAmountWrap, compact && s.cartAmountWrapCompact]}>
+            <Text style={s.cartTotal} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
+              accessibilityLabel={'Sale total ' + naira(store.total)}>{naira(store.total)}</Text>
           </View>
-          <Text style={s.cartTotal}>{naira(store.total)}</Text>
         </View>
 
         <View style={s.cartActions}>
@@ -283,12 +290,16 @@ const s = StyleSheet.create({
   emptyText: { color: C.muted, fontSize: 14 },
   lockNotice: { color: C.orange, fontSize: 14, marginTop: 14, lineHeight: 20 },
   cartCard: { marginTop: 22, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 13, padding: 13 },
-  cartSummary: { flexDirection: 'row', alignItems: 'center' },
+  cartSummary: { flexDirection: 'row', alignItems: 'center', width: '100%', minWidth: 0 },
+  cartSummaryCompact: { flexDirection: 'column', alignItems: 'stretch' },
+  cartHeading: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 },
+  cartAmountWrap: { maxWidth: '48%', flexShrink: 1, minWidth: 0, alignItems: 'flex-end', marginLeft: 8 },
+  cartAmountWrapCompact: { maxWidth: '100%', marginLeft: 0, alignSelf: 'stretch', marginTop: 8 },
   cartIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.mint, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  cartInfo: { flex: 1 },
+  cartInfo: { flex: 1, minWidth: 0, flexShrink: 1 },
   cartTitle: { fontSize: 20, fontWeight: '800', color: C.title },
   cartCount: { color: C.faint, fontSize: 14, marginTop: 5 },
-  cartTotal: { fontSize: 20, fontWeight: '800', color: C.title },
+  cartTotal: { fontSize: 20, fontWeight: '800', color: C.title, textAlign: 'right', flexShrink: 1 },
   cartActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 13, gap: 10 },
   editButton: { paddingHorizontal: 6, paddingVertical: 7 },
   editText: { color: C.green, fontSize: 14, fontWeight: '700' },
