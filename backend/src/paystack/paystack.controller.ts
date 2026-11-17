@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Body, Controller, GoneException, HttpCode, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiExcludeEndpoint, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AccessTokenGuard, type AuthenticatedRequest } from '../auth/access-token.guard';
@@ -14,9 +14,9 @@ export class PaystackController {
   constructor(private readonly payments: PaystackService) {}
 
   @Post('initialize')
-  @ApiOperation({ summary: 'Initialize a Paystack hosted test checkout for an existing pending sale' })
-  initialize(@Req() req: AuthenticatedRequest, @Body() dto: InitializePaystackDto) {
-    return this.payments.initialize(req.userId, dto);
+  @ApiOperation({ summary: 'Retired: supermarket checkout never uses Paystack' })
+  initialize(@Req() _req: AuthenticatedRequest, @Body() _dto: InitializePaystackDto) {
+    throw new GoneException('Merchant checkout is direct-to-business. Paystack is reserved for KASSA subscriptions.');
   }
 
   @Post('verify')
