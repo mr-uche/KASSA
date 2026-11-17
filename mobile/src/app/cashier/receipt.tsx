@@ -88,7 +88,7 @@ export default function Receipt() {
   };
 
   if (!detail || !sale) {
-    return <KScreen title="Receipt" subtitle={loading ? 'Loading verified receipt…' : 'Transaction receipt'}
+    return <KScreen title="Receipt" subtitle={loading ? 'Loading recorded sale receipt…' : 'Transaction receipt'}
       showBrand={false} showPreviewLabel={false} back>
       {error ? <Text style={s.error}>{error}</Text> : null}
       {!loading && !error && <Text style={s.info}>No completed payment is selected.</Text>}
