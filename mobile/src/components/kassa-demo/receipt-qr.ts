@@ -9,12 +9,10 @@ export function receiptQrContent(sale: CheckoutSale): string {
   const testMode = sale.payments.some(item => item.provider === 'PAYSTACK_TEST');
   return [
     'KASSA RECEIPT',
-    'Reference: ' + sale.reference,
-    'Date: ' + sale.createdAt,
-    'Amount: NGN ' + sale.total,
-    'Method: ' + (payment?.channel ?? 'UNKNOWN'),
-    'Status: ' + (testMode ? 'TEST PAYMENT - NOT LIVE' : 'RECORDED SALE'),
-    'Confirm receipt independently with the merchant.',
+    'REF:' + sale.reference,
+    'AMOUNT:NGN ' + sale.total,
+    'METHOD:' + (payment?.channel ?? 'UNKNOWN'),
+    testMode ? 'TEST PAYMENT - NOT LIVE' : 'RECORDED PAID SALE',
   ].join('\n');
 }
 
