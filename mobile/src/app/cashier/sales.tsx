@@ -5,6 +5,8 @@ import { SymbolView } from 'expo-symbols';
 import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
+import { getOfflineSales, type OfflineCashRecord } from '@/components/kassa-demo/offline-cash';
+import { useKassaConnectivity } from '@/components/kassa-demo/connectivity';
 
 type DateFilter = 'Today' | 'This week' | 'All';
 type TodaySummary = {
@@ -52,10 +54,12 @@ function channelLabel(channel?: string): string {
 export default function Sales() {
   const router = useRouter();
   const session = useKassaSession();
+  const { disconnected } = useKassaConnectivity();
   const { scope, user } = session;
   const [filter, setFilter] = useState<DateFilter>('Today');
   const [sales, setSales] = useState<CheckoutSale[]>([]);
   const [summary, setSummary] = useState<TodaySummary | null>(null);
+  const [localSales, setLocalSales] = useState<OfflineCashRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -63,12 +67,23 @@ export default function Sales() {
     if (!scope || !user) {
       setSales([]);
       setSummary(null);
+      setLocalSales([]);
       setError('Sign in and select a branch to view your sales.');
       setLoading(false);
       return;
     }
     setLoading(true);
     setError('');
+    try {
+      const local = await getOfflineSales({
+        userId: user.id,
+        businessId: scope.businessId,
+        branchId: scope.branchId,
+      });
+      if (isCurrent()) setLocalSales(local.filter(sale => sale.status !== 'SYNCED'));
+    } catch {
+      if (isCurrent()) setLocalSales([]);
+    }
     try {
       const query = '?businessId=' + encodeURIComponent(scope.businessId) +
         '&branchId=' + encodeURIComponent(scope.branchId);
@@ -113,6 +128,17 @@ export default function Sales() {
       return true;
     });
   }, [sales, filter]);
+
+  const visibleLocal = useMemo(() => {
+    const today = lagosDay(new Date());
+    const monday = startOfLagosWeek();
+    return localSales.filter(sale => {
+      const timestamp = Date.parse(sale.recordedAt);
+      if (filter === 'Today') return lagosDay(sale.recordedAt) === today;
+      if (filter === 'This week') return timestamp >= monday;
+      return true;
+    });
+  }, [localSales, filter]);
 
   const openSale = (sale: CheckoutSale) => {
     if (sale.status === 'PAID' && sale.payments.some(p => p.status === 'SUCCEEDED')) {
@@ -164,6 +190,35 @@ export default function Sales() {
       </Pressable>)}
     </View>
 
+    {disconnected && <View style={s.localBanner}>
+      <Text style={s.localHeading}>OFFLINE · Live sales history is unavailable</Text>
+      <Text style={s.localDescription}>Locally queued cash sales are shown below. They are not included in confirmed cloud revenue yet.</Text>
+    </View>}
+    {visibleLocal.length > 0 && <>
+      <View style={s.sectionRow}>
+        <Text style={s.sectionTitle}>CASH SAVED ON THIS PHONE</Text>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/cashier/offline-sales')}>
+          <Text style={s.retry}>Review / sync</Text>
+        </Pressable>
+      </View>
+      {visibleLocal.map(sale => <Pressable key={sale.id} style={s.saleCard}
+        accessibilityRole="button" onPress={() => router.push('/cashier/offline-sales')}>
+        <View style={[s.saleIcon, s.pendingIcon]}>
+          <SymbolView name={{ ios: 'wifi.slash', android: 'wifi_off', web: 'wifi_off' }}
+            size={19} tintColor={C.orange}/>
+        </View>
+        <View style={s.saleInfo}>
+          <Text style={s.saleTitle}>{sale.items.slice(0, 2).map(item => item.name).join(', ')}</Text>
+          <Text style={s.saleMeta}>Cash · {timeLabel(sale.recordedAt)} · Local #{sale.id.slice(0, 8).toUpperCase()}</Text>
+        </View>
+        <View style={s.saleRight}>
+          <Text style={s.saleAmount}>{naira(Number(sale.total))}</Text>
+          <View style={[s.statusPill, s.pendingPill]}>
+            <Text style={[s.statusText, s.pendingStatusText]}>{sale.status === 'REVIEW' ? 'Needs review' : 'Queued'}</Text>
+          </View>
+        </View>
+      </Pressable>)}
+    </>}
     <View style={s.sectionRow}>
       <Text style={s.sectionTitle}>TRANSACTIONS</Text>
       <Text style={s.count}>{visible.length} shown</Text>
@@ -221,6 +276,9 @@ export default function Sales() {
 
 const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 18, gap: 10 },
+  localBanner: { borderWidth: 1, borderColor: C.mintBorder, backgroundColor: C.mint, borderRadius: 9, padding: 13, marginBottom: 15 },
+  localHeading: { fontSize: 14, fontWeight: '800', color: C.greenDark },
+  localDescription: { color: C.muted, fontSize: 13, lineHeight: 20, marginTop: 5 },
   heading: { fontSize: 28, fontWeight: '800', color: C.title },
   subheading: { fontSize: 14, color: C.muted, marginTop: 4 },
   refreshButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.mint, alignItems: 'center', justifyContent: 'center' },
