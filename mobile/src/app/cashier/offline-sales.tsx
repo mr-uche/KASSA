@@ -235,7 +235,7 @@ export default function OfflineSales() {
       <Text style={s.name}>Cash actually received (₦)</Text>
       <TextInput value={cash} onChangeText={setCash} keyboardType="decimal-pad"
         placeholder="Enter cash received" placeholderTextColor={C.faint} style={s.input}/>
-      {validCash && <Text style={s.info}>Change: {naira(received - total)}</Text>}
+      {validCash && <Text style={s.info}>Change: {naira((toKobo(received) - toKobo(total)) / 100)}</Text>}
       <Pressable accessibilityRole="button" disabled={busy || outdated || !validCash}
         onPress={confirm} style={[s.primary, { marginTop: 15 }, (busy || outdated || !validCash) && { opacity: 0.5 }]}>
         <Text style={s.primaryText}>{busy ? 'Saving…' : 'Confirm collected cash and save'}</Text>
@@ -243,12 +243,15 @@ export default function OfflineSales() {
     </View>
     <Text style={s.heading}>Recent offline records</Text>
     {!history.length && <Text style={s.info}>No offline sales on this phone.</Text>}
-    {history.slice(0, 25).map(item => <View key={item.id} style={s.record}>
+    {history.slice(0, 25).map(item => <Pressable key={item.id} style={s.record}
+      accessibilityRole="button" accessibilityLabel={'View local receipt ' + item.id.slice(0, 8)}
+      onPress={() => router.push({ pathname: '/cashier/offline-receipt', params: { id: item.id } })}>
       <View style={{ flex: 1 }}><Text style={s.name}>#{item.id.slice(0, 8).toUpperCase()}</Text>
         <Text style={s.info}>{new Date(item.recordedAt).toLocaleString('en-NG')} · {item.status}</Text>
-        {item.error ? <Text style={s.error}>{item.error}</Text> : null}</View>
+        {item.error ? <Text style={s.error}>{item.error}</Text> : null}
+        <Text style={s.scanEntryText}>View local receipt</Text></View>
       <Text style={s.name}>{naira(Number(item.total))}</Text>
-    </View>)}
+    </Pressable>)}
     <Text style={s.info}>Offline cash supports a previously signed-in cashier with a recent stock cache. Keep the device and its local data safe until all cash is synchronized.</Text>
   </KScreen>;
 }
