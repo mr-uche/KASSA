@@ -22,8 +22,11 @@ export default function Payment() {
   const session = useKassaSession();
   const [cashInput, setCashInput] = useState('');
   const [merchantChecked, setMerchantChecked] = useState(false);
-  const [verificationNote, setVerificationNote] = useState('');
-  const [externalReference, setExternalReference] = useState('');
+  const [receivingAccounts, setReceivingAccounts] = useState<{
+    id: string; bankName: string; accountNumber: string; accountName: string; isDefault: boolean;
+  }[]>([]);
+  const [selectedBankId, setSelectedBankId] = useState('');
+  const [autoVerificationMessage, setAutoVerificationMessage] = useState('');
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
   // A stable request ID prevents a double sale when a request is retried on this screen.
@@ -38,6 +41,43 @@ export default function Payment() {
   useEffect(() => {
     if (offline && !pending && store.paymentMethod !== 'Cash') store.setPaymentMethod('Cash');
   }, [offline, pending, store.paymentMethod, store.setPaymentMethod]);
+  useEffect(() => {
+    let active = true;
+    if (offline || !session.scope || method.channel !== 'BANK_TRANSFER') {
+      setReceivingAccounts([]);
+      setSelectedBankId('');
+      return () => { active = false; };
+    }
+    const query = '?businessId=' + encodeURIComponent(session.scope.businessId) +
+      '&branchId=' + encodeURIComponent(session.scope.branchId);
+    void session.request<typeof receivingAccounts>('sales/receiving-accounts' + query)
+      .then(accounts => {
+        if (!active) return;
+        setReceivingAccounts(accounts);
+        setSelectedBankId(old => accounts.some(a => a.id === old) ? old :
+          (accounts.find(a => a.isDefault) ?? accounts[0])?.id ?? '');
+      }).catch(() => { if (active) setReceivingAccounts([]); });
+    return () => { active = false; };
+  }, [session.scope?.businessId, session.scope?.branchId, method.channel, offline, session.request]);
+
+  useEffect(() => {
+    let active = true;
+    if (!pending || offline || method.channel === 'CASH') {
+      setAutoVerificationMessage('');
+      return () => { active = false; };
+    }
+    void session.request<{ status: string; detail: string }>(
+      'sales/' + encodeURIComponent(pending.id) + '/verification-status'
+    ).then(result => {
+      if (active) setAutoVerificationMessage(result.status === 'NOT_CONNECTED'
+        ? 'Automatic bank/POS verification is not connected. Check the merchant record and confirm manually.'
+        : result.detail);
+    }).catch(() => {
+      if (active) setAutoVerificationMessage('Automatic verification is unavailable. Check the merchant record before confirming.');
+    });
+    return () => { active = false; };
+  }, [pending?.id, method.channel, offline, session.request]);
+
   // Once the sale exists, the backend amount is authoritative.
   const amountDueKobo = toKobo(pending ? Number(pending.total) : store.total);
   const enteredCash = cashInput.replace(/,/g, '').trim();
@@ -190,10 +230,6 @@ export default function Payment() {
       setError('Confirm that you checked the business bank credit or successful POS record.');
       return;
     }
-    if (verificationNote.trim().length < 12) {
-      setError('Describe how the business payment was checked (at least 12 characters).');
-      return;
-    }
     if (pending?.payments[0]?.provider) {
       setError('This existing payment is provider-managed and requires business-owner reconciliation.');
       return;
@@ -223,8 +259,7 @@ export default function Payment() {
             const confirmed = await session.request<CheckoutSale>(
               'sales/' + encodeURIComponent(sale.id) + '/confirm-merchant-payment', {
                 confirmedReceived: true,
-                verificationNote: verificationNote.trim(),
-                ...(externalReference.trim() ? { externalReference: externalReference.trim() } : {}),
+                ...(method.channel === 'BANK_TRANSFER' && selectedBankId ? { bankAccountId: selectedBankId } : {}),
               });
             if (confirmed.status !== 'PAID' ||
                 !confirmed.payments.some(p => p.status === 'SUCCEEDED' && p.provider === 'MERCHANT_ATTESTED')) {
@@ -315,27 +350,33 @@ export default function Payment() {
       <View style={s.changeRow}><Text style={s.changeLabel}>Change to customer</Text><Text style={s.changeNumber}>{naira(change)}</Text></View>
     </> : <View style={s.note}>
       <Text style={s.noteText}>The customer pays the BUSINESS directly. KASSA never receives or holds the money. Check the business bank credit or terminal success record — never a customer screenshot alone.</Text>
-      <Text style={[s.sectionTitle, { marginTop: 14 }]}>What payment evidence did you check?</Text>
-      <TextInput
-        accessibilityLabel="Describe verified payment receipt"
-        placeholder="e.g. Credit confirmed in merchant bank app"
-        placeholderTextColor={C.faint}
-        value={verificationNote}
-        onChangeText={setVerificationNote}
-        editable={!working}
-        maxLength={300} multiline
-        style={[s.cashInput, { minHeight: 78, textAlignVertical: 'top', paddingTop: 12 }]}
-      />
-      <Text style={[s.sectionTitle, { marginTop: 12 }]}>Bank/POS reference (optional)</Text>
-      <TextInput
-        accessibilityLabel="Bank or POS transaction reference"
-        placeholder="Reference (never enter PIN, OTP or card details)"
-        placeholderTextColor={C.faint}
-        value={externalReference}
-        onChangeText={setExternalReference}
-        editable={!working}
-        maxLength={100} style={s.cashInput}
-      />
+      {method.channel === 'BANK_TRANSFER' &&
+        <View style={[s.summary, { marginTop: 14, padding: 12 }]}>
+          <Text style={s.methodName}>Business receiving account</Text>
+          {receivingAccounts.length ? receivingAccounts.map(account =>
+            <Pressable key={account.id} accessibilityRole="radio"
+              accessibilityState={{ checked: selectedBankId === account.id }}
+              onPress={() => setSelectedBankId(account.id)}
+              style={[s.method, selectedBankId === account.id && s.methodSelected, { marginTop: 8 }]}>
+              <View style={[s.radio, selectedBankId === account.id && s.radioSelected]}>
+                {selectedBankId === account.id && <View style={s.dot}/>}
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={s.methodName}>{account.bankName}{account.isDefault ? ' · Default' : ''}</Text>
+                <Text style={s.methodDesc}>{account.accountNumber}</Text>
+                <Text style={s.methodDesc}>{account.accountName}</Text>
+              </View>
+            </Pressable>,
+          ) : <Text style={[s.noteText, { marginTop: 8 }]}>
+            No receiving bank account has been added by the business owner yet.
+          </Text>}
+          <Text style={[s.noteText, { marginTop: 8 }]}>
+            Account details are owner-supplied and not bank-verified.
+          </Text>
+        </View>}
+      <Text style={[s.noteText, { marginTop: 12 }]}>
+        {autoVerificationMessage || 'Automatic bank/POS verification requires a connected provider. If unavailable, confirm only after checking business records.'}
+      </Text>
       <Pressable accessibilityRole="checkbox"
         accessibilityState={{ checked: merchantChecked }}
         onPress={() => setMerchantChecked(value => !value)}
@@ -359,12 +400,12 @@ export default function Payment() {
       disabled={working || !session.scope || !store.count ||
         (offline && (!cacheFresh || !!pending || method.channel !== 'CASH')) ||
         (method.channel === 'CASH' && !validCash) ||
-        (method.channel !== 'CASH' && (offline || !merchantChecked || verificationNote.trim().length < 12 || !!pending?.payments[0]?.provider))}
+        (method.channel !== 'CASH' && (offline || !merchantChecked || !!pending?.payments[0]?.provider))}
       onPress={method.channel === 'CASH' ? finishCash : () => { void finishMerchantPayment(); }}
       style={[s.primary, (working || !session.scope || !store.count ||
         (offline && (!cacheFresh || !!pending || method.channel !== 'CASH')) ||
         (method.channel === 'CASH' && !validCash) ||
-        (method.channel !== 'CASH' && (offline || !merchantChecked || verificationNote.trim().length < 12 || !!pending?.payments[0]?.provider))) && { opacity: 0.5 }]}
+        (method.channel !== 'CASH' && (offline || !merchantChecked || !!pending?.payments[0]?.provider))) && { opacity: 0.5 }]}
     >
       <Text style={s.primaryText}>{working ? 'Please wait…' :
         method.channel === 'CASH' ? (offline ? 'Save offline cash sale' : 'Confirm cash received') :
