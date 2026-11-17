@@ -9,7 +9,7 @@ function pathFrom(segments: string[]): string | null {
   if (segments.length === 0) return "/sales";
   if (segments.length === 1 && ["catalog", "lookup", "offline-sync"].includes(segments[0])) return "/sales/" + segments[0];
   if (segments.length > 2 || !/^[0-9a-f-]{36}$/i.test(segments[0])) return null;
-  if (segments.length === 2 && segments[1] !== "confirm-cash") return null;
+  if (segments.length === 2 && !["confirm-cash", "confirm-merchant-payment"].includes(segments[1])) return null;
   return "/sales/" + segments.join("/");
 }
 
