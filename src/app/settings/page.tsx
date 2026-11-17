@@ -11,9 +11,6 @@ import {
   getBusinessSettings, updateBusinessSettings, type BusinessSettings,
 } from "@/lib/business-settings";
 import {
-  reconcilePaystackTestPayments, type PaystackReconciliation,
-} from "@/lib/paystack-client";
-import {
   getBusinessExport, downloadBusinessExport,
   type ExportDateRange, type ExportFormat, type ExportSection,
 } from "@/lib/data-export";
@@ -21,8 +18,8 @@ import {
 const navigation = [
   "Business profile",
   "Subscription & Billing",
-  "Payout Preferences",
-  "Payments & Reconciliation",
+  "Merchant Payment Details",
+  "Payment Verification",
   "Notifications",
   "Data Export",
   "Delete Account",
@@ -83,11 +80,8 @@ export default function SettingsPage() {
   const [form, setForm] = useState({
     businessName: "", businessType: "", branchAddress: "", branchPhone: "",
   });
-  const [schedule, setSchedule] = useState<"INSTANT" | "DAILY" | "WEEKLY">("DAILY");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [reconciling, setReconciling] = useState(false);
-  const [reconciled, setReconciled] = useState<PaystackReconciliation | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [notifications, setNotifications] = useState<NotificationPreferences>(defaultNotifications);
@@ -118,7 +112,6 @@ export default function SettingsPage() {
         branchAddress: record.branchAddress,
         branchPhone: record.branchPhone,
       });
-      setSchedule(record.payoutSchedule);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load settings.");
     } finally {
@@ -174,31 +167,6 @@ export default function SettingsPage() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not save business settings.");
     } finally { setSaving(false); }
-  }
-
-  async function saveSchedule() {
-    if (!context || loading || saving) return;
-    setSaving(true); setError(""); setSuccess("");
-    try {
-      const updated = await updateBusinessSettings(context.businessId, { payoutSchedule: schedule, branchId: context.branchId });
-      setSettings(updated);
-      setSchedule(updated.payoutSchedule);
-      setSuccess("Payout preference saved. Transfers are not enabled until payment verification is connected.");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not save payout preference.");
-    } finally { setSaving(false); }
-  }
-
-  async function runReconciliation() {
-    if (!context || loading || reconciling) return;
-    setReconciling(true); setReconciled(null); setError(""); setSuccess("");
-    try {
-      const summary = await reconcilePaystackTestPayments(context.businessId, context.branchId);
-      setReconciled(summary);
-      setSuccess("Finished verifying up to five pending Paystack test payments against Paystack.");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to reconcile Paystack test payments.");
-    } finally { setReconciling(false); }
   }
 
   async function runExport() {
@@ -359,7 +327,7 @@ export default function SettingsPage() {
                 <section className={cardClass}>
                   <h3 className="text-base font-semibold text-gray-900">Payment setup</h3>
                   <p className="mt-2 text-sm leading-6 text-gray-600">
-                    Cash confirmation is supported. Paystack hosted checkout, webhooks and verification are available in test mode for cards, bank transfer and USSD only. Subscription billing and real-money settlements are not enabled.
+                    Customers pay your business directly using cash, bank transfer or the business's own POS/card terminal. KASSA does not process, hold or settle customer payments. Staff record confirmation after checking your actual bank credit or successful terminal transaction.
                   </p>
                   <Link href="/sales/new" className="mt-3 inline-block text-sm font-semibold text-emerald-800 hover:underline">Go to New Sale</Link>
                 </section>
@@ -368,90 +336,55 @@ export default function SettingsPage() {
 
             {section === "Subscription & Billing" && (
               <section className={cardClass}>
-                <h2 className="text-lg font-semibold text-gray-900">Subscription & Billing</h2>
+                <h2 className="text-lg font-semibold text-gray-900">KASSA Subscription & Billing</h2>
                 <p className="mt-3 text-sm leading-6 text-gray-600">
-                  Subscription billing is not connected yet. No payment card, successful invoice or active paid plan has been verified in Kassa.
-                  Once a provider is integrated, your real subscription, invoices and billing history will appear here.
+                  <strong>Paystack is reserved for paying KASSA subscription fees only.</strong>
+                  Customer purchases in your supermarket do not use Paystack: customers pay your own business directly.
+                  Your KASSA subscription fee is a separate payment to the KASSA service.
                 </p>
                 <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                  Billing status: <strong>Not configured</strong>. No charges are collected from this screen.
+                  Subscription billing: <strong>Not activated</strong>. Subscription prices, billing periods,
+                  KASSA's Paystack billing configuration and recurring-payment management still require setup.
+                  No subscription charges can be started from this screen yet.
                 </div>
               </section>
             )}
 
-            {section === "Payout Preferences" && (
-              <>
-                <section className={cardClass}>
-                  <h2 className="text-lg font-semibold text-gray-900">Payout preferences</h2>
-                  <p className="mt-2 text-sm leading-6 text-gray-600">
-                    These are saved merchant preferences, not an active payout arrangement. Account ownership and bank details have not been verified by a payment provider.
-                  </p>
-                  <div className="mt-5 rounded-lg border border-gray-200 p-4">
-                    <p className="text-xs font-medium uppercase text-gray-500">Bank preference (unverified)</p>
-                    <p className="mt-1 text-sm font-semibold text-gray-900">{settings?.settlementBankName || "No bank preference saved"}</p>
-                    <p className="mt-1 text-xs text-gray-500">{settings?.settlementAccountLast4 ? "Account ending in " + settings.settlementAccountLast4 : "No account reference saved"}</p>
-                  </div>
-                </section>
-                <section className={cardClass}>
-                  <h3 className="text-base font-semibold text-gray-900">Preferred payout schedule</h3>
-                  <label className="mt-4 block text-sm font-medium text-gray-700">
-                    Frequency
-                    <select className={fieldClass + " mt-2"} disabled={loading || saving || !context}
-                      value={schedule} onChange={(e) => setSchedule(e.target.value as typeof schedule)}>
-                      <option value="INSTANT">Instant (preference only)</option>
-                      <option value="DAILY">Daily</option>
-                      <option value="WEEKLY">Weekly</option>
-                    </select>
-                  </label>
-                  <p className="mt-3 text-xs text-gray-500">Selecting a schedule does not trigger any payout or transfer.</p>
-                  <button type="button" onClick={() => void saveSchedule()} disabled={loading || saving || !context}
-                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">
-                    {saving && <Loader2 size={16} className="animate-spin"/>} Save preference
-                  </button>
-                </section>
-              </>
+            {section === "Merchant Payment Details" && (
+              <section className={cardClass}>
+                <h2 className="text-lg font-semibold text-gray-900">Your business receives customer payments</h2>
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  Bank transfers go directly to your business bank account, and card/POS payments go to your own terminal provider.
+                  KASSA is not a payment intermediary and does not issue merchant payouts or hold a settlement balance.
+                </p>
+                <div className="mt-5 rounded-lg border border-gray-200 p-4">
+                  <p className="text-xs font-medium uppercase text-gray-500">Previously stored bank preference (unverified)</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">{settings?.settlementBankName || "No saved bank name"}</p>
+                  <p className="mt-1 text-xs text-gray-500">{settings?.settlementAccountLast4
+                    ? "Account ending in " + settings.settlementAccountLast4 : "No bank account on file"}</p>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-amber-800">
+                  This bank preference is not a verified payment instruction. Confirm the correct business bank account directly with the owner before accepting transfers.
+                </p>
+              </section>
             )}
 
-            {section === "Payments & Reconciliation" && (
+            {section === "Payment Verification" && (
               <section className={cardClass}>
-                <h2 className="text-lg font-semibold text-gray-900">Paystack test payment reconciliation</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Cashier payment verification</h2>
                 <p className="mt-2 text-sm leading-6 text-gray-600">
-                  Owner-only verification of up to five pending Paystack test payments in the selected branch.
-                  Kassa checks Paystack directly and finalizes each verified sale at most once.
-                  Payments with insufficient stock remain flagged for manual review.
+                  Cashiers confirm physically collected cash, or attest that the business received the full bank transfer or a successful POS/card payment.
+                  The system saves the cashier ID, time and confirmation details in a payment audit record.
+                  KASSA does not independently inspect bank balances or process the customer's funds.
                 </p>
                 <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
-                  TEST MODE — no real funds move. This checks customer payments, not merchant bank settlements.
+                  Do not confirm transfers from customer screenshots, debit alerts or unverified POS slips.
+                  Verify against your own merchant bank or terminal records.
+                  Historical Paystack TEST sales remain test-only and must not be used to release real goods.
                 </p>
-                <p className="mt-3 text-sm text-gray-600">Selected branch: <strong>{settings?.branchName || "Not loaded"}</strong></p>
-                <button type="button" onClick={() => void runReconciliation()}
-                  disabled={loading || !context || reconciling}
-                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">
-                  {reconciling && <Loader2 size={16} className="animate-spin"/>}
-                  {reconciling ? "Checking Paystack..." : "Reconcile pending test payments"}
-                </button>
-                {reconciled && (
-                  <div className="mt-5 space-y-3" role="status">
-                    <p className="text-sm font-semibold text-gray-900">
-                      Checked: {reconciled.checked} · Completed sales: {reconciled.paid} · Needs review: {reconciled.needsReview}
-                    </p>
-                    {reconciled.checked === 0 && (
-                      <p className="text-sm text-gray-500">No pending Paystack test payments were found for this branch.</p>
-                    )}
-                    <div className="space-y-2">
-                      {reconciled.results.map((entry) => (
-                        <div key={entry.reference} className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
-                          <p className="break-all font-semibold text-gray-900">{entry.reference}</p>
-                          <p className="mt-1 text-gray-600">
-                            Provider: {entry.providerStatus} · Sale: {entry.saleStatus ?? "Not finalized"}
-                          </p>
-                          {entry.needsAttention && <p className="mt-1 font-semibold text-red-700">Manual stock reconciliation required.</p>}
-                          {entry.error && <p className="mt-1 text-red-700">{entry.error}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <Link href="/transactions" className="mt-4 inline-block text-sm font-semibold text-emerald-800 hover:underline">
+                  Review business transactions
+                </Link>
               </section>
             )}
 
