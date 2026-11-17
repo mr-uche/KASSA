@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SymbolView } from 'expo-symbols';
@@ -83,7 +83,7 @@ export default function ScanProduct() {
           facing="back"
           active={active && !processing && !found}
           enableTorch={torch}
-          barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'code128', 'qr'] }}
+          barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'code93', 'itf14', 'qr', 'datamatrix'] }}
           onBarcodeScanned={active && !processing && !found ? ({ data }) => { void lookUp(data); } : undefined}
           onMountError={() => setError('Camera unavailable. Use the manual barcode field instead.')}
         />
