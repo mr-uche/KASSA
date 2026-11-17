@@ -53,7 +53,7 @@ export default function PaymentSuccessfulContent() {
                     PAYSTACK TEST TRANSACTION — No real money received.
                   </p>
                 )}
-                <h2 className="text-xl font-semibold text-gray-900">{paid ? "Payment confirmed" : "Payment not yet verified"}</h2>
+                <h2 className="text-xl font-semibold text-gray-900">{paid ? "Payment recorded as received" : "Payment awaiting confirmation"}</h2>
                 <p className="mt-3 text-sm text-gray-500">
                   {paid
                     ? "The cashier recorded that the business received payment, and the inventory movement has been saved. KASSA does not process customer money."
