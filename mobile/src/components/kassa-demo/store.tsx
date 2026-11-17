@@ -1,7 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { AppState } from 'react-native';
 import { type Product } from './data';
 import { useKassaSession, type CatalogItem, type CheckoutSale } from './api';
 import { toKobo } from './theme';
+import { cacheOfflineCatalog, loadOfflineCatalogue, syncOfflineCash, type OfflineScope } from './offline-cash';
+import { useKassaConnectivity } from './connectivity';
 
 export type SaleLine = { id: string; quantity: number };
 export type CompletedPayment = { sale: CheckoutSale; cashReceived: number | null; change: number };
@@ -12,6 +15,9 @@ type DemoStore = {
   total: number;
   count: number;
   catalog: Product[];
+  catalogSource: 'live' | 'cached' | 'none';
+  catalogSavedAt: number | null;
+  offlineMode: boolean;
   loadingCatalog: boolean;
   catalogError: string | null;
   pendingSale: CheckoutSale | null;
@@ -32,31 +38,70 @@ const DemoContext = createContext<DemoStore | null>(null);
 export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
   const session = useKassaSession();
   const scope = session.scope;
+  const { disconnected } = useKassaConnectivity();
   const [lines, setLines] = useState<SaleLine[]>([]);
   const [branch, setBranch] = useState('Main Branch');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [catalog, setCatalog] = useState<Product[]>([]);
+  const [catalogSource, setCatalogSource] = useState<'live' | 'cached' | 'none'>('none');
+  const [catalogSavedAt, setCatalogSavedAt] = useState<number | null>(null);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [pendingSale, setPendingSale] = useState<CheckoutSale | null>(null);
   const [completedPayment, setCompletedPayment] = useState<CompletedPayment | null>(null);
 
   const refreshCatalog = useCallback(async () => {
-    if (!scope) {
+    const selected = scope;
+    const account = session.user;
+    if (!selected || !account) {
       setCatalog([]);
+      setCatalogSource('none');
+      setCatalogSavedAt(null);
       setCatalogError(null);
       setLoadingCatalog(false);
       return;
     }
+    const offlineScope: OfflineScope = {
+      userId: account.id, businessId: selected.businessId, branchId: selected.branchId,
+    };
     setLoadingCatalog(true);
-    setCatalog([]);
     setCatalogError(null);
+
+    const loadCached = async () => {
+      const cached = await loadOfflineCatalogue(offlineScope);
+      if (cached.savedAt === null) {
+        setCatalog([]);
+        setCatalogSource('none');
+        setCatalogSavedAt(null);
+        setCatalogError('No saved products for this branch. Connect once to download stock before selling offline.');
+        return;
+      }
+      setCatalog(cached.products.map(item => ({
+        ...item, icon: '▣', lowStockThreshold: 0,
+      })));
+      setCatalogSource('cached');
+      setCatalogSavedAt(cached.savedAt);
+      setCatalogError(null);
+    };
+
     try {
+      if (disconnected) {
+        await loadCached();
+        return;
+      }
       const raw = await session.request<CatalogItem[]>(
-        'sales/catalog?businessId=' + encodeURIComponent(scope.businessId) +
-        '&branchId=' + encodeURIComponent(scope.branchId)
+        'sales/catalog?businessId=' + encodeURIComponent(selected.businessId) +
+        '&branchId=' + encodeURIComponent(selected.branchId)
       );
       if (!Array.isArray(raw)) throw new Error('The product catalogue response was invalid.');
+      // Persist the authoritative product catalogue whenever internet is available.
+      // A cache failure must not turn an online checkout into an offline sale.
+      try {
+        await cacheOfflineCatalog(offlineScope, raw);
+        setCatalogSavedAt(Date.now());
+      } catch {
+        setCatalogSavedAt(null);
+      }
       setCatalog(raw.map(item => ({
         id: item.id,
         name: item.name,
@@ -68,22 +113,63 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
         barcode: item.barcode,
         lowStockThreshold: item.lowStockThreshold,
       })).filter(item => Number.isFinite(item.price) && item.price >= 0));
+      setCatalogSource('live');
     } catch (error) {
-      setCatalog([]);
-      setCatalogError(error instanceof Error ? error.message : 'Unable to load products.');
+      try {
+        await loadCached();
+      } catch {
+        setCatalog([]);
+        setCatalogSource('none');
+        setCatalogSavedAt(null);
+        setCatalogError(error instanceof Error ? error.message : 'Could not download or open saved products.');
+      }
     } finally {
       setLoadingCatalog(false);
     }
-  }, [scope?.businessId, scope?.branchId, session.request]);
+  }, [scope?.businessId, scope?.branchId, session.user?.id, session.request, disconnected]);
+
+  const offlineMode = disconnected || catalogSource === 'cached';
 
   useEffect(() => {
     setLines([]);
     setPendingSale(null);
     setCompletedPayment(null);
+    setCatalog([]);
+    setCatalogSource('none');
+    setCatalogSavedAt(null);
     setBranch(scope?.branchName ?? 'Main Branch');
   }, [scope?.businessId, scope?.branchId]);
 
   useEffect(() => { void refreshCatalog(); }, [refreshCatalog]);
+
+  // Retry cash sales on reconnect, when the app resumes and while in the
+  // foreground. Keep server-rejected records for owner reconciliation.
+  useEffect(() => {
+    if (!scope || !session.user || disconnected) return;
+    let active = true;
+    let syncing = false;
+    const offlineScope: OfflineScope = {
+      userId: session.user.id, businessId: scope.businessId, branchId: scope.branchId,
+    };
+    const attemptSync = async () => {
+      if (!active || syncing) return;
+      syncing = true;
+      try {
+        const result = await syncOfflineCash(offlineScope, session.request);
+        if (active && result.synced > 0) await refreshCatalog();
+      } catch {
+        // Connectivity interruptions never discard a locally recorded sale.
+      } finally {
+        syncing = false;
+      }
+    };
+    void attemptSync();
+    const timer = setInterval(() => { void attemptSync(); }, 60000);
+    const listener = AppState.addEventListener('change', state => {
+      if (state === 'active') void attemptSync();
+    });
+    return () => { active = false; clearInterval(timer); listener.remove(); };
+  }, [scope?.businessId, scope?.branchId, session.user?.id, disconnected, session.request, refreshCatalog]);
 
   const add = (id: string) => {
     const product = catalog.find(p => p.id === id);
@@ -126,7 +212,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
   const count = lines.reduce((sum, line) => sum + line.quantity, 0);
 
   return <DemoContext.Provider value={{
-    lines, branch, paymentMethod, total, count, catalog, loadingCatalog, catalogError,
+    lines, branch, paymentMethod, total, count, catalog, catalogSource, catalogSavedAt, offlineMode, loadingCatalog, catalogError,
     pendingSale, completedPayment, add, subtract, remove, clear, beginNewSale, refreshCatalog,
     setBranch, setPaymentMethod, setPendingSale, setCompletedPayment,
   }}>{children}</DemoContext.Provider>;
