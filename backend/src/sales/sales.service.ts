@@ -138,6 +138,40 @@ export class SalesService {
     };
   }
 
+  /** Checkout can show the owner's receiving instructions, without banking credentials. */
+  async merchantReceivingAccounts(userId: string, query: SalesListQueryDto) {
+    await this.checkAccess(userId, query.businessId, query.branchId);
+    return this.prisma.merchantBankAccount.findMany({
+      where: { businessId: query.businessId },
+      select: { id: true, bankName: true, accountNumber: true, accountName: true, isDefault: true },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  /**
+   * Reports ONLY independently supported facts. No bank-feed/POS integration
+   * is configured by registering an account number, so never invent receipt.
+   */
+  async merchantVerificationStatus(userId: string, saleId: string) {
+    const sale = await this.getOne(userId, saleId);
+    const payment = sale.payments[0];
+    if (sale.status === 'PAID' && payment?.status === 'SUCCEEDED') {
+      return {
+        status: payment?.provider === 'MERCHANT_ATTESTED' || payment?.channel === 'CASH'
+          ? 'STAFF_CONFIRMED' : payment?.provider === 'PAYSTACK_TEST' ? 'HISTORICAL_TEST' : 'PAID',
+        saleStatus: sale.status, paymentStatus: payment.status,
+        independentlyVerified: false,
+        detail: 'Check the payment provenance. KASSA has no connected merchant bank feed.',
+      };
+    }
+    return {
+      status: 'NOT_CONNECTED',
+      saleStatus: sale.status, paymentStatus: payment?.status ?? 'UNKNOWN',
+      independentlyVerified: false,
+      detail: 'No bank or POS notification provider is connected to KASSA for this business. Manually confirm against the merchant records.',
+    };
+  }
+
   async create(userId: string, dto: CreateSaleDto) {
     await this.checkAccess(userId, dto.businessId, dto.branchId, true);
     const ids = dto.items.map((line) => line.productId);
