@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api';
+import { getOfflineSales } from '@/components/kassa-demo/offline-cash';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 
@@ -42,15 +43,35 @@ export default function Profile() {
 
   const userName = session.user?.fullName || 'Cashier';
   const initials = userName.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('');
-  const logout = () => Alert.alert('Log out?', store.pendingSale
-    ? 'A payment is pending. You may need to recover it from Sales after signing in again.'
-    : 'You will need to sign in again to continue.', [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Log out', style: 'destructive', onPress: () => {
+  const logout = async () => {
+    const complete = () => {
       store.beginNewSale();
       void session.signOut().finally(() => router.replace('/login'));
-    } },
-  ]);
+    };
+    let warning = store.pendingSale
+      ? 'A payment is pending. Recover or verify it after signing in again.'
+      : 'You will need to sign in online again to continue.';
+    if (session.user && session.scope) {
+      try {
+        const local = await getOfflineSales({
+          userId: session.user.id,
+          businessId: session.scope.businessId,
+          branchId: session.scope.branchId,
+        });
+        const unsynced = local.filter(sale => sale.status !== 'SYNCED');
+        if (unsynced.length) {
+          warning = unsynced.length + ' offline cash sale(s) are NOT synced. They remain on this phone. ' +
+            'Sign in again with the same account to recover them. Do not uninstall or clear app data.';
+        }
+      } catch {
+        warning += ' KASSA could not check the offline sale queue on this phone.';
+      }
+    }
+    Alert.alert('Log out?', warning, [
+      { text: 'Stay signed in', style: 'cancel' },
+      { text: 'Log out', style: 'destructive', onPress: complete },
+    ]);
+  };
 
   return <KScreen showBrand={false} showPreviewLabel={false}>
     <Text style={s.heading}>Profile</Text>
