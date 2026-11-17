@@ -32,7 +32,7 @@ export default function NewSale() {
   const items = useMemo(
     () => store.catalog.filter(item =>
       (category === 'All' || item.category === category) &&
-      `${item.name} ${item.id}`.toLowerCase().includes(query.trim().toLowerCase())
+      `${item.name} ${item.sku ?? ''} ${item.barcode ?? ''}`.toLowerCase().includes(query.trim().toLowerCase())
     ),
     [query, category, store.catalog]
   );
@@ -104,9 +104,26 @@ export default function NewSale() {
           {items.map(item => {
             const quantity = store.lines.find(line => line.id === item.id)?.quantity ?? 0;
             return (
-              <View key={item.id} style={s.productCard}>
+              <View key={item.id} style={[s.productCard, quantity > 0 && s.productCardSelected]}>
+                {quantity > 0 && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${item.name} from current sale`}
+                    accessibilityHint="Removes all selected quantities of this product"
+                    disabled={!!store.pendingSale}
+                    onPress={() => store.remove(item.id)}
+                    style={[s.removeCircle, store.pendingSale && { opacity: 0.4 }]}
+                  >
+                    <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} size={16} tintColor={C.muted} />
+                  </Pressable>
+                )}
                 <View style={s.productImage}>
                   <ProductIcon category={item.category} />
+                  {quantity > 0 && (
+                    <View style={s.selectedCount}>
+                      <Text style={s.selectedCountText}>{quantity} selected</Text>
+                    </View>
+                  )}
                 </View>
                 <Text numberOfLines={2} style={s.productName}>{item.name}</Text>
                 <View style={s.productInfoRow}>
@@ -118,8 +135,8 @@ export default function NewSale() {
                     accessibilityRole="button"
                     accessibilityLabel={quantity > 0 ? `Add another ${item.name}; ${quantity} in sale` : `Add ${item.name} to sale`}
                     onPress={() => store.add(item.id)}
-                    disabled={item.stock <= quantity}
-                    style={[s.addCircle, quantity > 0 && s.addedCircle, item.stock <= quantity && { opacity: 0.35 }]}
+                    disabled={!!store.pendingSale || item.stock <= quantity}
+                    style={[s.addCircle, quantity > 0 && s.addedCircle, (store.pendingSale || item.stock <= quantity) && { opacity: 0.35 }]}
                   >
                     <SymbolView
                       name={quantity > 0
@@ -136,6 +153,9 @@ export default function NewSale() {
         </View>
       )}
 
+      {store.pendingSale && (
+        <Text style={s.lockNotice}>This sale is awaiting payment. Finish or verify payment before changing its items.</Text>
+      )}
       <View style={s.cartCard}>
         <View style={s.cartSummary}>
           <View style={s.cartIconCircle}>
@@ -180,17 +200,18 @@ export default function NewSale() {
                     <Text style={s.lineName}>{item.name}</Text>
                     <Text style={s.lineMeta}>{naira(item.price)} each</Text>
                   </View>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Remove one ${item.name}`} onPress={() => store.subtract(item.id)} style={s.quantityButton}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Remove one ${item.name}`} disabled={!!store.pendingSale} onPress={() => store.subtract(item.id)} style={s.quantityButton}>
                     <Text style={s.quantityText}>−</Text>
                   </Pressable>
                   <Text style={s.quantityCount}>{line.quantity}</Text>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Add one ${item.name}`} onPress={() => store.add(item.id)} style={s.quantityButton}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Add one ${item.name}`} disabled={!!store.pendingSale || line.quantity >= item.stock} onPress={() => store.add(item.id)} style={s.quantityButton}>
                     <Text style={s.quantityText}>+</Text>
                   </Pressable>
                 </View>
               );
             })}
             <Pressable
+              disabled={!!store.pendingSale}
               onPress={() => Alert.alert('Clear current sale?', 'All selected items will be removed.', [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Clear sale', style: 'destructive', onPress: () => { store.clear(); setShowItems(false); } },
@@ -231,9 +252,13 @@ const s = StyleSheet.create({
   productsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
   productCard: {
     width: '48.4%', backgroundColor: C.white, borderWidth: 1,
-    borderColor: C.border, borderRadius: 12, padding: 10, minHeight: 196,
+    borderColor: C.border, borderRadius: 12, padding: 10, minHeight: 196, position: 'relative',
   },
+  productCardSelected: { borderColor: C.green, borderWidth: 1.5 },
+  removeCircle: { position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: 15, backgroundColor: '#F0F1F3', alignItems: 'center', justifyContent: 'center', zIndex: 3 },
   productImage: { height: 75, backgroundColor: C.mint, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 9 },
+  selectedCount: { position: 'absolute', bottom: 3, left: 5, borderRadius: 10, backgroundColor: C.white, paddingHorizontal: 6, paddingVertical: 1, borderWidth: 1, borderColor: C.mintBorder },
+  selectedCountText: { color: C.green, fontSize: 11, fontWeight: '800' },
   productIconCircle: { width: 43, height: 43, backgroundColor: '#D7EBE4', borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   productName: { color: C.title, fontWeight: '800', fontSize: 14 },
   productInfoRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 3 },
@@ -243,6 +268,7 @@ const s = StyleSheet.create({
   addedCircle: { backgroundColor: '#08765B' },
   emptyResults: { borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 20, backgroundColor: C.white },
   emptyText: { color: C.muted, fontSize: 14 },
+  lockNotice: { color: C.orange, fontSize: 14, marginTop: 14, lineHeight: 20 },
   cartCard: { marginTop: 22, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 13, padding: 13 },
   cartSummary: { flexDirection: 'row', alignItems: 'center' },
   cartIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.mint, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
