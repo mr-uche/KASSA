@@ -95,6 +95,7 @@ export const config = {
     "/sales/:path*",
     "/scan/:path*",
     "/settings/:path*",
+    "/support/:path*",
     "/staff-branches/:path*",
     "/staff-invite/:path*",
     "/transactions/:path*",
