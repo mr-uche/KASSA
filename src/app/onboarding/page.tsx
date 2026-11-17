@@ -9,9 +9,8 @@ import { kassaPost } from "@/lib/kassa-client";
 
 type StaffMember = { fullName: string; role: string; phone: string };
 type Branch = { name: string; address: string; phone: string };
-type PayoutSchedule = "instant" | "daily" | "weekly";
 
-const steps = ["Business info", "Branches", "Payout schedule", "Invite staff"];
+const steps = ["Business info", "Branches", "Receiving account", "Invite staff"];
 
 const businessTypes = [
   "Pharmacy",
@@ -20,17 +19,6 @@ const businessTypes = [
   "Salon & Spa",
   "Supermarket",
   "Other",
-];
-
-const banks = [
-  "Access Bank",
-  "GTBank",
-  "Zenith Bank",
-  "UBA",
-  "First Bank",
-  "Fidelity Bank",
-  "Union Bank",
-  "Sterling Bank",
 ];
 
 const roles = ["Cashier", "Branch manager", "Admin", "Owner"];
@@ -53,9 +41,9 @@ export default function OnboardingPage() {
   ]);
 
   // Step 3
-  const [payoutSchedule, setPayoutSchedule] = useState<PayoutSchedule>("daily");
   const [settlementBank, setSettlementBank] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
 
   // Step 4
   const [staff, setStaff] = useState<StaffMember[]>([
@@ -107,7 +95,8 @@ export default function OnboardingPage() {
     if (step === 3 && accountNumber && !/^\d{10}$/.test(accountNumber)) {
       return "Account number must contain exactly 10 digits.";
     }
-    if (step === 3 && accountNumber && !settlementBank) return "Select a settlement bank.";
+    if (step === 3 && accountNumber && !settlementBank.trim()) return "Enter the business receiving bank name.";
+    if (step === 3 && accountNumber && !accountName.trim()) return "Enter the account holder name.";
     return null;
   };
 
@@ -127,8 +116,8 @@ export default function OnboardingPage() {
       setError("Complete your business and branch details before finishing.");
       return;
     }
-    if (accountNumber && !/^\d{10}$/.test(accountNumber)) {
-      setError("Account number must contain exactly 10 digits.");
+    if (accountNumber && (!/^\d{10}$/.test(accountNumber) || !settlementBank.trim() || !accountName.trim())) {
+      setError("Enter the receiving bank, 10-digit account number and account holder name.");
       return;
     }
     setError("");
@@ -144,9 +133,9 @@ export default function OnboardingPage() {
           address: branch.address.trim() || undefined,
           phone: branch.phone.trim() || undefined,
         })),
-        payoutSchedule,
-        settlementBank: settlementBank || undefined,
+        settlementBank: settlementBank.trim() || undefined,
         accountNumber: accountNumber || undefined,
+        accountName: accountName.trim() || undefined,
         staff: staff.filter((member) => member.fullName.trim()).map((member) => ({
           fullName: member.fullName.trim(),
           role: member.role,
@@ -345,77 +334,30 @@ export default function OnboardingPage() {
 
           {step === 3 && (
             <div>
-              <h2 className="font-semibold text-gray-900 mb-1">
-                Choose your payout schedule
-              </h2>
-              <p className="text-sm text-gray-500 mb-5">
-                Save a payout preference for future use. Actual settlement is not yet enabled.
+              <h2 className="mb-1 font-semibold text-gray-900">Business receiving bank account</h2>
+              <p className="mb-5 text-sm text-gray-500">
+                Customers pay your business directly. Add any Nigerian bank account now,
+                or skip and add accounts in Business Owner Settings later.
               </p>
-
-              <div className="space-y-3 mb-5">
-                {[
-                  { id: "instant", title: "Instant payout", fee: "1.5% fee", desc: "Funds settle within minutes of each sale" },
-                  { id: "daily", title: "Daily payout", fee: "Standard", desc: "Funds settle every business day at 6:00 PM" },
-                  { id: "weekly", title: "Weekly payout", fee: "Lowest fee", desc: "Funds settle every Friday" },
-                ].map((option) => (
-                  <label
-                    key={option.id}
-                    className={`flex items-start gap-3 border rounded-lg p-4 cursor-pointer ${
-                      payoutSchedule === option.id
-                        ? "border-emerald-600 bg-emerald-50"
-                        : "border-gray-200"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="payoutSchedule"
-                      checked={payoutSchedule === option.id}
-                      onChange={() =>
-                        setPayoutSchedule(option.id as PayoutSchedule)
-                      }
-                      className="mt-1"
-                    />
-                    <div className="flex-1 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {option.title}
-                        </p>
-                        <p className="text-xs text-gray-500">{option.desc}</p>
-                      </div>
-                      <span className="text-xs font-medium text-gray-500">
-                        {option.fee}
-                      </span>
-                    </div>
-                  </label>
-                ))}
-              </div>
-
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Settlement bank account
-              </label>
-              <select
-                value={settlementBank}
-                onChange={(e) => setSettlementBank(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-4 text-gray-700"
-              >
-                <option value="">Select bank</option>
-                {banks.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-              </select>
-
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Account number
-              </label>
-              <input
-                value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value)}
-                placeholder="10-digit NUBAN number"
-                maxLength={10}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-              />
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Bank or receiving institution</label>
+              <input value={settlementBank} maxLength={120}
+                onChange={e => setSettlementBank(e.target.value)}
+                placeholder="Type any bank name, including digital banks"
+                className="mb-4 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700"/>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Account number</label>
+              <input value={accountNumber} inputMode="numeric" maxLength={10}
+                onChange={e => setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                placeholder="10-digit NUBAN account number"
+                className="mb-4 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700"/>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Account holder name</label>
+              <input value={accountName} maxLength={150}
+                onChange={e => setAccountName(e.target.value)}
+                placeholder="Name on the business receiving account"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700"/>
+              <p className="mt-3 text-xs text-amber-800">
+                Account information is supplied by you and is not yet verified by a bank.
+                Adding an account does not connect automatic bank notifications.
+              </p>
             </div>
           )}
 
