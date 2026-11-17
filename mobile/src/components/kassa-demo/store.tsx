@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { type Product } from './data';
 import { useKassaSession, type CatalogItem, type CheckoutSale } from './api';
+import { toKobo } from './theme';
 
 export type SaleLine = { id: string; quantity: number };
 export type CompletedPayment = { sale: CheckoutSale; cashReceived: number | null; change: number };
