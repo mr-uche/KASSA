@@ -17,6 +17,9 @@ export default function SignUp() {
   const [businessName, setBusinessName] = useState('');
   const [businessType, setBusinessType] = useState<string>('Retail store');
   const [branchName, setBranchName] = useState('Main Branch');
+  const [bankName, setBankName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankAccountName, setBankAccountName] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -33,6 +36,7 @@ export default function SignUp() {
       fullName, email: registered.current?.email ?? email,
       password: registered.current?.password ?? password,
       phone, businessName, businessType, branchName,
+      bankName, bankAccountNumber, bankAccountName,
     };
     if (!businessName.trim() || businessName.trim().length > 150 ||
         !branchName.trim() || branchName.trim().length > 120 ||
@@ -41,6 +45,11 @@ export default function SignUp() {
         details.password.length < 12 || details.password.length > 128 ||
         (!registered.current && details.password !== confirmation)) {
       setError('Enter your business, branch, name, valid email and matching password of at least 12 characters.');
+      return;
+    }
+    if ((bankName.trim() || bankAccountNumber.trim() || bankAccountName.trim()) &&
+        (!bankName.trim() || !/^\d{10}$/.test(bankAccountNumber) || !bankAccountName.trim())) {
+      setError('For bank setup, enter the bank name, 10-digit number and account holder name, or leave all three blank.');
       return;
     }
     setBusy(true);
@@ -81,6 +90,19 @@ export default function SignUp() {
       </Pressable>)}
     </View>
     <KField label="First branch name" value={branchName} onChangeText={setBranchName} placeholder="Main Branch"/>
+    <Text style={s.label}>Business receiving account (optional)</Text>
+    <Text style={[s.helper, { textAlign: 'left', marginTop: 0, marginBottom: 12 }]}>
+      Customers pay your bank directly. You can also add accounts later in Owner Settings on the web.
+    </Text>
+    <KField label="Bank name" value={bankName} onChangeText={setBankName} placeholder="Any Nigerian bank"/>
+    <KField label="Account number" value={bankAccountNumber}
+      onChangeText={v => setBankAccountNumber(v.replace(/\D/g, '').slice(0, 10))}
+      keyboardType="number-pad" placeholder="10-digit account number"/>
+    <KField label="Account holder name" value={bankAccountName}
+      onChangeText={setBankAccountName} placeholder="Name on the receiving account"/>
+    <Text style={[s.helper, { textAlign: 'left', marginTop: 0, marginBottom: 18 }]}>
+      Account name is owner-supplied, not bank-verified. No funds pass through KASSA.
+    </Text>
     <KField label="Your full name" value={fullName} onChangeText={setFullName} placeholder="Enter your full name"/>
     <KField label="Phone number (optional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+234..."/>
     <KField label="Email address" value={email} onChangeText={setEmail} keyboardType="email-address" placeholder="you@example.com"/>
