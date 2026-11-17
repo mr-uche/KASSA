@@ -380,11 +380,9 @@ export class SalesService {
     if (dto.confirmedReceived !== true) {
       throw new BadRequestException('Confirm receipt into the merchant account or successful POS record');
     }
-    const note = dto.verificationNote?.trim();
+    const note = dto.verificationNote?.trim() || null;
     const externalRef = dto.externalReference?.trim() || null;
-    if (!note || note.length < 12 || note.length > 300) {
-      throw new BadRequestException('Describe what merchant-side payment evidence you checked (12–300 characters)');
-    }
+    if (note && note.length > 300) throw new BadRequestException('Invalid verification note');
     if (externalRef && externalRef.length > 100) throw new BadRequestException('Invalid payment reference');
     const sale = await this.prisma.sale.findUnique({ where: { id }, include: this.include });
     if (!sale) throw new NotFoundException('Sale not found');
@@ -399,6 +397,16 @@ export class SalesService {
     if (sale.status !== 'PENDING_PAYMENT' || payment.status !== 'PENDING' ||
         payment.provider !== null || payment.providerReference !== null) {
       throw new ConflictException('This payment cannot be manually confirmed. Check for an existing or provider-managed transaction.');
+    }
+    if (dto.bankAccountId) {
+      if (payment.channel !== 'BANK_TRANSFER') {
+        throw new BadRequestException('Receiving bank selection is only valid for bank transfers');
+      }
+      const account = await this.prisma.merchantBankAccount.findFirst({
+        where: { id: dto.bankAccountId, businessId: sale.businessId },
+        select: { id: true },
+      });
+      if (!account) throw new BadRequestException('Selected business receiving account was not found');
     }
     await this.prisma.$transaction(async tx => {
       const claim = await tx.sale.updateMany({
@@ -428,7 +436,11 @@ export class SalesService {
           paymentId: payment.id, providerEventId: 'merchant-attested-' + sale.id,
           eventType: 'merchant.payment.confirmed.by.staff',
           payload: { confirmedByUserId: userId, confirmedAt: paidAt.toISOString(),
-            channel: payment.channel, verificationNote: note, externalReference: externalRef,
+            channel: payment.channel,
+            verificationMethod: payment.channel === 'BANK_TRANSFER'
+              ? 'CASHIER_CHECKED_MERCHANT_BANK_CREDIT' : 'CASHIER_CHECKED_POS_TERMINAL',
+            verificationNote: note, externalReference: externalRef,
+            bankAccountId: dto.bankAccountId ?? null,
             independentlyVerifiedByKassa: false, fundsProcessedByKassa: false },
         },
       });
