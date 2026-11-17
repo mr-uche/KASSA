@@ -28,6 +28,7 @@ import { SupportModule } from './support/support.module';
     CustomersModule,
     StaffBranchesModule,
     ReportsModule,
+    SupportModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
