@@ -28,7 +28,7 @@ function DemoBottomNav() {
   return <View style={[s.bottomNav, { paddingBottom: Math.max(insets.bottom, 10) }]}>
     {navItems.map(item => {
       const active = pathname === item.path ||
-        (item.name === 'Profile' && ['/cashier/help', '/cashier/chat', '/cashier/change-password', '/cashier/switch-branch'].includes(pathname));
+        (item.name === 'Profile' && ['/cashier/help', '/cashier/chat', '/cashier/change-password', '/cashier/switch-branch', '/cashier/offline-sales'].includes(pathname));
       const isNewSale = item.name === 'New sale';
       return <Pressable
         accessibilityRole="button"

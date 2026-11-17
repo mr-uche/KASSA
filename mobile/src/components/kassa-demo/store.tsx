@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { products as sampleProducts, type Product } from './data';
+import { type Product } from './data';
 import { useKassaSession, type CatalogItem, type CheckoutSale } from './api';
 
 export type SaleLine = { id: string; quantity: number };
@@ -17,6 +17,7 @@ type DemoStore = {
   completedPayment: CompletedPayment | null;
   add(id: string): void;
   subtract(id: string): void;
+  remove(id: string): void;
   clear(): void;
   beginNewSale(): void;
   refreshCatalog(): Promise<void>;
@@ -33,7 +34,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
   const [lines, setLines] = useState<SaleLine[]>([]);
   const [branch, setBranch] = useState('Main Branch');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
-  const [catalog, setCatalog] = useState<Product[]>(sampleProducts);
+  const [catalog, setCatalog] = useState<Product[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [pendingSale, setPendingSale] = useState<CheckoutSale | null>(null);
@@ -41,7 +42,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
 
   const refreshCatalog = useCallback(async () => {
     if (!scope) {
-      setCatalog(sampleProducts);
+      setCatalog([]);
       setCatalogError(null);
       setLoadingCatalog(false);
       return;
@@ -85,7 +86,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
 
   const add = (id: string) => {
     const product = catalog.find(p => p.id === id);
-    if (!product) return;
+    if (!product || pendingSale) return;
     setLines(prev => {
       const quantity = prev.find(line => line.id === id)?.quantity ?? 0;
       if (quantity >= product.stock) return prev;
@@ -94,11 +95,25 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
         : prev.map(line => line.id === id ? { ...line, quantity: line.quantity + 1 } : line);
     });
   };
-  const subtract = (id: string) => setLines(prev => prev
-    .map(line => line.id === id ? { ...line, quantity: line.quantity - 1 } : line)
-    .filter(line => line.quantity > 0));
-  const clear = () => { setLines([]); setPendingSale(null); };
-  const beginNewSale = () => { clear(); setCompletedPayment(null); setPaymentMethod('Cash'); };
+  const subtract = (id: string) => {
+    if (pendingSale) return;
+    setLines(prev => prev.map(line => line.id === id
+      ? { ...line, quantity: line.quantity - 1 } : line).filter(line => line.quantity > 0));
+  };
+  const remove = (id: string) => {
+    if (pendingSale) return;
+    setLines(prev => prev.filter(line => line.id !== id));
+  };
+  const clear = () => {
+    if (pendingSale) return;
+    setLines([]);
+  };
+  const beginNewSale = () => {
+    setLines([]);
+    setPendingSale(null);
+    setCompletedPayment(null);
+    setPaymentMethod('Cash');
+  };
 
   const total = useMemo(() => lines.reduce((sum, line) => {
     const product = catalog.find(item => item.id === line.id);
@@ -108,7 +123,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
 
   return <DemoContext.Provider value={{
     lines, branch, paymentMethod, total, count, catalog, loadingCatalog, catalogError,
-    pendingSale, completedPayment, add, subtract, clear, beginNewSale, refreshCatalog,
+    pendingSale, completedPayment, add, subtract, remove, clear, beginNewSale, refreshCatalog,
     setBranch, setPaymentMethod, setPendingSale, setCompletedPayment,
   }}>{children}</DemoContext.Provider>;
 }

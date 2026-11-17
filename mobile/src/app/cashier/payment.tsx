@@ -10,9 +10,9 @@ import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 
 const methods = [
-  { name: 'Cash', channel: 'CASH', detail: 'Customer pays with cash' },
-  { name: 'Card', channel: 'CARD', detail: 'Paystack test card checkout' },
-  { name: 'Transfer', channel: 'BANK_TRANSFER', detail: 'Paystack test bank transfer' },
+  { name: 'Cash', channel: 'CASH', detail: 'Confirm after collecting cash' },
+  { name: 'Card', channel: 'CARD', detail: 'Paystack test checkout (not live POS)' },
+  { name: 'Transfer', channel: 'BANK_TRANSFER', detail: 'Paystack test transfer (not live bank confirmation)' },
 ] as const;
 
 type Verification = {
@@ -167,7 +167,7 @@ export default function Payment() {
       <View style={s.totalRow}><Text style={s.totalText}>Total</Text><Text style={s.totalValue}>{naira(pending ? Number(pending.total) : store.total)}</Text></View>
     </View>
 
-    <Text style={[s.sectionTitle, { marginTop: 26 }]}>Payment method</Text>
+    <Text style={[s.sectionTitle, { marginTop: 26 }]}>How did the customer pay?</Text>
     {methods.map(item => {
       const selected = method.name === item.name;
       return <Pressable key={item.name} accessibilityRole="button"

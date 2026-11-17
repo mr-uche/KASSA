@@ -33,6 +33,7 @@ const quickActions = [
   { label: 'Scan product', route: '/cashier/scan-product', icon: { ios: 'barcode.viewfinder', android: 'barcode_scanner', web: 'barcode_scanner' } },
   { label: 'Find product', route: '/cashier/products', icon: { ios: 'magnifyingglass', android: 'search', web: 'search' } },
   { label: 'My sales', route: '/cashier/sales', icon: { ios: 'list.bullet', android: 'receipt_long', web: 'receipt_long' } },
+  { label: 'Offline cash', route: '/cashier/offline-sales', icon: { ios: 'wifi.slash', android: 'wifi_off', web: 'wifi_off' } },
 ] as const;
 
 export default function CashierHome() {
@@ -43,6 +44,12 @@ export default function CashierHome() {
   const [dashboard, setDashboard] = useState<CashierDashboard | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [profit, setProfit] = useState<{ estimatedGrossProfit: string | null; missingCostUnits: number } | null>(null);
+  const [profitError, setProfitError] = useState('');
+  const inventoryAllowed = !!scope && (scope.myRole === 'Owner' || scope.myPermissions?.includes('*') ||
+    scope.myPermissions?.includes('Manage products & inventory'));
+  const reportsAllowed = !!scope && (scope.myRole === 'Owner' || scope.myPermissions?.includes('*') ||
+    scope.myPermissions?.includes('View reports & analytics'));
   const go = (path: string) => router.push(path as Href);
 
   const refresh = useCallback(async (isCurrent: () => boolean = () => true) => {
@@ -73,12 +80,30 @@ export default function CashierHome() {
     }
   }, [scope?.businessId, scope?.branchId, session.request]);
 
+  const refreshProfit = useCallback(async (isCurrent: () => boolean = () => true) => {
+    if (!scope || !reportsAllowed) {
+      setProfit(null); setProfitError('');
+      return;
+    }
+    setProfit(null); setProfitError('');
+    try {
+      const data = await session.request<{ estimatedGrossProfit: string | null; missingCostUnits: number }>(
+        'reports/profit-today?businessId=' + encodeURIComponent(scope.businessId) +
+        '&branchId=' + encodeURIComponent(scope.branchId)
+      );
+      if (isCurrent()) setProfit(data);
+    } catch (cause) {
+      if (isCurrent()) setProfitError(cause instanceof Error ? cause.message : 'Profit estimate unavailable.');
+    }
+  }, [scope?.businessId, scope?.branchId, reportsAllowed, session.request]);
+
   // Refetch after each completed payment and whenever the cashier returns home.
   useFocusEffect(useCallback(() => {
     let active = true;
     void refresh(() => active);
+    void refreshProfit(() => active);
     return () => { active = false; };
-  }, [refresh]));
+  }, [refresh, refreshProfit]));
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -144,6 +169,20 @@ export default function CashierHome() {
         </View>
       </View>
 
+      {reportsAllowed && (
+        <View style={s.profitCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.cardLabel}>Estimated gross profit today</Text>
+            <Text style={s.profitAmount}>
+              {profitError ? 'Unavailable' : !profit ? 'Loading…' :
+                profit.estimatedGrossProfit === null ? '—' : naira(Number(profit.estimatedGrossProfit))}
+            </Text>
+            <Text style={s.profitNote}>{profitError || (profit?.missingCostUnits ?
+              'Enter missing product costs' : 'Estimate using current product costs')}</Text>
+          </View>
+        </View>
+      )}
+
       {error ? <View style={s.errorCard}>
         <Text style={s.errorText}>{error}</Text>
         <Pressable accessibilityRole="button" onPress={() => { void refresh(); }}>
@@ -153,7 +192,11 @@ export default function CashierHome() {
 
       <Text style={[s.sectionTitle, s.actionsHeading]}>Quick Actions</Text>
       <View style={s.actionsRow}>
-        {quickActions.map(action => (
+        {[...quickActions, ...(inventoryAllowed ? [{
+          label: 'Add product' as const,
+          route: '/cashier/add-product' as const,
+          icon: { ios: 'plus.square', android: 'add_box', web: 'add_box' },
+        }] : [])].map(action => (
           <Pressable
             key={action.label}
             accessibilityRole="button"
@@ -229,6 +272,9 @@ const s = StyleSheet.create({
   retry: { color: C.green, fontSize: 14, fontWeight: '800', paddingTop: 10 },
   emptySales: { color: C.muted, fontSize: 14, paddingVertical: 16 },
   intro: { color: C.muted, fontSize: 14, marginTop: 5, marginBottom: 22 },
+  profitCard: { backgroundColor: C.white, borderColor: C.border, borderWidth: 1, borderRadius: 12, marginTop: 12, paddingHorizontal: 17, paddingVertical: 16 },
+  profitAmount: { color: C.green, fontSize: 23, fontWeight: '800', marginTop: 8 },
+  profitNote: { color: C.muted, fontSize: 13, marginTop: 5 },
   saleBanner: {
     backgroundColor: C.green, borderRadius: 13, paddingHorizontal: 20, paddingVertical: 19,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -259,9 +305,9 @@ const s = StyleSheet.create({
   cardNote: { color: C.muted, fontSize: 14 },
   today: { color: C.green, fontSize: 14, marginTop: 6 },
   actionsHeading: { marginTop: 24, marginBottom: 13 },
-  actionsRow: { flexDirection: 'row', gap: 9 },
+  actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
   quickAction: {
-    flex: 1, minHeight: 103, backgroundColor: C.white, borderColor: C.border,
+    flexGrow: 1, flexBasis: '46%', minHeight: 103, backgroundColor: C.white, borderColor: C.border,
     borderWidth: 1, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 4,
     alignItems: 'center', justifyContent: 'center',
   },

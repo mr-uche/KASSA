@@ -42,6 +42,66 @@ function money(kobo: bigint) {
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async profitToday(userId: string, businessId: string, branchId: string) {
+    // Cost and gross-profit information is sensitive; never expose to sales-only cashiers.
+    await requireBusinessPermission(this.prisma, userId, businessId, 'View reports & analytics', branchId);
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Africa/Lagos', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date());
+    const numeric = (type: string) => Number(parts.find(part => part.type === type)?.value);
+    const start = new Date(Date.UTC(numeric('year'), numeric('month') - 1, numeric('day')) - 3600000);
+    const end = new Date(start.getTime() + 86400000);
+
+    const toKobo = (value: string): bigint => {
+      const [whole, fraction = ''] = value.split('.');
+      return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0').slice(0, 2));
+    };
+    const asMoney = (amount: bigint): string => {
+      const sign = amount < 0n ? '-' : '';
+      const positive = amount < 0n ? -amount : amount;
+      return sign + (positive / 100n).toString() + '.' +
+        (positive % 100n).toString().padStart(2, '0');
+    };
+
+    const sales = await this.prisma.sale.findMany({
+      where: {
+        businessId, branchId, status: 'PAID',
+        createdAt: { gte: start, lt: end },
+        payments: { some: { status: 'SUCCEEDED' } },
+        NOT: { payments: { some: { provider: 'PAYSTACK_TEST' } } },
+      },
+      select: {
+        total: true,
+        items: { select: {
+          quantity: true,
+          product: { select: { costPrice: true } },
+        } },
+      },
+    });
+
+    let revenue = 0n;
+    let estimatedCost = 0n;
+    let missingCosts = 0;
+    for (const sale of sales) {
+      revenue += toKobo(sale.total.toString());
+      for (const item of sale.items) {
+        if (item.product.costPrice === null) {
+          missingCosts += item.quantity;
+        } else {
+          estimatedCost += toKobo(item.product.costPrice.toString()) * BigInt(item.quantity);
+        }
+      }
+    }
+    return {
+      businessId, branchId,
+      timezone: 'Africa/Lagos',
+      paidSales: sales.length,
+      estimatedGrossProfit: missingCosts ? null : asMoney(revenue - estimatedCost),
+      missingCostUnits: missingCosts,
+      basis: 'Current catalogue cost prices; historical cost snapshots are not stored.',
+    };
+  }
+
   async summary(userId: string, query: ReportsQueryDto) {
     const firstDay = dateOnly(query.from);
     const lastDay = dateOnly(query.to);

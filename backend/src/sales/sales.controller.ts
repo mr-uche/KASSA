@@ -28,6 +28,12 @@ export class SalesController {
     return this.sales.dashboard(request.userId, query);
   }
 
+  @Get('mine')
+  @ApiOperation({ summary: 'List the current cashier’s latest 100 sales for their authorised branch' })
+  mine(@Req() request: AuthenticatedRequest, @Query() query: SalesListQueryDto) {
+    return this.sales.mine(request.userId, query);
+  }
+
   @Get('catalog') @ApiOperation({ summary: 'Checkout-safe product catalogue for permitted cashiers' })
   catalog(@Req() request: AuthenticatedRequest, @Query() query: SalesListQueryDto) {
     return this.sales.catalog(request.userId, query);

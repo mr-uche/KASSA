@@ -7,6 +7,7 @@ export type KassaScope = {
   branchName: string;
   branchAddress?: string | null;
   myRole?: string;
+  myPermissions?: string[];
 };
 type Account = { id: string; email: string; fullName: string };
 type LoginResponse = { user: Account; accessToken: string; refreshToken?: string };
@@ -26,6 +27,8 @@ export type CheckoutSale = {
   subtotal: string;
   currency: string;
   branchId: string;
+  cashier?: string;
+  customer?: string;
   items: { id: string; productId: string; name: string; quantity: number; unitPrice: string; lineTotal: string }[];
   payments: { channel: string; status: string; confirmedAt: string | null; provider?: string | null }[];
 };
@@ -69,6 +72,42 @@ async function http<T>(path: string, token?: string, body?: unknown): Promise<T>
   return result as T;
 }
 
+export type MerchantRegistration = {
+  fullName: string;
+  email: string;
+  password: string;
+  phone?: string;
+  businessName: string;
+  businessType: string;
+  branchName: string;
+};
+
+// The server's existing registration and onboarding endpoints are authoritative.
+// Do not send KASSA passwords to any third-party identity provider.
+export async function registerMerchantUser(details: MerchantRegistration): Promise<void> {
+  await http('auth/register', undefined, {
+    fullName: details.fullName.trim(),
+    email: details.email.trim().toLowerCase(),
+    password: details.password,
+    ...(details.phone?.trim() ? { phone: details.phone.trim() } : {}),
+  });
+}
+
+// Can be retried after a network interruption without creating another account
+// or another business for the same owner.
+export async function onboardMerchantBusiness(details: MerchantRegistration): Promise<void> {
+  const signedIn = await http<LoginResponse>('auth/login', undefined, {
+    email: details.email.trim().toLowerCase(), password: details.password, rememberMe: false,
+  });
+  const existing = await http<Business[]>('businesses/mine', signedIn.accessToken);
+  if (existing.length > 0) return;
+  await http('businesses/onboarding', signedIn.accessToken, {
+    businessName: details.businessName.trim(),
+    businessType: details.businessType.trim(),
+    branches: [{ name: details.branchName.trim() || 'Main Branch' }],
+  });
+}
+
 type Session = {
   user: Account | null;
   scope: KassaScope | null;
@@ -97,7 +136,7 @@ export function KassaSessionProvider({ children }: { children: React.ReactNode }
       .filter(b => b.myPermissions.includes('*') || b.myPermissions.includes('Manage sales & transactions'))
       .flatMap(b => b.branches.filter(branch => branch.isActive).map(branch => ({
         businessId: b.id, businessName: b.name, branchId: branch.id, branchName: branch.name,
-        branchAddress: branch.address ?? null, myRole: b.myRole,
+        branchAddress: branch.address ?? null, myRole: b.myRole, myPermissions: b.myPermissions,
       })));
     if (!permitted.length) throw new Error('No active branch with sales access is assigned to this account.');
     setAccessToken(login.accessToken);

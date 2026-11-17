@@ -62,6 +62,8 @@ model User {
   memberships     BusinessMembership[]
   salesAsCashier  Sale[]               @relation("CashierSales")
   authSessions    AuthSession[]
+  supportThreads SupportThread[] @relation("SupportRequester")
+  supportMessages SupportMessage[] @relation("SupportAuthor")
 }
 
 model AuthSession {
@@ -335,4 +337,28 @@ model PaymentEvent {
   payment         Payment  @relation(fields: [paymentId], references: [id])
 
   @@unique([paymentId, providerEventId])
+}
+
+model SupportThread {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @unique @db.Uuid
+  status     String           @default("OPEN")
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  user       User             @relation("SupportRequester", fields: [userId], references: [id])
+  messages   SupportMessage[]
+
+  @@index([updatedAt])
+}
+
+model SupportMessage {
+  id         String        @id @default(uuid()) @db.Uuid
+  threadId   String        @db.Uuid
+  authorId   String        @db.Uuid
+  body       String        @db.VarChar(1000)
+  createdAt  DateTime      @default(now())
+  thread     SupportThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author     User          @relation("SupportAuthor", fields: [authorId], references: [id])
+
+  @@index([threadId, createdAt])
 }

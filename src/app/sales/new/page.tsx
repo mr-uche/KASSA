@@ -4,7 +4,7 @@ import KassaHeaderActions from "@/components/KassaHeaderActions";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ScanBarcode, Minus, Plus, Menu, WifiOff } from "lucide-react";
+import { Search, ScanBarcode, Minus, Plus, Menu, WifiOff, X } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import Link from "next/link";
 import { getInventoryContext, type InventoryContext, type InventoryProduct } from "@/lib/inventory-client";
@@ -302,11 +302,20 @@ export default function NewSalePage() {
               {filtered.map((p) => (
                 <div
                   key={p.id}
-                  className="border border-gray-200 rounded-lg p-3 flex gap-3"
+                  className={`relative border rounded-lg p-3 flex gap-3 ${sale.some((item) => item.id === p.id) ? "border-emerald-600" : "border-gray-200"}`}
                 >
-                  <div
-                    className="w-12 h-12 rounded-md bg-emerald-50 shrink-0"
-                  />
+                  {sale.some((item) => item.id === p.id) && (
+                    <button
+                      type="button"
+                      aria-label={`Remove ${p.name} from current sale`}
+                      title="Remove item from checkout"
+                      onClick={() => setSale((previous) => previous.filter((item) => item.id !== p.id))}
+                      className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                  <div className="w-12 h-12 rounded-md bg-emerald-50 shrink-0" />
 
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900 text-sm truncate">
@@ -316,6 +325,10 @@ export default function NewSalePage() {
                     <p className="text-xs text-gray-500">
                       SKU: {p.sku} · Stock: {p.stock}
                     </p>
+                    {sale.some((item) => item.id === p.id) &&
+                      <p className="text-xs font-semibold text-emerald-700">
+                        {sale.find((item) => item.id === p.id)?.qty} selected
+                      </p>}
 
                     <div className="flex items-center justify-between mt-1.5">
                       <span className="font-semibold text-gray-900 text-sm">
@@ -448,7 +461,7 @@ export default function NewSalePage() {
             </div>
 
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-              Payment method
+              How did the customer pay?
             </p>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
