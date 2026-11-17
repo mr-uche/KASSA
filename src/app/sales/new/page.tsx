@@ -465,7 +465,7 @@ export default function NewSalePage() {
             </p>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
-              {["Transfer", "POS", "Cash", "USSD", "Card"].map((method) => (
+              {["Transfer", "POS", "Cash", "Card"].map((method) => (
                 <button
                   key={method}
                   onClick={() => setPaymentMethod(method)}
