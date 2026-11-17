@@ -75,7 +75,7 @@ export type CheckoutReceivingAccount = {
   isDefault: boolean;
 };
 
-export function listReceivingAccounts(context: InventoryContext): Promise<CheckoutReceivingAccount[]> {
+export function listReceivingAccounts(context: Pick<InventoryContext, "businessId" | "branchId">): Promise<CheckoutReceivingAccount[]> {
   const query = new URLSearchParams({ businessId: context.businessId, branchId: context.branchId });
   return inventoryFetch<CheckoutReceivingAccount[]>("/api/sales/receiving-accounts?" + query);
 }
