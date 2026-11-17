@@ -5,7 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, Clock3, Menu, ShieldCheck, AlertTriangle } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
-import { confirmCash, confirmMerchantPayment, getSale, type SavedSale } from "@/lib/sales-client";
+import {
+  confirmCash, confirmMerchantPayment, getSale, getPaymentVerificationStatus,
+  listReceivingAccounts, type SavedSale, type CheckoutReceivingAccount,
+  type PaymentVerificationStatus,
+} from "@/lib/sales-client";
 import { formatNaira } from "@/lib/inventory-client";
 import SaleReceipt from "@/components/sales/SaleReceipt";
 
@@ -24,8 +28,10 @@ export default function PaymentStatusContent() {
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [receiptChecked, setReceiptChecked] = useState(false);
-  const [verificationNote, setVerificationNote] = useState("");
-  const [externalReference, setExternalReference] = useState("");
+  const [receivingAccounts, setReceivingAccounts] = useState<CheckoutReceivingAccount[]>([]);
+  const [selectedBankId, setSelectedBankId] = useState("");
+  const [verification, setVerification] = useState<PaymentVerificationStatus | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -45,6 +51,30 @@ export default function PaymentStatusContent() {
     return () => { active = false; };
   }, [saleId]);
 
+  useEffect(() => {
+    if (!sale || sale.payments[0]?.channel !== "BANK_TRANSFER") return;
+    let active = true;
+    listReceivingAccounts({ businessId: sale.businessId, branchId: sale.branchId })
+      .then(accounts => {
+        if (!active) return;
+        setReceivingAccounts(accounts);
+        setSelectedBankId(current => accounts.some(account => account.id === current)
+          ? current : (accounts.find(account => account.isDefault) ?? accounts[0])?.id ?? "");
+      }).catch(() => { if (active) setReceivingAccounts([]); });
+    return () => { active = false; };
+  }, [sale?.businessId, sale?.branchId, sale?.payments[0]?.channel]);
+
+  useEffect(() => {
+    if (!sale || sale.status !== "PENDING_PAYMENT" || sale.payments[0]?.channel === "CASH") return;
+    let active = true;
+    setCheckingStatus(true);
+    getPaymentVerificationStatus(sale.id)
+      .then(status => { if (active) setVerification(status); })
+      .catch(() => { if (active) setVerification(null); })
+      .finally(() => { if (active) setCheckingStatus(false); });
+    return () => { active = false; };
+  }, [sale?.id, sale?.status, sale?.payments[0]?.channel]);
+
   async function refreshStatus() {
     if (!saleId || refreshing) return;
     setRefreshing(true); setError(""); setNotice("");
@@ -60,11 +90,7 @@ export default function PaymentStatusContent() {
     if (!sale || submitting || sale.status !== "PENDING_PAYMENT" || !receiptChecked) return;
     const payment = sale.payments[0];
     if (!payment || payment.status !== "PENDING" || payment.provider) return;
-    if (payment.channel !== "CASH" && (!merchantChannels.has(payment.channel) ||
-        verificationNote.trim().length < 12)) {
-      setError("Describe how you checked the business account credit or successful POS transaction (at least 12 characters).");
-      return;
-    }
+    if (payment.channel !== "CASH" && !merchantChannels.has(payment.channel)) return;
     if (!window.confirm("Confirm that the business actually received " + formatNaira(sale.total) +
       " through " + (channelLabels[payment.channel] ?? payment.channel) +
       "? A customer screenshot alone is NOT proof. This records YOUR confirmation and deducts stock.")) return;
@@ -72,7 +98,7 @@ export default function PaymentStatusContent() {
     try {
       const confirmed = payment.channel === "CASH"
         ? await confirmCash(sale.id)
-        : await confirmMerchantPayment(sale.id, verificationNote.trim(), externalReference.trim());
+        : await confirmMerchantPayment(sale.id, payment.channel === "BANK_TRANSFER" ? selectedBankId || undefined : undefined);
       if (confirmed.status !== "PAID" || !confirmed.payments.some(p => p.status === "SUCCEEDED")) {
         throw new Error("The backend did not confirm this payment. Do not issue goods.");
       }
@@ -146,20 +172,31 @@ export default function PaymentStatusContent() {
                   : "Check the POS terminal's successful transaction record and amount. A customer screenshot is not enough."}
             </p>
             {manualMerchant && <>
-              <label className="mt-4 block text-sm font-medium text-gray-700">
-                How did you confirm the business received payment?
-                <textarea value={verificationNote} maxLength={300} rows={3} required
-                  onChange={event => setVerificationNote(event.target.value)}
-                  placeholder="e.g. I checked the merchant bank credit with the correct amount and reference"
-                  className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-700"/>
-              </label>
-              <label className="mt-3 block text-sm font-medium text-gray-700">
-                Bank/POS reference (optional)
-                <input value={externalReference} maxLength={100}
-                  onChange={event => setExternalReference(event.target.value)}
-                  placeholder="Enter transaction reference (no PIN, OTP or card details)"
-                  className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-emerald-700"/>
-              </label>
+              {payment?.channel === "BANK_TRANSFER" && <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Business receiving account</p>
+                {receivingAccounts.length > 0 ? <>
+                  <select aria-label="Business receiving bank account" value={selectedBankId}
+                    onChange={e => setSelectedBankId(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
+                    {receivingAccounts.map(account => <option key={account.id} value={account.id}>
+                      {account.bankName} · {account.accountNumber} {account.isDefault ? "(default)" : ""}
+                    </option>)}
+                  </select>
+                  {receivingAccounts.filter(a => a.id === selectedBankId).map(a => (
+                    <p key={a.id} className="mt-2 text-sm text-gray-700">{a.accountName}
+                      <span className="ml-2 text-xs text-amber-800">(Owner-supplied; bank not independently verified)</span>
+                    </p>
+                  ))}
+                </> : <p className="mt-2 text-sm text-amber-800">
+                  No receiving account has been added in Owner Settings. Ask the owner to set one up.
+                </p>}
+              </div>}
+              <p className="mt-3 text-xs text-gray-600">
+                {checkingStatus ? "Checking KASSA's saved payment status…" :
+                  verification?.status === "NOT_CONNECTED"
+                    ? "Automatic bank/POS verification is not connected yet. Use manual confirmation after checking the merchant's own records."
+                    : "There is no independently verified bank/POS receipt for this sale. Confirm manually only after checking the merchant's own records."}
+              </p>
             </>}
             <label className="mt-4 flex items-start gap-3 text-sm text-gray-800">
               <input type="checkbox" className="mt-1 accent-emerald-700"
@@ -169,7 +206,7 @@ export default function PaymentStatusContent() {
                 : "I checked the business's own bank or POS record and confirmed that the full amount was received."}
             </label>
             <button type="button" onClick={() => void confirmMerchantReceipt()}
-              disabled={submitting || !receiptChecked || (!!manualMerchant && verificationNote.trim().length < 12)}
+              disabled={submitting || !receiptChecked}
               className="mt-5 w-full rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">
               {submitting ? "Recording confirmation…" : "Confirm received by business"}
             </button>
