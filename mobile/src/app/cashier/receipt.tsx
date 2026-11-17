@@ -3,11 +3,13 @@ import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import * as Print from 'expo-print';
+import { Image } from 'expo-image';
 import { useKassaDemo, type CompletedPayment } from '@/components/kassa-demo/store';
 import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 import { receiptHtml, receiptMethod, receiptText } from '@/components/kassa-demo/receipt-tools';
+import { receiptQrDataUrl } from '@/components/kassa-demo/receipt-qr';
 
 const dateFormatter = new Intl.DateTimeFormat('en-NG', {
   dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Lagos',
@@ -70,6 +72,7 @@ export default function Receipt() {
     return { sale, cashReceived: null, change: 0 };
   }, [sale, confirmed, current, activeId]);
   const test = !!sale?.payments.some(payment => payment.provider === 'PAYSTACK_TEST');
+  const qrDataUrl = useMemo(() => sale && confirmed ? receiptQrDataUrl(sale) : null, [sale, confirmed]);
   const channel = sale?.payments[0]?.channel ?? '';
   const cashReceived = detail?.cashReceived ?? null;
   const change = detail?.change ?? 0;
@@ -151,6 +154,13 @@ export default function Receipt() {
           <Text style={s.referenceShort} numberOfLines={2}>{sale.reference}</Text>
         </View>
       </View>
+      <View style={s.qrBlock}>
+        {qrDataUrl && <Image source={{ uri: qrDataUrl }}
+          accessibilityLabel="Scannable QR code containing KASSA receipt reference and amount"
+          contentFit="contain" style={s.qrImage} />}
+        <Text style={s.qrTitle}>Scan for receipt details</Text>
+        <Text style={s.qrDisclaimer}>Reference information only. For independent verification, contact the merchant.</Text>
+      </View>
       <Text style={s.thankYou}>Thank you for shopping with us!</Text>
     </View>
 
@@ -203,6 +213,10 @@ const s = StyleSheet.create({
   referenceBox: { backgroundColor: '#F3F8F6', borderRadius: 10, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 15 },
   verified: { color: C.green, fontWeight: '800', fontSize: 14 },
   referenceShort: { color: C.muted, fontSize: 14, marginTop: 3 },
+  qrBlock: { borderTopWidth: 1, borderTopColor: C.border, marginTop: 18, paddingTop: 15, alignItems: 'center' },
+  qrImage: { width: 178, height: 178, backgroundColor: C.white },
+  qrTitle: { fontSize: 14, fontWeight: '800', color: C.title, marginTop: 7, textAlign: 'center' },
+  qrDisclaimer: { fontSize: 11, lineHeight: 16, color: C.muted, textAlign: 'center', marginTop: 5, maxWidth: 260 },
   thankYou: { color: C.muted, fontSize: 14, textAlign: 'center', marginTop: 13 },
   info: { color: C.muted, fontSize: 14, lineHeight: 20 },
   error: { color: C.danger, fontSize: 14, marginVertical: 12 },
