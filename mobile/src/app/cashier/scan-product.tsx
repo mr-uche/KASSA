@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useAudioPlayer } from 'expo-audio';
 import { SymbolView } from 'expo-symbols';
 import { useKassaSession, type CatalogItem } from '@/components/kassa-demo/api';
 import { useKassaDemo } from '@/components/kassa-demo/store';
@@ -29,6 +30,16 @@ export default function ScanProduct() {
   const [added, setAdded] = useState(false);
   const [torch, setTorch] = useState(false);
   const inFlight = useRef(false);
+  const scanBeep = useAudioPlayer(require('../../../assets/sounds/scan-success.wav'));
+
+  // Sound is optional feedback: playback failures must never block product lookup.
+  const playScanBeep = useCallback(() => {
+    try {
+      void scanBeep.seekTo(0).then(() => scanBeep.play()).catch(() => undefined);
+    } catch {
+      // The product can still be sold with the device muted or audio unavailable.
+    }
+  }, [scanBeep]);
 
   useFocusEffect(useCallback(() => {
     setActive(true);
@@ -45,7 +56,7 @@ export default function ScanProduct() {
     setActive(true);
   };
 
-  const lookUp = useCallback(async (barcode: string) => {
+  const lookUp = useCallback(async (barcode: string, fromCamera = false) => {
     const code = barcode.trim();
     if (!scope || !session.user) {
       setError('Sign in and select your branch before scanning.');
@@ -90,6 +101,7 @@ export default function ScanProduct() {
           price: cached.price.toFixed(2), stock: cached.stock,
           lowStockThreshold: cached.lowStockThreshold ?? 0,
         });
+        if (fromCamera) playScanBeep();
         setManual('');
         return;
       }
@@ -110,6 +122,7 @@ export default function ScanProduct() {
         throw new Error('No more stock is available for ' + product.name + '.');
       }
       setFound(product);
+      if (fromCamera) playScanBeep();
       setManual('');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Barcode lookup failed. Please retry.');
@@ -119,7 +132,7 @@ export default function ScanProduct() {
     }
   }, [scope?.businessId, scope?.branchId, session.user?.id, session.request,
     store.pendingSale, store.catalog, store.lines, store.refreshCatalog,
-    store.offlineMode, store.catalogSavedAt]);
+    store.offlineMode, store.catalogSavedAt, playScanBeep]);
 
   const cartLines = store.lines.flatMap(line => {
     const product = store.catalog.find(item => item.id === line.id);
@@ -165,7 +178,7 @@ export default function ScanProduct() {
           barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'code93', 'itf14', 'qr', 'datamatrix'],
         }}
         onBarcodeScanned={active && !processing && !found && !store.pendingSale
-          ? ({ data }) => { void lookUp(data); } : undefined}
+          ? ({ data }) => { void lookUp(data, true); } : undefined}
         onMountError={() => setError('Camera unavailable. Use the manual barcode field below.')}
       /> : <View style={s.noCamera}>
         <SymbolView name={{ ios: 'barcode.viewfinder', android: 'qr_code_scanner', web: 'qr_code_scanner' }}
