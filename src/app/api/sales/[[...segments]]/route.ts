@@ -7,9 +7,9 @@ type Context = { params: Promise<{ segments?: string[] }> };
 
 function pathFrom(segments: string[]): string | null {
   if (segments.length === 0) return "/sales";
-  if (segments.length === 1 && ["catalog", "lookup", "offline-sync"].includes(segments[0])) return "/sales/" + segments[0];
+  if (segments.length === 1 && ["catalog", "lookup", "offline-sync", "receiving-accounts"].includes(segments[0])) return "/sales/" + segments[0];
   if (segments.length > 2 || !/^[0-9a-f-]{36}$/i.test(segments[0])) return null;
-  if (segments.length === 2 && !["confirm-cash", "confirm-merchant-payment"].includes(segments[1])) return null;
+  if (segments.length === 2 && !["confirm-cash", "confirm-merchant-payment", "verification-status"].includes(segments[1])) return null;
   return "/sales/" + segments.join("/");
 }
 
@@ -18,7 +18,7 @@ async function handler(request: NextRequest, context: Context, method: "GET" | "
   if (!token) return unauthorized();
   const { segments = [] } = await context.params;
   const path = pathFrom(segments);
-  if (!path || (method === "GET" && segments.length === 2))
+  if (!path || (method === "GET" && segments.length === 2 && segments[1] !== "verification-status"))
     return NextResponse.json({ message: "Not found" }, { status: 404 });
   if (method === "POST" && !(segments.length === 0 || (segments.length === 1 && segments[0] === "offline-sync") || (segments.length === 2 && ["confirm-cash", "confirm-merchant-payment"].includes(segments[1]))))
     return NextResponse.json({ message: "Not found" }, { status: 404 });
@@ -31,7 +31,7 @@ async function handler(request: NextRequest, context: Context, method: "GET" | "
     catch { return NextResponse.json({ message: "Invalid JSON" }, { status: 400 }); }
   }
   try {
-    const query = method === "GET" && (segments.length === 0 || ["catalog", "lookup"].includes(segments[0]))
+    const query = method === "GET" && (segments.length === 0 || ["catalog", "lookup", "receiving-accounts"].includes(segments[0]))
       ? request.nextUrl.searchParams.toString() : "";
     const result = await forwardToBackend(path + (query ? "?" + query : ""), {
       method, token, ...(method === "POST" ? { body } : {}),
