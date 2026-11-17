@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AccessTokenGuard, type AuthenticatedRequest } from '../auth/access-token.guard';
-import { ConfirmCashDto, CreateSaleDto, OfflineCashSaleDto, SalesListQueryDto, ScanLookupQueryDto } from './dto/sales.dto';
+import { ConfirmCashDto, ConfirmMerchantPaymentDto, CreateSaleDto, OfflineCashSaleDto, SalesListQueryDto, ScanLookupQueryDto } from './dto/sales.dto';
 import { SalesService } from './sales.service';
 
 @ApiTags('Sales') @ApiBearerAuth() @UseGuards(AccessTokenGuard) @Controller('sales')
@@ -47,6 +47,16 @@ export class SalesController {
   one(@Req() request: AuthenticatedRequest, @Param('saleId', ParseUUIDPipe) id: string) {
     return this.sales.getOne(request.userId, id);
   }
+  @Post(':saleId/confirm-merchant-payment')
+  @ApiOperation({ summary: 'Record a cashier attestation of direct merchant bank/POS receipt, with audit trail; KASSA does not verify or hold funds' })
+  confirmMerchantPayment(
+    @Req() request: AuthenticatedRequest,
+    @Param('saleId', ParseUUIDPipe) id: string,
+    @Body() dto: ConfirmMerchantPaymentDto,
+  ) {
+    return this.sales.confirmMerchantPayment(request.userId, id, dto);
+  }
+
   @Post(':saleId/confirm-cash')
   @ApiOperation({ summary: 'Explicitly confirm physical cash received, then decrement inventory atomically' })
   confirmCash(
