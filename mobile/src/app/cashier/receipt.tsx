@@ -125,15 +125,15 @@ export default function Receipt() {
       </View>
       <View style={[s.detailRow, compact && s.detailRowCompact]}>
         <Text style={s.label}>Date & time</Text>
-        <Text style={s.valueSmall}>{dateFormatter.format(new Date(sale.createdAt))}</Text>
+        <Text style={[s.valueSmall, compact && s.compactValue]}>{dateFormatter.format(new Date(sale.createdAt))}</Text>
       </View>
       <View style={[s.detailRow, compact && s.detailRowCompact]}>
         <Text style={s.label}>Served by</Text>
-        <Text style={s.valueSmall}>{sale.cashier ?? session.user?.fullName ?? 'Cashier'}</Text>
+        <Text style={[s.valueSmall, compact && s.compactValue]}>{sale.cashier ?? session.user?.fullName ?? 'Cashier'}</Text>
       </View>
       <View style={[s.detailRow, compact && s.detailRowCompact]}>
         <Text style={s.label}>Customer</Text>
-        <Text style={s.valueSmall}>{sale.customer || 'Walk-in customer'}</Text>
+        <Text style={[s.valueSmall, compact && s.compactValue]}>{sale.customer || 'Walk-in customer'}</Text>
       </View>
       {test && <Text style={s.warning}>PAYSTACK TEST MODE — Not a live payment</Text>}
 
@@ -158,7 +158,7 @@ export default function Receipt() {
       </View>
       <View style={[s.detailRow, compact && s.detailRowCompact]}>
         <Text style={s.label}>Payment method</Text>
-        <Text style={s.valueSmall}>{receiptMethod(channel)}</Text>
+        <Text style={[s.valueSmall, compact && s.compactValue]}>{receiptMethod(channel)}</Text>
       </View>
       {cashReceived !== null && <>
         <View style={[s.detailRow, compact && s.detailRowCompact]}>
@@ -232,6 +232,7 @@ const s = StyleSheet.create({
   label: { color: C.muted, fontSize: 14, flex: 1, minWidth: 0, flexShrink: 1 },
   valueSmall: { color: C.title, fontSize: 14, fontWeight: '700', textAlign: 'right',
     flex: 1.45, minWidth: 0, flexShrink: 1, flexWrap: 'wrap' },
+  compactValue: { flexGrow: 0, flexShrink: 1, flexBasis: 'auto', alignSelf: 'stretch' },
   warning: { fontSize: 14, color: C.orange, fontWeight: '800', textAlign: 'center', marginTop: 12 },
   tableHead: { flexDirection: 'row', alignItems: 'center', paddingBottom: 10, gap: 7, minWidth: 0 },
   tableLabel: { fontSize: 14, color: C.muted, fontWeight: '800' },
