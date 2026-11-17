@@ -164,7 +164,7 @@ export default function NewSalePage() {
   function handleContinue() {
     if (!inventoryContext || !sale.length) return;
     const channelMap: Record<string, PaymentMethod> = {
-      Transfer: "BANK_TRANSFER", POS: "POS", Cash: "CASH", USSD: "USSD", Card: "CARD",
+      Transfer: "BANK_TRANSFER", POS: "POS", Cash: "CASH", Card: "CARD",
     };
     sessionStorage.setItem("kassa_sale_draft", JSON.stringify({
       businessId: inventoryContext.businessId,
