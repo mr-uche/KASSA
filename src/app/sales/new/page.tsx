@@ -354,7 +354,7 @@ export default function NewSalePage() {
               </p>
 
               <p className="text-sm text-amber-700">
-                All prices are recalculated by the backend. Stock is deducted only after cash receipt or verified payment.
+                Prices are recalculated by the backend. After the business confirms receipt, KASSA records the sale and deducts stock. Customer money never passes through KASSA.
               </p>
             </div>
           </div>
