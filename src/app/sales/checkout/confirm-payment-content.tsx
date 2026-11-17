@@ -292,7 +292,7 @@ export default function ConfirmPaymentContent() {
                     </p>
 
                     <p className="text-xs text-gray-500">
-                      Selected payment method
+                      How did the customer pay?
                     </p>
                   </div>
                 </div>
