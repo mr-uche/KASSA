@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import * as Print from 'expo-print';
@@ -25,6 +25,8 @@ function money(value: string | number): string {
 
 export default function Receipt() {
   const router = useRouter();
+  const { width, fontScale } = useWindowDimensions();
+  const compact = width < 345 || fontScale > 1.2;
   const { saleId } = useLocalSearchParams<{ saleId?: string }>();
   const store = useKassaDemo();
   const session = useKassaSession();
@@ -117,49 +119,76 @@ export default function Receipt() {
       </View>
 
       <View style={s.rule} />
-      <View style={s.detailRow}><Text style={s.label}>Receipt no.</Text><Text style={s.valueSmall} numberOfLines={2}>{sale.reference}</Text></View>
-      <View style={s.detailRow}><Text style={s.label}>Date & time</Text><Text style={s.valueSmall}>{dateFormatter.format(new Date(sale.createdAt))}</Text></View>
-      <View style={s.detailRow}><Text style={s.label}>Served by</Text><Text style={s.valueSmall}>{sale.cashier ?? session.user?.fullName ?? 'Cashier'}</Text></View>
-      <View style={s.detailRow}><Text style={s.label}>Customer</Text><Text style={s.valueSmall}>{sale.customer || 'Walk-in customer'}</Text></View>
+      <View style={[s.detailRow, compact && s.detailRowCompact]}>
+        <Text style={s.label}>Receipt no.</Text>
+        <Text style={s.valueSmall} selectable>{sale.reference}</Text>
+      </View>
+      <View style={[s.detailRow, compact && s.detailRowCompact]}>
+        <Text style={s.label}>Date & time</Text>
+        <Text style={s.valueSmall}>{dateFormatter.format(new Date(sale.createdAt))}</Text>
+      </View>
+      <View style={[s.detailRow, compact && s.detailRowCompact]}>
+        <Text style={s.label}>Served by</Text>
+        <Text style={s.valueSmall}>{sale.cashier ?? session.user?.fullName ?? 'Cashier'}</Text>
+      </View>
+      <View style={[s.detailRow, compact && s.detailRowCompact]}>
+        <Text style={s.label}>Customer</Text>
+        <Text style={s.valueSmall}>{sale.customer || 'Walk-in customer'}</Text>
+      </View>
       {test && <Text style={s.warning}>PAYSTACK TEST MODE — Not a live payment</Text>}
 
       <View style={s.rule} />
       <View style={s.tableHead}>
-        <Text style={[s.tableLabel, { flex: 1 }]}>ITEM</Text>
-        <Text style={s.tableLabel}>QTY</Text>
+        <Text style={[s.tableLabel, s.itemNameColumn]}>ITEM</Text>
+        <Text style={[s.tableLabel, s.qty]}>QTY</Text>
         <Text style={[s.tableLabel, s.columnPrice]}>AMOUNT</Text>
       </View>
       {sale.items.map(item => <View key={item.id} style={s.itemRow}>
-        <Text style={[s.itemName, { flex: 1 }]}>{item.name}</Text>
+        <Text style={[s.itemName, s.itemNameColumn]}>{item.name}</Text>
         <Text style={s.qty}>{item.quantity}</Text>
-        <Text style={[s.itemName, s.columnPrice]}>{money(item.lineTotal)}</Text>
+        <Text style={[s.itemAmount, s.columnPrice]} numberOfLines={1}
+          adjustsFontSizeToFit minimumFontScale={0.7}
+          accessibilityLabel={item.name + ' amount ' + money(item.lineTotal)}>{money(item.lineTotal)}</Text>
       </View>)}
       <View style={s.rule}/>
-      <View style={s.detailRow}><Text style={s.label}>Subtotal</Text><Text style={s.valueSmall}>{money(sale.subtotal)}</Text></View>
-      <View style={s.detailRow}><Text style={s.label}>Payment method</Text><Text style={s.valueSmall}>{receiptMethod(channel)}</Text></View>
+      <View style={[s.detailRow, compact && s.detailRowCompact]}>
+        <Text style={s.label}>Subtotal</Text>
+        <Text style={s.valueSmall} numberOfLines={1}
+          adjustsFontSizeToFit minimumFontScale={0.7}>{money(sale.subtotal)}</Text>
+      </View>
+      <View style={[s.detailRow, compact && s.detailRowCompact]}>
+        <Text style={s.label}>Payment method</Text>
+        <Text style={s.valueSmall}>{receiptMethod(channel)}</Text>
+      </View>
       {cashReceived !== null && <>
-        <View style={s.detailRow}><Text style={s.label}>Cash received</Text><Text style={s.valueSmall}>{money(cashReceived)}</Text></View>
-        <View style={s.detailRow}><Text style={s.label}>Change given</Text><Text style={s.valueSmall}>{money(change)}</Text></View>
+        <View style={[s.detailRow, compact && s.detailRowCompact]}>
+          <Text style={s.label}>Cash received</Text>
+          <Text style={s.valueSmall} numberOfLines={1}
+            adjustsFontSizeToFit minimumFontScale={0.7}>{money(cashReceived)}</Text>
+        </View>
+        <View style={[s.detailRow, compact && s.detailRowCompact]}>
+          <Text style={s.label}>Change given</Text>
+          <Text style={s.valueSmall} numberOfLines={1}
+            adjustsFontSizeToFit minimumFontScale={0.7}>{money(change)}</Text>
+        </View>
       </>}
       <View style={s.rule}/>
       <View style={s.totalRow}>
         <Text style={s.totalLabel}>Total paid</Text>
-        <Text style={s.totalValue}>{money(sale.total)}</Text>
-      </View>
-      <View style={s.referenceBox}>
-        <SymbolView name={{ ios: 'checkmark.seal.fill', android: 'verified', web: 'verified' }}
-          tintColor={C.green} size={26}/>
-        <View style={{ flex: 1 }}>
-          <Text style={s.verified}>Payment verified</Text>
-          <Text style={s.referenceShort} numberOfLines={2}>{sale.reference}</Text>
-        </View>
+        <Text style={s.totalValue} numberOfLines={1} adjustsFontSizeToFit
+          minimumFontScale={0.7} accessibilityLabel={'Total paid ' + money(sale.total)}>
+          {money(sale.total)}
+        </Text>
       </View>
       <View style={s.qrBlock}>
         {qrDataUrl && <Image source={{ uri: qrDataUrl }}
-          accessibilityLabel="Scannable QR code containing KASSA receipt reference and amount"
+          accessibilityLabel="Scannable QR with receipt reference, amount and payment method"
           contentFit="contain" style={s.qrImage} />}
-        <Text style={s.qrTitle}>Scan for receipt details</Text>
-        <Text style={s.qrDisclaimer}>Reference information only. For independent verification, contact the merchant.</Text>
+        <View style={s.qrDetails}>
+          <Text style={s.qrTitle}>Scan for receipt details</Text>
+          <Text style={s.qrReference} selectable>{sale.reference}</Text>
+          <Text style={s.qrDisclaimer}>Reference only. Verify payments with the merchant.</Text>
+        </View>
       </View>
       <Text style={s.thankYou}>Thank you for shopping with us!</Text>
     </View>
@@ -197,26 +226,32 @@ const s = StyleSheet.create({
   businessName: { color: C.title, fontWeight: '800', fontSize: 17, marginTop: 8, textAlign: 'center' },
   address: { color: C.muted, fontSize: 14, marginTop: 4, textAlign: 'center' },
   rule: { height: 1, borderTopWidth: 1, borderTopColor: '#E8EDF0', marginVertical: 13, borderStyle: 'dashed' },
-  detailRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, paddingVertical: 5 },
-  label: { color: C.muted, fontSize: 14, flex: 1 },
-  valueSmall: { color: C.title, fontSize: 14, fontWeight: '700', textAlign: 'right', flex: 1.3 },
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
+    gap: 10, paddingVertical: 5, minWidth: 0 },
+  detailRowCompact: { flexDirection: 'column', alignItems: 'stretch', gap: 4 },
+  label: { color: C.muted, fontSize: 14, flex: 1, minWidth: 0, flexShrink: 1 },
+  valueSmall: { color: C.title, fontSize: 14, fontWeight: '700', textAlign: 'right',
+    flex: 1.45, minWidth: 0, flexShrink: 1, flexWrap: 'wrap' },
   warning: { fontSize: 14, color: C.orange, fontWeight: '800', textAlign: 'center', marginTop: 12 },
-  tableHead: { flexDirection: 'row', alignItems: 'center', paddingBottom: 10, gap: 7 },
+  tableHead: { flexDirection: 'row', alignItems: 'center', paddingBottom: 10, gap: 7, minWidth: 0 },
   tableLabel: { fontSize: 14, color: C.muted, fontWeight: '800' },
-  itemRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8, gap: 7 },
+  itemRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8, gap: 7, minWidth: 0 },
   itemName: { fontSize: 14, color: C.title, fontWeight: '700' },
-  qty: { fontSize: 14, width: 27, textAlign: 'center', color: C.muted },
-  columnPrice: { width: 90, textAlign: 'right' },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 3 },
-  totalLabel: { fontSize: 16, fontWeight: '800', color: C.title },
-  totalValue: { fontSize: 24, fontWeight: '800', color: C.green },
-  referenceBox: { backgroundColor: '#F3F8F6', borderRadius: 10, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 15 },
-  verified: { color: C.green, fontWeight: '800', fontSize: 14 },
-  referenceShort: { color: C.muted, fontSize: 14, marginTop: 3 },
-  qrBlock: { borderTopWidth: 1, borderTopColor: C.border, marginTop: 18, paddingTop: 15, alignItems: 'center' },
-  qrImage: { width: 178, height: 178, backgroundColor: C.white },
-  qrTitle: { fontSize: 14, fontWeight: '800', color: C.title, marginTop: 7, textAlign: 'center' },
-  qrDisclaimer: { fontSize: 11, lineHeight: 16, color: C.muted, textAlign: 'center', marginTop: 5, maxWidth: 260 },
+  itemNameColumn: { flex: 1, minWidth: 0, flexShrink: 1 },
+  itemAmount: { fontSize: 14, color: C.title, fontWeight: '800' },
+  qty: { fontSize: 14, width: 30, flexShrink: 0, textAlign: 'center', color: C.muted },
+  columnPrice: { width: 102, maxWidth: '48%', minWidth: 0, flexShrink: 1, textAlign: 'right' },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, minWidth: 0, marginTop: 3 },
+  totalLabel: { fontSize: 16, fontWeight: '800', color: C.title, flexShrink: 1 },
+  totalValue: { fontSize: 24, fontWeight: '800', color: C.green, flexShrink: 1, minWidth: 0, maxWidth: '70%', textAlign: 'right' },
+  qrBlock: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: C.border,
+    marginTop: 17, paddingTop: 14, gap: 12, minWidth: 0 },
+  qrImage: { width: 92, height: 92, flexShrink: 0, backgroundColor: C.white },
+  qrDetails: { flex: 1, minWidth: 0 },
+  qrTitle: { fontSize: 12, fontWeight: '800', color: C.title, lineHeight: 18 },
+  qrReference: { fontSize: 11, lineHeight: 16, color: C.green,
+    marginTop: 3, flexShrink: 1 },
+  qrDisclaimer: { fontSize: 10, lineHeight: 15, color: C.muted, marginTop: 5 },
   thankYou: { color: C.muted, fontSize: 14, textAlign: 'center', marginTop: 13 },
   info: { color: C.muted, fontSize: 14, lineHeight: 20 },
   error: { color: C.danger, fontSize: 14, marginVertical: 12 },
