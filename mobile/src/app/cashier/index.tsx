@@ -192,11 +192,7 @@ export default function CashierHome() {
 
       <Text style={[s.sectionTitle, s.actionsHeading]}>Quick Actions</Text>
       <View style={s.actionsRow}>
-        {[...quickActions, ...(inventoryAllowed ? [{
-          label: 'Add product' as const,
-          route: '/cashier/add-product' as const,
-          icon: { ios: 'plus.square', android: 'add_box', web: 'add_box' },
-        }] : [])].map(action => (
+        {quickActions.map(action => (
           <Pressable
             key={action.label}
             accessibilityRole="button"
