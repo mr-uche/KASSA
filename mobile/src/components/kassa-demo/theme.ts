@@ -14,4 +14,7 @@ export const C = {
   danger: '#AE3333',
 } as const;
 
-export const naira = (value: number) => `₦${value.toLocaleString('en-NG')}`;
+export const naira = (value: number) => `₦${value.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+
+// Calculate checkout values in integer kobo, not accumulated floating-point naira.
+export const toKobo = (value: number) => Math.round(value * 100);
