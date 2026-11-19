@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell, CheckCircle2, CircleAlert, Clock3 } from "lucide-react";
+import { Bell, CheckCircle2, CircleAlert, Clock3, Wifi, WifiOff } from "lucide-react";
 import {
   getOfflineWorkspace, listOfflineSales, offlineSectionAllowed,
   type OfflineSale, type OfflineWorkspace,
@@ -143,6 +143,14 @@ export default function KassaHeaderActions({
 
   return (
     <div className="relative flex shrink-0 items-center gap-2 sm:gap-4" ref={wrapper}>
+      {!offlineMode && (
+        <span role="status" aria-label={online ? "Online" : "Offline"}
+          className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-900">
+          {online ? <Wifi size={15} className="text-emerald-700" /> :
+            <WifiOff size={15} className="text-amber-700" />}
+          {online ? "Online" : "Offline"}
+        </span>
+      )}
       <button type="button"
         aria-label={"Notifications" + (alerts ? " (" + alerts + " local sync alerts)" : "")}
         aria-expanded={open} aria-controls="kassa-notifications-panel"

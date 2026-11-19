@@ -46,12 +46,15 @@ export default function OfflineSalesPage() {
   const [message, setMessage] = useState("");
   const [receiptId, setReceiptId] = useState("");
   const [shellReady, setShellReady] = useState(false);
+  const [interruptedPayment, setInterruptedPayment] = useState(false);
   const [backupPassphrase, setBackupPassphrase] = useState("");
   const [backupFile, setBackupFile] = useState<File | null>(null);
   const [backupWorking, setBackupWorking] = useState(false);
 
   useEffect(() => {
-    setSection(parseSection(new URLSearchParams(window.location.search).get("section")));
+    const params = new URLSearchParams(window.location.search);
+    setSection(parseSection(params.get("section")));
+    setInterruptedPayment(params.get("interruptedPayment") === "1");
   }, []);
 
   const navigate = (choice: string) => {
@@ -352,7 +355,7 @@ export default function OfflineSalesPage() {
           )}
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
-          <div className="hidden items-center gap-1.5 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold sm:flex">
+          <div role="status" className="flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold">
             {online ? <Wifi size={15} className="text-emerald-700"/> : <WifiOff size={15} className="text-amber-700"/>}
             {online ? "Online" : "Offline"}
           </div>
@@ -367,6 +370,9 @@ export default function OfflineSalesPage() {
         </div>
         {SHOW_TEST_NOTES && <p className="text-xs text-amber-800">
           Test build: use sample sales and stock. Electronic payments require online verification.
+        </p>}
+        {interruptedPayment && <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          An online sale or payment may already be pending. Check that transaction when connected and never collect payment for the same sale twice.
         </p>}
         {message && <p role="status" className="rounded-lg border border-gray-200 bg-white p-3 text-sm">{message}</p>}
 

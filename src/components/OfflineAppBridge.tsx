@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
-import { setOfflineActiveUser } from "@/lib/offline-sales";
+import { getOfflineWorkspace, offlineSectionAllowed, setOfflineActiveUser, workspaceFresh } from "@/lib/offline-sales";
 import { prepareCurrentStaffOffline } from "@/lib/offline-preparation";
 
 const SECTIONS: Array<[string, string]> = [
@@ -21,11 +21,59 @@ function offlineSection(pathname: string): string | null {
 export default function OfflineAppBridge() {
   const [offline, setOffline] = useState(false);
   const [prepared, setPrepared] = useState(false);
+  const [offlineIssue, setOfflineIssue] = useState("");
 
   useEffect(() => {
     setOffline(!navigator.onLine);
     let active = true;
     let preparing = false;
+    let switching = false;
+
+    // A transition never creates a sale. The offline queue keeps immutable
+    // request IDs for safe sync once connectivity returns.
+    async function enterOfflineSales() {
+      if (!active || navigator.onLine || switching || location.pathname === "/offline-sales") return;
+      switching = true;
+      let navigated = false;
+      try {
+        if (!("serviceWorker" in navigator) || !("caches" in window)) {
+          throw new Error("Offline selling is not ready on this browser. Reconnect once to prepare this device.");
+        }
+        const [registration, shell, workspace] = await Promise.all([
+          navigator.serviceWorker.getRegistration("/"),
+          caches.match("/offline-sales", { ignoreVary: true }),
+          getOfflineWorkspace(),
+        ]);
+        if (!active || navigator.onLine) return;
+        if (!registration?.active || !shell) {
+          throw new Error("Offline selling has not been cached yet. Connect once to prepare this device.");
+        }
+        if (!workspace || !workspaceFresh(workspace)) {
+          throw new Error("This account needs a fresh offline catalogue. Reconnect to prepare it before selling.");
+        }
+        const selectedBranchId = localStorage.getItem("selectedBranchId");
+        if (selectedBranchId && selectedBranchId !== workspace.branchId) {
+          throw new Error("Offline stock belongs to another branch. Reconnect to prepare your selected branch.");
+        }
+        const currentSection = offlineSection(location.pathname);
+        // Cashiers land on New Sale automatically. Other staff only see
+        // sections explicitly permitted by their cached, expiring role.
+        const section = ["new-sale", currentSection, "home", "products", "transactions", "scan", "reports"]
+          .find((candidate): candidate is string =>
+            typeof candidate === "string" && offlineSectionAllowed(candidate, workspace));
+        if (!section) throw new Error("No offline sections are available for this account.");
+        const interruptedPayment = /^\/sales\/(checkout|payment)(?:\/|$)/.test(location.pathname);
+        const destination = "/offline-sales?section=" + encodeURIComponent(section) +
+          (interruptedPayment ? "&interruptedPayment=1" : "");
+        window.location.replace(destination);
+        navigated = true;
+      } catch (cause) {
+        if (active && !navigator.onLine) setOfflineIssue(
+          cause instanceof Error ? cause.message : "Unable to open saved offline sales.");
+      } finally {
+        if (!navigated) switching = false;
+      }
+    }
 
     async function updateIdentity() {
       if (!active || !navigator.onLine) return;
@@ -97,10 +145,17 @@ export default function OfflineAppBridge() {
     function connectivity() {
       if (!active) return;
       setOffline(!navigator.onLine);
-      if (navigator.onLine) void prepareShell();
+      if (navigator.onLine) {
+        setOfflineIssue("");
+        void prepareShell();
+      } else {
+        void enterOfflineSales();
+      }
     }
     function focus() {
-      if (active && navigator.onLine) void updateIdentity();
+      if (!active) return;
+      if (navigator.onLine) void updateIdentity();
+      else void enterOfflineSales();
     }
     function onWorkerMessage(event: MessageEvent) {
       if (active && event.data?.type === "KASSA_OFFLINE_SHELL") {
@@ -132,7 +187,8 @@ export default function OfflineAppBridge() {
     window.addEventListener("focus", focus);
     navigator.serviceWorker?.addEventListener("message", onWorkerMessage);
     document.addEventListener("click", redirectNavigation, true);
-    void prepareShell();
+    if (navigator.onLine) void prepareShell();
+    else void enterOfflineSales();
     return () => {
       active = false;
       window.removeEventListener("online", connectivity);
@@ -146,22 +202,15 @@ export default function OfflineAppBridge() {
   if (!offline || (typeof window !== "undefined" && location.pathname === "/offline-sales")) {
     return null;
   }
+  // Display a compact fallback only when this device cannot automatically
+  // enter offline sales. No separate "Open offline" action is required.
   return (
     <aside role="status"
-      className="fixed bottom-4 right-4 z-[100] w-[min(360px,calc(100vw-2rem))] rounded-xl border border-amber-300 bg-white p-4 shadow-xl">
-      <div className="flex items-center gap-2 font-semibold text-[#182033]">
-        <WifiOff size={18} className="text-amber-700"/> KASSA is offline
-      </div>
-      <p className="my-2 text-sm text-gray-600">
-        Switch to locally saved sales and products without connecting to the backend.
-      </p>
-      <a href="/offline-sales?section=home"
-        className="inline-flex rounded-lg bg-[#08745F] px-4 py-2 text-sm font-semibold text-white">
-        Open offline KASSA
-      </a>
-      {!prepared && <p className="mt-2 text-xs text-amber-800">
-        The offline shell may need to be prepared online once on this device.
-      </p>}
+      className="fixed right-4 top-4 z-[100] flex max-w-[min(420px,calc(100vw-2rem))] items-center gap-2 rounded-full border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 shadow-sm">
+      <WifiOff size={15} className="shrink-0 text-amber-700"/>
+      <span className="shrink-0">Offline</span>
+      {offlineIssue && <span className="border-l border-amber-300 pl-2 font-normal">{offlineIssue}</span>}
+      {!offlineIssue && !prepared && <span className="border-l border-amber-300 pl-2 font-normal">Opening saved sales…</span>}
     </aside>
   );
 }
