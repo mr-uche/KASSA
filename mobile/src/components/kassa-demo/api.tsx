@@ -72,6 +72,9 @@ async function http<T>(path: string, token?: string, body?: unknown): Promise<T>
   return result as T;
 }
 
+export type MerchantBranchDraft = { name: string; address?: string; phone?: string };
+export type MerchantStaffDraft = { fullName: string; role: string; phone?: string };
+
 export type MerchantRegistration = {
   fullName: string;
   email: string;
@@ -80,6 +83,10 @@ export type MerchantRegistration = {
   businessName: string;
   businessType: string;
   branchName: string;
+  registeredName?: string;
+  staffCount?: number;
+  branches?: MerchantBranchDraft[];
+  staff?: MerchantStaffDraft[];
   bankName?: string;
   bankAccountNumber?: string;
   bankAccountName?: string;
@@ -107,12 +114,23 @@ export async function onboardMerchantBusiness(details: MerchantRegistration): Pr
   await http('businesses/onboarding', signedIn.accessToken, {
     businessName: details.businessName.trim(),
     businessType: details.businessType.trim(),
-    branches: [{ name: details.branchName.trim() || 'Main Branch' }],
+    ...(details.registeredName?.trim() ? { registeredName: details.registeredName.trim() } : {}),
+    ...(details.staffCount !== undefined ? { staffCount: details.staffCount } : {}),
+    branches: details.branches?.length ? details.branches.map(branch => ({
+      name: branch.name.trim(),
+      ...(branch.address?.trim() ? { address: branch.address.trim() } : {}),
+      ...(branch.phone?.trim() ? { phone: branch.phone.trim() } : {}),
+    })) : [{ name: details.branchName.trim() || 'Main Branch' }],
     ...(details.bankAccountNumber ? {
       settlementBank: details.bankName?.trim(),
       accountNumber: details.bankAccountNumber,
       accountName: details.bankAccountName?.trim(),
     } : {}),
+    staff: (details.staff ?? []).filter(member => member.fullName.trim()).map(member => ({
+      fullName: member.fullName.trim(),
+      role: member.role,
+      ...(member.phone?.trim() ? { phone: member.phone.trim() } : {}),
+    })),
   });
 }
 
