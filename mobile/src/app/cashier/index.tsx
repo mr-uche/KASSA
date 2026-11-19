@@ -43,6 +43,7 @@ export default function CashierHome() {
     Date.now() - catalogSavedAt <= 48 * 60 * 60 * 1000;
   const headline = offlineMode
     ? cacheReady ? 'Offline — you can continue selling' : 'Offline — saved stock unavailable'
+    : catalogSource !== 'live' ? 'Checking KASSA connection…'
     : syncingOfflineSales && (offlineQueue?.queued ?? 0) > 0 ? 'Online — syncing sales'
     : offlineQueue?.waiting === 0 ? 'Online — all sales synced'
     : 'Online — sales awaiting sync';
