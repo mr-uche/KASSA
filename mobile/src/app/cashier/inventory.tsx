@@ -23,12 +23,8 @@ type Category = {
 };
 const tabs: Tab[] = ['Catalogue', 'Categories', 'Low Stock'];
 const stockOptions = ['All stock', 'In stock', 'Low stock', 'Out of stock'] as const;
-const lowStockOptions = ['All low stock', 'Low stock', 'Out of stock'] as const;
-const categoryStatuses = ['All statuses', 'Active', 'Inactive'] as const;
 type Sort = 'Sort' | 'Name A–Z' | 'Name Z–A' | 'Lowest stock';
-type CategorySort = 'Sort' | 'Name A–Z' | 'Name Z–A' | 'Most products';
 const sorts: Sort[] = ['Sort', 'Name A–Z', 'Name Z–A', 'Lowest stock'];
-const categorySorts: CategorySort[] = ['Sort', 'Name A–Z', 'Name Z–A', 'Most products'];
 function stockState(product: Product) {
   return product.stock <= 0 ? 'Out of stock' :
     product.stock <= product.lowStockThreshold ? 'Low stock' : 'In stock';
@@ -46,8 +42,6 @@ export default function Inventory() {
   const [category, setCategory] = useState('All categories');
   const [stockFilter, setStockFilter] = useState('All stock');
   const [sort, setSort] = useState<Sort>('Sort');
-  const [categoryStatus, setCategoryStatus] = useState<string>('All statuses');
-  const [categorySort, setCategorySort] = useState<CategorySort>('Sort');
   const [showAll, setShowAll] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   const [categoryForm, setCategoryForm] = useState(false);
@@ -85,17 +79,13 @@ export default function Inventory() {
       .includes(query.trim().toLowerCase());
     const status = stockState(item);
     return matches && (category === 'All categories' || item.category === category) &&
-      (stockFilter === 'All stock' || stockFilter === 'All low stock' || status === stockFilter) &&
+      (stockFilter === 'All stock' || status === stockFilter) &&
       (tab !== 'Low Stock' || status !== 'In stock');
   }).sort((a, b) => sort === 'Lowest stock' ? a.stock - b.stock
     : sort === 'Name Z–A' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)), [products, tab, query, category, stockFilter, sort]);
   const categoryList = useMemo(() => categories.filter(item =>
-    (item.name + ' ' + (item.description ?? '')).toLowerCase().includes(query.trim().toLowerCase()) &&
-    (categoryStatus === 'All statuses' || item.status === categoryStatus)
-  ).sort((a, b) => categorySort === 'Most products' ? b.products - a.products
-    : categorySort === 'Name Z–A' ? b.name.localeCompare(a.name)
-    : categorySort === 'Name A–Z' ? a.name.localeCompare(b.name) : 0),
-  [categories, query, categoryStatus, categorySort]);
+    (item.name + ' ' + (item.description ?? '')).toLowerCase().includes(query.trim().toLowerCase())
+  ), [categories, query]);
   const low = products.filter(item => item.stock > 0 && item.stock <= item.lowStockThreshold).length;
   const out = products.filter(item => item.stock <= 0).length;
 
@@ -136,28 +126,18 @@ export default function Inventory() {
       setQuery('');
       setShowAll(false);
       setCategory('All categories');
-      setStockFilter(value === 'Low Stock' ? 'All low stock' : 'All stock');
+      setStockFilter('All stock');
       setSort('Sort');
-      setCategoryStatus('All statuses');
-      setCategorySort('Sort');
     }}/>
-    <View style={s.filterRow}>
-      {tab === 'Categories' ? <>
-        <DropdownFilter label="Category status" value={categoryStatus}
-          options={categoryStatuses} onChange={setCategoryStatus}/>
-        <DropdownFilter label="Sort categories" value={categorySort}
-          options={categorySorts} onChange={value => setCategorySort(value as CategorySort)}/>
-      </> : <>
-        <DropdownFilter label="Category" value={category}
-          options={['All categories', ...new Set(categories.map(item => item.name))]}
-          onChange={setCategory}/>
-        <DropdownFilter label="Stock" value={stockFilter}
-          options={tab === 'Low Stock' ? lowStockOptions : stockOptions}
-          onChange={setStockFilter}/>
-        <DropdownFilter label="Sort products" value={sort}
-          options={sorts} onChange={value => setSort(value as Sort)}/>
-      </>}
-    </View>
+    {tab !== 'Categories' && <View style={s.filterRow}>
+      <DropdownFilter label="Category" value={category}
+        options={['All categories', ...new Set(categories.map(item => item.name))]}
+        onChange={setCategory}/>
+      {tab === 'Catalogue' && <DropdownFilter label="Stock" value={stockFilter}
+        options={stockOptions} onChange={setStockFilter}/>}
+      <DropdownFilter label="Sort products" value={sort}
+        options={sorts} onChange={value => setSort(value as Sort)}/>
+    </View>}
     <View style={s.searchActionRow}>
       <TextInput
         accessibilityLabel={tab === 'Categories' ? 'Search categories' : 'Search products'}

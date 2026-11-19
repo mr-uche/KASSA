@@ -76,35 +76,30 @@ export default function StaffAndBranches() {
 
   const activeBranches = data.branches.filter(item => item.status === 'Active');
   const availableRoles = data.roles.filter(item => item.name !== 'Owner');
-  // "Category" groups staff by role, branches by location and roles by system/custom.
-  const groupOptions = tab === 'Staff'
-    ? ['All categories', ...new Set(data.staff.map(item => item.role).filter(Boolean))]
-    : tab === 'Branches'
-      ? ['All categories', ...new Set(data.branches.map(item => item.location).filter(Boolean))]
-      : ['All categories', 'System roles', 'Custom roles'];
-  const statusOptions = tab === 'Staff'
-    ? ['All statuses', 'Active', 'Pending', 'Expired']
-    : tab === 'Branches' ? ['All statuses', 'Active', 'Inactive']
-      : ['All statuses', ...new Set(data.roles.map(item => item.access).filter(Boolean))];
+  const staffCategories = ['All categories', ...new Set(data.staff.map(item => item.role).filter(Boolean))];
+  const accessLevels = ['All access levels', ...new Set(data.roles.map(item => item.access).filter(Boolean))];
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     const sortByName = <T extends { name: string }>(items: T[]): T[] =>
       sort === 'Name A–Z' ? items.sort((a, b) => a.name.localeCompare(b.name)) :
         sort === 'Name Z–A' ? items.sort((a, b) => b.name.localeCompare(a.name)) : items;
+    const filteredBranches = data.branches.filter(item =>
+      (item.name + ' ' + item.location).toLowerCase().includes(q) &&
+      (filter === 'Status' || item.status === filter));
+    filteredBranches.sort((a, b) =>
+      sort === 'Name A–Z' ? a.name.localeCompare(b.name) :
+      sort === 'Name Z–A' ? b.name.localeCompare(a.name) :
+      sort === 'Oldest first' ? Date.parse(a.createdAt) - Date.parse(b.createdAt) :
+      Date.parse(b.createdAt) - Date.parse(a.createdAt));
     return {
       staff: sortByName(data.staff.filter(item =>
         (item.name + ' ' + item.email + ' ' + item.role + ' ' + item.branch).toLowerCase().includes(q) &&
         (filter === 'All statuses' || item.status === filter) &&
         (groupFilter === 'All categories' || item.role === groupFilter))),
-      branches: sortByName(data.branches.filter(item =>
-        (item.name + ' ' + item.location).toLowerCase().includes(q) &&
-        (filter === 'All statuses' || item.status === filter) &&
-        (groupFilter === 'All categories' || item.location === groupFilter))),
-      roles: sortByName(data.roles.filter(item =>
+      branches: filteredBranches,
+      roles: data.roles.filter(item =>
         (item.name + ' ' + item.description + ' ' + item.access).toLowerCase().includes(q) &&
-        (filter === 'All statuses' || item.access === filter) &&
-        (groupFilter === 'All categories' ||
-          (groupFilter === 'System roles' ? item.isSystem : !item.isSystem)))),
+        (filter === 'All access levels' || item.access === filter)),
     };
   }, [data, search, filter, groupFilter, sort]);
   const stats = tab === 'Staff' ? [
@@ -179,19 +174,36 @@ export default function StaffAndBranches() {
     <Tabs options={tabs} value={tab} onChange={value => {
       setTab(value);
       setGroupFilter('All categories');
-      setFilter('All statuses');
-      setSort('Sort');
+      setFilter(value === 'Staff' ? 'All statuses' :
+        value === 'Branches' ? 'Status' : 'All access levels');
+      setSort(value === 'Branches' ? 'Sort Recent' : 'Sort');
       setSearch('');
       setShowAll(false);
       setForm(null);
     }}/>
     <View style={s.filtersRow}>
-      <DropdownFilter label="Category" value={groupFilter}
-        options={groupOptions} onChange={setGroupFilter}/>
-      <DropdownFilter label="Status" value={filter}
-        options={statusOptions} onChange={setFilter}/>
-      <DropdownFilter label="Sort" value={sort} options={['Sort', 'Name A–Z', 'Name Z–A']}
-        onChange={setSort}/>
+      {tab === 'Staff' && <>
+        <DropdownFilter label="Category" value={groupFilter}
+          options={staffCategories} onChange={setGroupFilter}/>
+        <DropdownFilter label="Status" value={filter}
+          options={['All statuses', 'Active', 'Pending', 'Expired']} onChange={setFilter}/>
+        <DropdownFilter label="Sort" value={sort}
+          options={['Sort', 'Name A–Z', 'Name Z–A']} onChange={setSort}/>
+      </>}
+      {tab === 'Branches' && <>
+        <View style={s.branchFilter}>
+          <DropdownFilter label="Status" value={filter}
+            options={['Status', 'Active', 'Inactive']} onChange={setFilter}/>
+        </View>
+        <View style={s.branchFilter}>
+          <DropdownFilter label="Sort" value={sort}
+            options={['Sort Recent', 'Oldest first', 'Name A–Z', 'Name Z–A']} onChange={setSort}/>
+        </View>
+      </>}
+      {tab === 'Roles & Permissions' && <View style={s.rolesFilter}>
+        <DropdownFilter label="Access levels" value={filter}
+          options={accessLevels} onChange={setFilter}/>
+      </View>}
     </View>
     <View style={s.searchActionRow}>
       <TextInput
@@ -269,6 +281,8 @@ export default function StaffAndBranches() {
 
 const s = StyleSheet.create({
   filtersRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
+  branchFilter: { width: '36%', maxWidth: 145, flexDirection: 'row' },
+  rolesFilter: { width: '48%', maxWidth: 190, flexDirection: 'row' },
   searchActionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   searchInput: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 12,
     borderWidth: 1, borderColor: C.border, borderRadius: 9,
