@@ -131,11 +131,7 @@ export default function CashierHome() {
       <Pressable accessibilityRole="button" accessibilityLabel="View connection and sales sync status"
         onPress={() => go('/cashier/offline-sales')} style={s.offlineBanner}>
         <Text style={s.offlineTitle}>{headline}</Text>
-        {offlineMode && <Text style={s.offlineBody}>
-          {cacheReady
-            ? 'Continue selling cash payments in New Sale. They are saved on this phone until synced.'
-            : 'Reconnect and refresh branch products before accepting offline cash.'}
-        </Text>}
+        {offlineMode && <Text style={s.offlineBody}>Connect internet to sync sales</Text>}
         {offlineQueue?.queued ? <Text style={s.offlineBody}>
           {offlineQueue.queued} {offlineQueue.queued === 1 ? 'sale' : 'sales'} waiting to sync
         </Text> : null}
