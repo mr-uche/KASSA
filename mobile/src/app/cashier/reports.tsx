@@ -1,16 +1,20 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Print from 'expo-print';
 import { useFocusEffect } from 'expo-router';
 import { useKassaSession } from '@/components/kassa-demo/api';
 import { KScreen, KCard } from '@/components/kassa-demo/ui';
 import { C } from '@/components/kassa-demo/theme';
+import { DropdownFilter } from '@/components/kassa-demo/dropdown-filter';
 import {
   ScreenHeading, Tabs, MetricGrid, ListHeading, RecordRow,
   InlineNotice, SmallAction, money,
 } from '@/components/kassa-demo/business-ui';
 
 type Period = 'Daily' | 'Weekly' | 'Monthly' | 'Custom range';
+type ReportBranch = { id: string; name: string; isActive: boolean };
+type ReportBusiness = { id: string; branches: ReportBranch[] };
+type QuickRange = typeof quickRanges[number];
 type Granularity = 'day' | 'week' | 'month';
 type Channel = 'BANK_TRANSFER' | 'POS' | 'CASH' | 'USSD' | 'CARD' | 'WALLET';
 type Analytics = {
@@ -73,7 +77,7 @@ function presetRange(preset: typeof quickRanges[number]): { from: string; to: st
   const start = new Date(Date.UTC(year, quarter, 1)).toISOString().slice(0, 10);
   return { from: start, to: today };
 }
-function reportHtml(report: Analytics): string {
+function reportHtml(report: Analytics, branchName: string): string {
   const escape = (value: string) => value.replace(/[&<>"']/g, char =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char);
   const row = (name: string, value: string) =>
@@ -83,7 +87,8 @@ function reportHtml(report: Analytics): string {
     'table{border-collapse:collapse;width:100%;margin:14px 0 26px}' +
     'td,th{border-bottom:1px solid #e5e7eb;padding:10px;text-align:left;font-size:12px}' +
     'p{color:#55615D;font-size:12px}</style></head><body><h1>KASSA Reports &amp; Analytics</h1>' +
-    '<p>' + escape(report.scope.from + ' to ' + report.scope.to) + '</p>' +
+    '<p>' + escape(report.scope.from + ' to ' + report.scope.to) + ' · ' +
+      escape(branchName) + '</p>' +
     '<h2>Summary</h2><table>' +
     row('Confirmed sales', money(report.summary.paidSales)) +
     row('Paid transactions', String(report.summary.paidTransactions)) +
@@ -151,28 +156,85 @@ export default function Reports() {
   const session = useKassaSession();
   const scope = session.scope;
   const [period, setPeriod] = useState<Period>('Weekly');
-  const [allBranches, setAllBranches] = useState(false);
+  // This selection affects reports only. It never switches the cashier's checkout branch.
+  const [reportBranchId, setReportBranchId] = useState(scope?.branchId ?? 'all');
+  const [branches, setBranches] = useState<ReportBranch[]>([]);
+  const [branchError, setBranchError] = useState('');
   const [customFrom, setCustomFrom] = useState(shift(lagosToday(), -29));
   const [customTo, setCustomTo] = useState(lagosToday());
+  const [appliedCustom, setAppliedCustom] = useState(() => ({
+    from: shift(lagosToday(), -29), to: lagosToday(),
+  }));
+  const [selectedPreset, setSelectedPreset] = useState<QuickRange | null>('Last 30 days');
   const [customApply, setCustomApply] = useState(0);
   const [report, setReport] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAllStaff, setShowAllStaff] = useState(false);
   const owner = scope?.myRole === 'Owner';
-  const range = defaultRange(period, customFrom, customTo);
+  const range = defaultRange(period, appliedCustom.from, appliedCustom.to);
+  useEffect(() => {
+    setReportBranchId(owner ? 'all' : scope?.branchId ?? '');
+    setBranches([]);
+    setBranchError('');
+  }, [scope?.businessId, scope?.branchId, owner]);
+  useFocusEffect(useCallback(() => {
+    if (!owner || !scope) return;
+    let active = true;
+    void session.request<ReportBusiness[]>('businesses/mine').then(businesses => {
+      const business = businesses.find(item => item.id === scope.businessId);
+      if (!business || !Array.isArray(business.branches)) {
+        throw new Error('Business branch list unavailable.');
+      }
+      if (active) { setBranches(business.branches); setBranchError(''); }
+    }).catch(() => {
+      if (active) setBranchError('Could not load every branch. Showing active branches from your session.');
+    });
+    return () => { active = false; };
+  }, [scope?.businessId, owner, session.request]));
+
+  // If branch loading fails, keep available active branches selectable.
+  const branchItems = branches.length ? branches
+    : session.scopes.filter(item => item.businessId === scope?.businessId)
+      .map(item => ({ id: item.branchId, name: item.branchName, isActive: true }));
+  const labelCounts = new Map<string, number>();
+  for (const item of branchItems) {
+    const base = item.name + (item.isActive ? '' : ' (inactive)');
+    labelCounts.set(base, (labelCounts.get(base) ?? 0) + 1);
+  }
+  const branchOptions = [
+    { id: 'all', label: 'All branches' },
+    ...branchItems.map(item => {
+      const base = item.name + (item.isActive ? '' : ' (inactive)');
+      return { id: item.id, label: (labelCounts.get(base) ?? 0) > 1
+        ? base + ' · ' + item.id.slice(0, 8) : base };
+    }),
+  ];
+  const selectedBranchName = branchOptions.find(item => item.id === reportBranchId)?.label
+    ?? scope?.branchName ?? 'Selected branch';
+  const applyCustomRange = () => {
+    if (!validDate(customFrom) || !validDate(customTo) || customFrom > customTo ||
+      (Date.parse(customTo) - Date.parse(customFrom)) / 86400000 >= 366) {
+      setError('Select valid dates in YYYY-MM-DD format covering no more than 366 days.');
+      return;
+    }
+    setError('');
+    setAppliedCustom({ from: customFrom, to: customTo });
+    setCustomApply(value => value + 1);
+  };
   const reload = useCallback(async (live: () => boolean = () => true) => {
     if (!scope) { setReport(null); return; }
     if (!validDate(range.from) || !validDate(range.to) || range.from > range.to) {
       if (live()) setError('Enter valid dates in YYYY-MM-DD format, with From before To.');
       return;
     }
-    if (live()) { setLoading(true); setError(''); }
+    if (live()) { setLoading(true); setError(''); setReport(null); }
     try {
       const query = new URLSearchParams({
         businessId: scope.businessId, from: range.from, to: range.to,
         granularity: range.granularity,
-        ...(!owner || !allBranches ? { branchId: scope.branchId } : {}),
+        ...(!owner ? { branchId: scope.branchId }
+          : reportBranchId === 'all' ? {} : { branchId: reportBranchId }),
       });
       const result = await session.request<Analytics>('reports/summary?' + query.toString());
       if (!result?.summary || !Array.isArray(result.trend) || !Array.isArray(result.channels)) {
@@ -182,58 +244,72 @@ export default function Reports() {
     } catch (cause) {
       if (live()) { setReport(null); setError(cause instanceof Error ? cause.message : 'Cannot load analytics.'); }
     } finally { if (live()) setLoading(false); }
-  }, [scope?.businessId, scope?.branchId, owner, allBranches, range.from, range.to, range.granularity, customApply, session.request]);
+  }, [scope?.businessId, scope?.branchId, owner, reportBranchId, range.from, range.to, range.granularity, customApply, session.request]);
   useFocusEffect(useCallback(() => {
     let live = true;
     void reload(() => live);
     return () => { live = false; };
   }, [reload]));
-  const exportPdf = async () => {
-    if (!report) return;
-    try { await Print.printAsync({ html: reportHtml(report) }); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not open PDF export.'); }
-  };
-  const shareReport = async () => {
-    if (!report) return;
-    const lines = ['KASSA Reports & Analytics', range.from + ' to ' + range.to,
-      'Paid sales: ' + money(report.summary.paidSales),
-      'Transactions: ' + report.summary.paidTransactions,
-      ...report.channels.map(row => names[row.channel] + ': ' + money(row.amount) + ' (' + row.sharePct + '%)')];
-    try { await Share.share({ message: lines.join('\n'), title: 'KASSA sales report' }); }
-    catch { setError('Unable to share this report.'); }
+  const downloadReport = async () => {
+    if (!report || loading) return;
+    try {
+      // The Android system print destination provides "Save as PDF".
+      await Print.printAsync({ html: reportHtml(report, selectedBranchName) });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not open the PDF save screen.');
+    }
   };
   const growth = report?.summary.salesChangePercent;
   return <KScreen showBrand={false} showPreviewLabel={false}>
     <ScreenHeading title="Reports & Analytics" subtitle="Confirmed business sales"
-      right={<SmallAction label="Export PDF" secondary disabled={!report}
-        onPress={() => { void exportPdf(); }}/>} />
+      right={owner ? <View style={s.branchPicker}>
+        <DropdownFilter label="Report branch" value={selectedBranchName}
+          options={branchOptions.map(item => item.label)}
+          onChange={value => {
+            const choice = branchOptions.find(item => item.label === value);
+            if (choice) setReportBranchId(choice.id);
+          }}/>
+      </View> : <Text style={s.fixedBranch} numberOfLines={2}>{scope?.branchName ?? ''}</Text>} />
     <Tabs options={periods} value={period} onChange={next => setPeriod(next as Period)}/>
-    {owner && <Tabs options={['This branch', 'All branches']} value={allBranches ? 'All branches' : 'This branch'}
-      onChange={value => setAllBranches(value === 'All branches')}/>}
+    {owner && !!branchError && <Text style={s.branchWarning}>{branchError}</Text>}
     {period === 'Custom range' && <KCard>
       <Text style={s.cardSubtitle}>Choose a reporting period</Text>
-      <View style={s.presetRow}>
-        {quickRanges.map(option => <Pressable key={option} accessibilityRole="button"
-          onPress={() => {
-            const next = presetRange(option);
-            setCustomFrom(next.from); setCustomTo(next.to);
-            setCustomApply(value => value + 1);
-          }} style={s.preset}>
-          <Text style={s.presetText}>{option}</Text>
-        </Pressable>)}
+      <View style={s.presetControls}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          style={s.presetScroll} contentContainerStyle={s.presetRow}>
+          {quickRanges.map(option => {
+            const active = selectedPreset === option;
+            return <Pressable key={option} accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              onPress={() => {
+                const next = presetRange(option);
+                setCustomFrom(next.from);
+                setCustomTo(next.to);
+                setSelectedPreset(option);
+              }}
+              style={[s.preset, active && s.presetActive]}>
+              <Text style={[s.presetText, active && s.presetTextActive]}>{option}</Text>
+            </Pressable>;
+          })}
+        </ScrollView>
+        <SmallAction label="Apply" onPress={applyCustomRange}/>
       </View>
       <Text style={s.cardSubtitle}>Custom dates (YYYY-MM-DD)</Text>
       <View style={s.dateRow}>
-        <TextInput style={s.dateInput} value={customFrom} onChangeText={setCustomFrom} placeholder="From: YYYY-MM-DD"/>
-        <TextInput style={s.dateInput} value={customTo} onChangeText={setCustomTo} placeholder="To: YYYY-MM-DD"/>
+        <TextInput style={s.dateInput} value={customFrom}
+          onChangeText={value => { setCustomFrom(value); setSelectedPreset(null); }}
+          placeholder="From: YYYY-MM-DD" placeholderTextColor={C.faint}/>
+        <TextInput style={s.dateInput} value={customTo}
+          onChangeText={value => { setCustomTo(value); setSelectedPreset(null); }}
+          placeholder="To: YYYY-MM-DD" placeholderTextColor={C.faint}/>
       </View>
-      <SmallAction label="Apply dates" onPress={() => setCustomApply(value => value + 1)}/>
     </KCard>}
     {loading && <Text style={s.muted}>Loading business analytics…</Text>}
     {!!error && <InlineNotice warning text={error}/>}
     {!!report && <>
-      <View style={s.shareRow}><SmallAction label="Share summary" secondary onPress={() => { void shareReport(); }}/></View>
-      <Text style={s.period}>{report.scope.from} to {report.scope.to} · {report.scope.branchId ? 'Selected branch' : 'All branches'}</Text>
+      <View style={s.shareRow}><SmallAction label="Download Report" secondary
+        disabled={loading} onPress={() => { void downloadReport(); }}/></View>
+      <Text style={s.period}>{report.scope.from} to {report.scope.to} · {selectedBranchName}</Text>
       <MetricGrid items={[
         { label: 'Total sales', value: money(report.summary.paidSales),
           note: growth == null ? 'No prior comparison' : (growth >= 0 ? '+' : '') + growth + '% vs prior period' },
@@ -279,10 +355,18 @@ export default function Reports() {
 
 const s = StyleSheet.create({
   shareRow: { alignSelf: 'flex-end', marginBottom: 8 },
-  presetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 16 },
-  preset: { paddingHorizontal: 9, minHeight: 32, borderRadius: 7, backgroundColor: C.mint,
-    borderWidth: 1, borderColor: C.mintBorder, justifyContent: 'center' },
-  presetText: { color: C.greenDark, fontSize: 12, fontWeight: '700' },
+  branchPicker: { width: 145, minHeight: 39, flexDirection: 'row' },
+  fixedBranch: { width: 110, color: C.muted, fontSize: 12, textAlign: 'right' },
+  branchWarning: { color: C.orange, fontSize: 11, marginBottom: 10 },
+  presetControls: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  presetScroll: { flex: 1, minWidth: 0, flexGrow: 1 },
+  presetRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingRight: 8 },
+  preset: { flexShrink: 0, paddingHorizontal: 10, minHeight: 40, borderRadius: 8,
+    backgroundColor: C.white, borderWidth: 1, borderColor: C.border,
+    alignItems: 'center', justifyContent: 'center' },
+  presetActive: { backgroundColor: C.green, borderColor: C.green },
+  presetText: { color: C.text, fontSize: 12, fontWeight: '600' },
+  presetTextActive: { color: C.white, fontWeight: '800' },
   muted: { color: C.muted, fontSize: 14, paddingVertical: 14 },
   cardTitle: { color: C.title, fontSize: 17, fontWeight: '800', marginBottom: 5 },
   cardSubtitle: { color: C.muted, fontSize: 12, marginBottom: 15 },
