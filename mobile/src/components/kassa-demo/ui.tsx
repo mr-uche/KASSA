@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C } from './theme';
 import { SymbolView } from 'expo-symbols';
 import KassaBackground from '@/components/KassaBackground';
+import { KassaBusinessHeader } from './business-header';
+import { useKassaSession } from './api';
 
 export function KassaLogo({ compact = false }: { compact?: boolean }) {
   return <View style={s.brand}>
@@ -52,13 +54,20 @@ function DemoBottomNav() {
 export function KScreen({ title, subtitle, children, nav = true, back = false, showBrand = true, showPreviewLabel = true }: { title?: string; subtitle?: string; children: React.ReactNode; nav?: boolean; back?: boolean; showBrand?: boolean; showPreviewLabel?: boolean }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const pathname = usePathname();
+  const { scope } = useKassaSession();
+  // Auth screens remain unchanged; business pages share one consistent header.
+  const headerVisible = nav && !!scope && pathname.startsWith('/cashier') && pathname !== '/cashier/sign-up';
+  const standaloneBrand = showBrand && !headerVisible;
   return <KassaBackground><View style={s.screen}>
-    <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: Math.max(insets.top, 12) + 14, paddingBottom: 36, paddingHorizontal: 24, flexGrow: 1 }}>
+    {headerVisible && <KassaBusinessHeader logo={<KassaLogo compact />}/>}
+    <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingTop: headerVisible ? 12 : Math.max(insets.top, 12) + 14, paddingBottom: 36, paddingHorizontal: 24, flexGrow: 1 }}>
       {back ? <Pressable onPress={() => router.back()} style={{ marginBottom: 20, alignSelf: 'flex-start' }}><Text style={{ color: C.green, fontWeight: '700' }}>‹  Back</Text></Pressable> : null}
-      {showBrand ? <KassaLogo compact /> : null}
+      {standaloneBrand ? <KassaLogo compact /> : null}
       {title ? <Text style={s.title}>{title}</Text> : null}
       {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
-      <View style={{ marginTop: title ? 22 : showBrand ? 28 : 0 }}>{children}</View>
+      <View style={{ marginTop: title ? 22 : standaloneBrand ? 28 : 0 }}>{children}</View>
       {showPreviewLabel ? <Text style={s.demoLabel}>KASSA SCREEN PREVIEW  ·  SAMPLE DATA ONLY</Text> : null}
     </ScrollView>
     {nav ? <DemoBottomNav /> : null}

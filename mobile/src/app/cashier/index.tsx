@@ -36,13 +36,6 @@ const quickActions = [
   { label: 'My sales', route: '/cashier/sales', icon: { ios: 'list.bullet', android: 'receipt_long', web: 'receipt_long' } },
 ] as const;
 
-const businessLinks = [
-  { title: 'Transactions', desc: 'Branch sales and payment statuses', route: '/cashier/transactions' },
-  { title: 'Reports & Analytics', desc: 'Sales trends and channel performance', route: '/cashier/reports' },
-  { title: 'Products & Inventory', desc: 'Stock, categories and restocking', route: '/cashier/inventory' },
-  { title: 'Staff & Branches', desc: 'Team, locations and assigned roles', route: '/cashier/staff-branches' },
-] as const;
-
 export default function CashierHome() {
   const router = useRouter();
   const { count, refreshOfflineQueue } = useKassaDemo();
@@ -215,16 +208,6 @@ export default function CashierHome() {
         ))}
       </View>
 
-      <Text style={[s.sectionTitle, s.actionsHeading]}>Business screens</Text>
-      {businessLinks.map(item => <Pressable key={item.route} accessibilityRole="button"
-        onPress={() => go(item.route)} style={s.businessLink}>
-        <View style={{ flex: 1 }}>
-          <Text style={s.businessTitle}>{item.title}</Text>
-          <Text style={s.businessDesc}>{item.desc}</Text>
-        </View>
-        <Text style={s.businessArrow}>›</Text>
-      </Pressable>)}
-
       <View style={[s.sectionHeading, s.recentHeading]}>
         <Text style={s.sectionTitle}>Recent Sales</Text>
         <Pressable
@@ -350,10 +333,4 @@ const s = StyleSheet.create({
   branchLink: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24, paddingVertical: 12 },
   branchText: { color: C.muted, fontSize: 14 },
   branchAction: { color: C.green, fontSize: 14, fontWeight: '700' },
-  businessLink: { minHeight: 64, backgroundColor: C.white, borderWidth: 1,
-    borderColor: C.border, borderRadius: 11, flexDirection: 'row',
-    alignItems: 'center', paddingHorizontal: 15, paddingVertical: 12, marginBottom: 9 },
-  businessTitle: { color: C.title, fontSize: 14, fontWeight: '800' },
-  businessDesc: { color: C.muted, fontSize: 12, marginTop: 4 },
-  businessArrow: { color: C.green, fontSize: 23, paddingLeft: 10 },
 });
