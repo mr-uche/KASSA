@@ -34,7 +34,6 @@ const quickActions = [
   { label: 'Scan product', route: '/cashier/scan-product', icon: { ios: 'barcode.viewfinder', android: 'barcode_scanner', web: 'barcode_scanner' } },
   { label: 'Find product', route: '/cashier/new-sale', icon: { ios: 'magnifyingglass', android: 'search', web: 'search' } },
   { label: 'New sale', route: '/cashier/new-sale', icon: { ios: 'plus.circle', android: 'add_circle', web: 'add_circle' } },
-  { label: 'Transactions', route: '/cashier/transactions', icon: { ios: 'list.bullet', android: 'receipt_long', web: 'receipt_long' } },
   { label: 'Customers', route: '/cashier/customers', icon: { ios: 'person.2', android: 'people', web: 'people' } },
 ] as const;
 
