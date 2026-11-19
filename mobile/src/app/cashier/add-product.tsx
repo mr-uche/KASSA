@@ -92,7 +92,7 @@ export default function AddProduct() {
       });
       await store.refreshCatalog();
       Alert.alert('Product added', name.trim() + ' was saved to inventory.', [
-        { text: 'View products', onPress: () => router.replace('/cashier/products') },
+        { text: 'View products', onPress: () => router.replace('/cashier/inventory') },
       ]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to save product.');

@@ -11,10 +11,6 @@ import { KScreen } from '@/components/kassa-demo/ui';
 const accountLinks = [
   { title: 'Switch branch', route: '/cashier/switch-branch', icon: { ios: 'building.2', android: 'store', web: 'store' } },
   { title: 'Change Password', route: '/cashier/change-password', icon: { ios: 'person.crop.circle', android: 'account_circle', web: 'account_circle' } },
-  { title: 'Transactions', route: '/cashier/transactions', icon: { ios: 'list.bullet', android: 'receipt_long', web: 'receipt_long' } },
-  { title: 'Reports & Analytics', route: '/cashier/reports', icon: { ios: 'chart.bar', android: 'bar_chart', web: 'bar_chart' } },
-  { title: 'Products & Inventory', route: '/cashier/inventory', icon: { ios: 'shippingbox', android: 'inventory_2', web: 'inventory_2' } },
-  { title: 'Staff & Branches', route: '/cashier/staff-branches', icon: { ios: 'person.3', android: 'groups', web: 'groups' } },
   { title: 'Settings', route: '/cashier/settings', icon: { ios: 'gearshape', android: 'settings', web: 'settings' } },
 ] as const;
 

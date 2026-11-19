@@ -32,7 +32,7 @@ function saleStatus(sale: CashierDashboard['recentSales'][number]): string {
 
 const quickActions = [
   { label: 'Scan product', route: '/cashier/scan-product', icon: { ios: 'barcode.viewfinder', android: 'barcode_scanner', web: 'barcode_scanner' } },
-  { label: 'Find product', route: '/cashier/products', icon: { ios: 'magnifyingglass', android: 'search', web: 'search' } },
+  { label: 'Find product', route: '/cashier/new-sale', icon: { ios: 'magnifyingglass', android: 'search', web: 'search' } },
   { label: 'My sales', route: '/cashier/sales', icon: { ios: 'list.bullet', android: 'receipt_long', web: 'receipt_long' } },
 ] as const;
 
