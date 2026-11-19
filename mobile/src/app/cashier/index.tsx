@@ -6,7 +6,6 @@ import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { useKassaSession } from '@/components/kassa-demo/api';
-import { ConnectionStatusPill } from '@/components/kassa-demo/connection-status';
 
 type CashierDashboard = {
   scope: { businessId: string; branchId: string; timezone: string };
@@ -121,7 +120,6 @@ export default function CashierHome() {
 
   return (
     <KScreen showBrand={false} showPreviewLabel={false}>
-      <ConnectionStatusPill showQueue />
       <Text style={s.greeting}>{greeting}, {firstName}</Text>
       <Text style={s.intro}>Ready to make today's sales quick and easy.</Text>
 

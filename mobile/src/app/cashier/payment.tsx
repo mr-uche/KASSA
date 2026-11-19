@@ -7,7 +7,6 @@ import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api'
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira, toKobo } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
-import { ConnectionStatusPill } from '@/components/kassa-demo/connection-status';
 import { CheckoutProgress } from '@/components/kassa-demo/checkout-progress';
 import { recordOfflineCash } from '@/components/kassa-demo/offline-cash';
 
@@ -286,7 +285,6 @@ export default function Payment() {
     </View>
 
     <CheckoutProgress stage={2}/>
-    <ConnectionStatusPill />
     {offline && !cacheFresh && <Text style={{ color: C.danger, fontSize: 13, marginBottom: 15 }}>
       Saved product stock is missing or older than 48 hours. Connect to refresh before accepting cash.
     </Text>}

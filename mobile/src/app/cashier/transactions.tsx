@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import * as Print from 'expo-print';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api';
 import { getOfflineSales, type OfflineCashRecord } from '@/components/kassa-demo/offline-cash';
@@ -8,7 +9,7 @@ import { KScreen } from '@/components/kassa-demo/ui';
 import { C } from '@/components/kassa-demo/theme';
 import { DropdownFilter } from '@/components/kassa-demo/dropdown-filter';
 import {
-  ScreenHeading, MetricGrid, ListHeading, SearchBox, SmallAction,
+  ScreenHeading, MetricGrid, ListHeading, SmallAction,
   RecordRow, InlineNotice, money,
 } from '@/components/kassa-demo/business-ui';
 
@@ -53,10 +54,9 @@ function matchesDate(date: string, period: Period): boolean {
   if (period === 'Today') return lagosDay(date) === lagosDay(new Date());
   return time >= Date.now() - 7 * 86400000;
 }
-function csvCell(text: string): string {
-  // Escape spreadsheets as text; CSV consumers must not execute formula cells.
-  const safe = /^[=+\-@\t\r]/.test(text) ? "'" + text : text;
-  return '"' + safe.replaceAll('"', '""') + '"';
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, char =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[char] ?? char);
 }
 
 export default function Transactions() {
@@ -123,11 +123,42 @@ export default function Transactions() {
   const branchCount = session.scopes.filter(item => item.businessId === scope?.businessId).length;
   const amount = paid.reduce((sum, sale) => sum + Number(sale.total), 0);
   const exportRecent = async () => {
-    const rows = [['Reference', 'Date', 'Customer', 'Cashier', 'Payment', 'Status', 'Amount'],
-      ...visible.map(sale => [sale.reference, sale.createdAt, sale.customer ?? '', sale.cashier ?? '',
-        method(sale), state(sale), sale.total])];
-    try { await Share.share({ message: rows.map(row => row.map(csvCell).join(',')).join('\n'), title: 'KASSA recent transactions' }); }
-    catch { Alert.alert('Export unavailable', 'The transactions could not be shared.'); }
+    // Include only transactions matching the current filters, with offline entries
+    // explicitly marked as unconfirmed/queued rather than completed payments.
+    const rows = [
+      ...visible.map(sale => [
+        sale.reference, new Date(sale.createdAt).toLocaleString('en-NG'),
+        sale.customer?.trim() ?? '', sale.cashier ?? '', method(sale), state(sale), money(sale.total),
+      ]),
+      ...localVisible.map(item => [
+        item.id, new Date(item.recordedAt).toLocaleString('en-NG'),
+        '', '', 'Cash (offline)', item.status === 'REVIEW' ? 'Needs review' : 'Queued',
+        money(item.total),
+      ]),
+    ];
+    if (!rows.length) return;
+    const headings = ['Reference', 'Date', 'Customer', 'Cashier', 'Payment', 'Status', 'Amount'];
+    const html = '<!DOCTYPE html><html><head><meta charset="utf-8"/>' +
+      '<style>body{font-family:Arial,sans-serif;color:#172923;margin:25px}' +
+      'h1{font-size:22px;color:#0F6E56}p{font-size:12px;color:#52645D}' +
+      'table{width:100%;border-collapse:collapse;font-size:10px;table-layout:fixed}' +
+      'th,td{padding:9px 6px;border:1px solid #DCE7E2;word-wrap:break-word;text-align:left}' +
+      'th{background:#EAF5F0}tr{page-break-inside:avoid}</style></head><body>' +
+      '<h1>Kassa — Transactions</h1>' +
+      '<p>Branch: ' + escapeHtml(scope?.branchName ?? '') + '</p>' +
+      '<p>Filters: ' + escapeHtml([period, status, channel, search ? 'Search: ' + search : ''].filter(Boolean).join(' · ')) + '</p>' +
+      '<p>Exported from the transaction records currently loaded on this device. ' +
+      'Queued or review-required offline cash sales are not confirmed online payments.</p>' +
+      '<table><thead><tr>' + headings.map(item => '<th>' + escapeHtml(item) + '</th>').join('') +
+      '</tr></thead><tbody>' + rows.map(row =>
+        '<tr>' + row.map(value => '<td>' + escapeHtml(String(value)) + '</td>').join('') + '</tr>').join('') +
+      '</tbody></table></body></html>';
+    try {
+      // Android supports "Save as PDF" in the system print destination picker.
+      await Print.printAsync({ html });
+    } catch {
+      Alert.alert('Export unavailable', 'Could not open the system PDF save/print screen.');
+    }
   };
 
   return <KScreen showBrand={false} showPreviewLabel={false}>
@@ -140,10 +171,16 @@ export default function Transactions() {
       <DropdownFilter label="Date range" value={period} options={periods}
         onChange={next => setPeriod(next as Period)}/>
     </View>
-    <SearchBox value={search} onChangeText={setSearch} placeholder="Search customer or reference"/>
-    <View style={s.exportRow}>
-      <Text style={s.help}>Figures cover recent loaded records (up to 100), not lifetime totals.</Text>
-      <SmallAction label="Export" secondary onPress={() => { void exportRecent(); }} disabled={!visible.length}/>
+    <View style={s.searchExportRow}>
+      <TextInput
+        accessibilityLabel="Search customer or reference"
+        autoCapitalize="none" autoCorrect={false}
+        value={search} onChangeText={setSearch}
+        placeholder="Search customer or reference" placeholderTextColor={C.faint}
+        style={s.searchInput}
+      />
+      <SmallAction label="Export" onPress={() => { void exportRecent(); }}
+        disabled={loading || (!visible.length && !localVisible.length)}/>
     </View>
     <MetricGrid items={[
       { label: 'Total received', value: money(amount), note: 'Recent confirmed sales' },
@@ -182,8 +219,9 @@ export default function Transactions() {
 
 const s = StyleSheet.create({
   filterRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 14 },
-  exportRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  help: { color: C.muted, fontSize: 11, lineHeight: 16, flex: 1 },
+  searchExportRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  searchInput: { flex: 1, minWidth: 0, minHeight: 44, borderWidth: 1, borderColor: C.border,
+    backgroundColor: C.white, borderRadius: 9, paddingHorizontal: 12, fontSize: 13, color: C.title },
   info: { color: C.muted, fontSize: 14, marginVertical: 16 },
   footer: { color: C.faint, fontSize: 12, textAlign: 'center', marginTop: 23 },
 });

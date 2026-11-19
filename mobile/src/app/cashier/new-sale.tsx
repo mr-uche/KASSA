@@ -5,7 +5,6 @@ import { SymbolView } from 'expo-symbols';
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
-import { ConnectionStatusPill } from '@/components/kassa-demo/connection-status';
 
 
 function ProductIcon({ category }: { category: string }) {
@@ -42,7 +41,6 @@ export default function NewSale() {
 
   return (
     <KScreen showBrand={false} showPreviewLabel={false}>
-      <ConnectionStatusPill />
       <View style={s.heading}>
         <View style={{ flex: 1 }}>
           <Text style={s.pageTitle}>New Sale</Text>
