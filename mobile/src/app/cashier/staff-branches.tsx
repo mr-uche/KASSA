@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useKassaSession } from '@/components/kassa-demo/api';
 import { KScreen, KCard, KField } from '@/components/kassa-demo/ui';
@@ -28,6 +28,14 @@ type Role = {
 type StaffData = { staff: Staff[]; branches: Branch[]; roles: Role[] };
 type InviteResult = { token: string; id: string; expiresAt: string; delivery: 'COPY_LINK_ONLY' };
 const tabs: Tab[] = ['Staff', 'Branches', 'Roles & Permissions'];
+// Match the permissions accepted by the business role-creation endpoint.
+const rolePermissionOptions = [
+  'View dashboard',
+  'Manage sales & transactions',
+  'Manage products & inventory',
+  'View reports & analytics',
+  'Manage customers',
+] as const;
 
 export default function StaffAndBranches() {
   const session = useKassaSession();
@@ -42,7 +50,7 @@ export default function StaffAndBranches() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [form, setForm] = useState<'invite' | 'branch' | null>(null);
+  const [form, setForm] = useState<'invite' | 'branch' | 'role' | null>(null);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('');
@@ -50,6 +58,11 @@ export default function StaffAndBranches() {
   const [inviteResult, setInviteResult] = useState<InviteResult | null>(null);
   const [branchName, setBranchName] = useState('');
   const [branchAddress, setBranchAddress] = useState('');
+  const [roleName, setRoleName] = useState('');
+  const [roleDescription, setRoleDescription] = useState('');
+  const [rolePermissions, setRolePermissions] = useState<string[]>([
+    'View dashboard', 'Manage sales & transactions',
+  ]);
 
   const reload = useCallback(async (alive: () => boolean = () => true) => {
     if (!scope) return;
@@ -168,6 +181,35 @@ export default function StaffAndBranches() {
     finally { setBusy(false); }
   }
 
+  async function createRole() {
+    if (!scope || busy) return;
+    const name = roleName.trim();
+    const description = roleDescription.trim();
+    if (!name || name.length > 80 || name.toLowerCase() === 'owner' || description.length > 500) {
+      setError('Enter a non-owner role name (up to 80 characters) and a description of up to 500 characters.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await session.request('staff-branches/roles', {
+        businessId: scope.businessId,
+        name, description,
+        permissions: rolePermissions,
+      });
+      setRoleName('');
+      setRoleDescription('');
+      setRolePermissions(['View dashboard', 'Manage sales & transactions']);
+      setForm(null);
+      await reload();
+      Alert.alert('Role created', 'The new role is available for staff assignments.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to create the role.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return <KScreen showBrand={false} showPreviewLabel={false}>
     <ScreenHeading title="Staff & Branches" subtitle={scope?.businessName ?? 'Your business'}
       right={<SmallAction label="Refresh" secondary onPress={() => { void reload(); }} disabled={loading}/>}/>
@@ -223,6 +265,8 @@ export default function StaffAndBranches() {
       }}/>}
       {tab === 'Branches' && <SmallAction label="+ Add branch"
         onPress={() => setForm(value => value === 'branch' ? null : 'branch')}/>}
+      {tab === 'Roles & Permissions' && <SmallAction label="+ Add role"
+        onPress={() => setForm(value => value === 'role' ? null : 'role')}/>}
     </View>
     {form === 'invite' && <KCard>
       <Text style={s.section}>Invite a staff member</Text>
@@ -249,7 +293,35 @@ export default function StaffAndBranches() {
       <SmallAction label={busy ? 'Creating…' : 'Save branch'} disabled={busy}
         onPress={() => { void createBranch(); }}/>
     </KCard>}
-    {loading && <Text style={s.message}>Loading business records…</Text>}
+    {form === 'role' && tab === 'Roles & Permissions' && <KCard>
+      <Text style={s.section}>Add role</Text>
+      <KField label="Role name" value={roleName} onChangeText={setRoleName}
+        placeholder="e.g. Sales Supervisor"/>
+      <KField label="Description (optional)" value={roleDescription}
+        onChangeText={setRoleDescription} placeholder="What this role is responsible for"/>
+      <Text style={s.fieldLabel}>Permissions</Text>
+      <Text style={s.permissionHint}>Select the areas this role can access.</Text>
+      {rolePermissionOptions.map(permission => {
+        const checked = rolePermissions.includes(permission);
+        return <Pressable key={permission} accessibilityRole="checkbox"
+          accessibilityLabel={permission} accessibilityState={{ checked }}
+          disabled={busy}
+          onPress={() => setRolePermissions(current => current.includes(permission)
+            ? current.filter(item => item !== permission) : [...current, permission])}
+          style={s.permissionRow}>
+          <View style={[s.permissionCheck, checked && s.permissionCheckActive]}>
+            {checked && <Text style={s.permissionTick}>✓</Text>}
+          </View>
+          <Text style={s.permissionText}>{permission}</Text>
+        </Pressable>;
+      })}
+      <View style={s.roleActions}>
+        <SmallAction label="Cancel" secondary disabled={busy} onPress={() => setForm(null)}/>
+        <SmallAction label={busy ? 'Creating…' : 'Create role'} disabled={busy}
+          onPress={() => { void createRole(); }}/>
+      </View>
+    </KCard>}
+    {loading && <Text style={s.message}>Loading business records…</Text>
     {!!error && <InlineNotice text={error} warning/>}
     <MetricGrid items={stats}/>
     <ListHeading title={tab === 'Staff' ? 'Staff members' : tab === 'Branches' ? 'Branches' : 'Roles'}
@@ -291,4 +363,13 @@ const s = StyleSheet.create({
   fieldLabel: { color: C.text, fontSize: 14, fontWeight: '700', marginBottom: 4 },
   message: { color: C.muted, fontSize: 14, marginBottom: 14 },
   invitation: { marginTop: 14 },
+  permissionHint: { color: C.muted, fontSize: 12, marginBottom: 12 },
+  permissionRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center',
+    gap: 11, paddingVertical: 8 },
+  permissionCheck: { height: 20, width: 20, borderWidth: 1,
+    borderColor: C.border, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
+  permissionCheckActive: { backgroundColor: C.green, borderColor: C.green },
+  permissionTick: { color: C.white, fontSize: 13, fontWeight: '800' },
+  permissionText: { flex: 1, fontSize: 13, color: C.text },
+  roleActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 16 },
 });
