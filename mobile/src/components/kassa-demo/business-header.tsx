@@ -136,7 +136,7 @@ export function KassaBusinessHeader({ logo }: { logo: React.ReactNode }) {
     <Modal visible={bellOpen} transparent animationType="fade" statusBarTranslucent
       onRequestClose={() => setBellOpen(false)}>
       <View style={s.notificationOverlay}>
-        <Pressable style={StyleSheet.absoluteFillObject} accessibilityRole="button"
+        <Pressable style={StyleSheet.absoluteFill} accessibilityRole="button"
           accessibilityLabel="Close notifications" onPress={() => setBellOpen(false)}/>
         <View style={[s.notificationPanel, { top: Math.max(insets.top, 10) + 55 }]}>
           <View style={s.notificationHeading}>
