@@ -36,7 +36,7 @@ export default function StaffAndBranches() {
   const [data, setData] = useState<StaffData>({ staff: [], branches: [], roles: [] });
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All statuses');
-  const [groupFilter, setGroupFilter] = useState('All branches');
+  const [groupFilter, setGroupFilter] = useState('All categories');
   const [sort, setSort] = useState('Sort');
   const [showAll, setShowAll] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -76,15 +76,16 @@ export default function StaffAndBranches() {
 
   const activeBranches = data.branches.filter(item => item.status === 'Active');
   const availableRoles = data.roles.filter(item => item.name !== 'Owner');
+  // "Category" groups staff by role, branches by location and roles by system/custom.
   const groupOptions = tab === 'Staff'
-    ? ['All branches', ...new Set(data.staff.map(item => item.branch).filter(Boolean))]
+    ? ['All categories', ...new Set(data.staff.map(item => item.role).filter(Boolean))]
     : tab === 'Branches'
-      ? ['All locations', ...new Set(data.branches.map(item => item.location).filter(Boolean))]
-      : ['All roles', 'System roles', 'Custom roles'];
+      ? ['All categories', ...new Set(data.branches.map(item => item.location).filter(Boolean))]
+      : ['All categories', 'System roles', 'Custom roles'];
   const statusOptions = tab === 'Staff'
     ? ['All statuses', 'Active', 'Pending', 'Expired']
     : tab === 'Branches' ? ['All statuses', 'Active', 'Inactive']
-      : ['All access', ...new Set(data.roles.map(item => item.access).filter(Boolean))];
+      : ['All statuses', ...new Set(data.roles.map(item => item.access).filter(Boolean))];
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     const sortByName = <T extends { name: string }>(items: T[]): T[] =>
@@ -94,15 +95,15 @@ export default function StaffAndBranches() {
       staff: sortByName(data.staff.filter(item =>
         (item.name + ' ' + item.email + ' ' + item.role + ' ' + item.branch).toLowerCase().includes(q) &&
         (filter === 'All statuses' || item.status === filter) &&
-        (groupFilter === 'All branches' || item.branch === groupFilter))),
+        (groupFilter === 'All categories' || item.role === groupFilter))),
       branches: sortByName(data.branches.filter(item =>
         (item.name + ' ' + item.location).toLowerCase().includes(q) &&
         (filter === 'All statuses' || item.status === filter) &&
-        (groupFilter === 'All locations' || item.location === groupFilter))),
+        (groupFilter === 'All categories' || item.location === groupFilter))),
       roles: sortByName(data.roles.filter(item =>
         (item.name + ' ' + item.description + ' ' + item.access).toLowerCase().includes(q) &&
-        (filter === 'All access' || item.access === filter) &&
-        (groupFilter === 'All roles' ||
+        (filter === 'All statuses' || item.access === filter) &&
+        (groupFilter === 'All categories' ||
           (groupFilter === 'System roles' ? item.isSystem : !item.isSystem)))),
     };
   }, [data, search, filter, groupFilter, sort]);
@@ -177,18 +178,18 @@ export default function StaffAndBranches() {
       right={<SmallAction label="Refresh" secondary onPress={() => { void reload(); }} disabled={loading}/>}/>
     <Tabs options={tabs} value={tab} onChange={value => {
       setTab(value);
-      setGroupFilter(value === 'Staff' ? 'All branches' : value === 'Branches' ? 'All locations' : 'All roles');
-      setFilter(value === 'Roles & Permissions' ? 'All access' : 'All statuses');
+      setGroupFilter('All categories');
+      setFilter('All statuses');
       setSort('Sort');
       setSearch('');
       setShowAll(false);
       setForm(null);
     }}/>
     <View style={s.filtersRow}>
-      <DropdownFilter label={tab === 'Staff' ? 'Branch' : tab === 'Branches' ? 'Location' : 'Role type'}
-        value={groupFilter} options={groupOptions} onChange={setGroupFilter}/>
-      <DropdownFilter label={tab === 'Roles & Permissions' ? 'Access' : 'Status'}
-        value={filter} options={statusOptions} onChange={setFilter}/>
+      <DropdownFilter label="Category" value={groupFilter}
+        options={groupOptions} onChange={setGroupFilter}/>
+      <DropdownFilter label="Status" value={filter}
+        options={statusOptions} onChange={setFilter}/>
       <DropdownFilter label="Sort" value={sort} options={['Sort', 'Name A–Z', 'Name Z–A']}
         onChange={setSort}/>
     </View>
