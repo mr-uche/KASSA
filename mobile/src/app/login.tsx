@@ -51,7 +51,7 @@ export default function LoginScreen() {
      </View>
       <Text style={styles.heading}>Welcome back</Text>
       <Text style={styles.subtitle}>
-        Sign in to your cashier account to start selling.
+        Sign in to your account .
       </Text>
 
 
@@ -149,26 +149,6 @@ export default function LoginScreen() {
     ))}
   </View>
 )}
- 
-
-{/* Cashier Account Information */}
-<View style={styles.infoBox}>
-  <View style={styles.infoIcon}>
-    <Text style={styles.infoIconText}>i</Text>
-  </View>
-
-  <View style={styles.infoContent}>
-    <Text style={styles.infoTitle}>
-      Cashier account
-    </Text>
-
-    <Text style={styles.infoDescription}>
-      You'll only see sales and transactions
-      assigned to your cashier role.
-    </Text>
-  </View>
-</View>
-
   
 {/* Sign Up Section */}
 <View style={styles.signUpContainer}>
@@ -182,7 +162,7 @@ export default function LoginScreen() {
     }
   >
     <Text style={styles.signUpLink}>
-      Sign Up
+      Create business account
     </Text>
   </Pressable>
 </View>
@@ -333,52 +313,6 @@ circleBottom: {
   bottom: -200,
   left: -180,
 },
-
-
-infoBox: {
-  flexDirection: "row",
-  alignItems: "flex-start",
-  backgroundColor: "#EAF5F0",
-  borderRadius: 10,
-  padding: 14,
-  marginTop: 32,
-  borderWidth: 1,
-  borderColor: "#D6EAE1",
-},
-
-infoIcon: {
-  width: 26,
-  height: 26,
-  borderRadius: 13,
-  backgroundColor: "#0F6E56",
-  alignItems: "center",
-  justifyContent: "center",
-  marginRight: 12,
-},
-
-infoIconText: {
-  color: "#FFFFFF",
-  fontSize: 14,
-  fontWeight: "bold",
-},
-
-infoContent: {
-  flex: 1,
-},
-
-infoTitle: {
-  fontSize: 20,
-  fontWeight: "bold",
-  color: "#174B3D",
-  marginBottom: 6,
-},
-
-infoDescription: {
-  fontSize: 14,
-  color: "#4B635D",
-  lineHeight: 22,
-},
-
 
 signUpContainer: {
   flexDirection: "row",
