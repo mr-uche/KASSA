@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Crypto from 'expo-crypto';
 import { SymbolView } from 'expo-symbols';
@@ -8,6 +8,7 @@ import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira, toKobo } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 import { ConnectionStatusPill } from '@/components/kassa-demo/connection-status';
+import { CheckoutProgress } from '@/components/kassa-demo/checkout-progress';
 import { recordOfflineCash } from '@/components/kassa-demo/offline-cash';
 
 const methods = [
@@ -284,6 +285,7 @@ export default function Payment() {
       <View><Text style={s.title}>Payment</Text><Text style={s.subtitle}>Complete customer purchase</Text></View>
     </View>
 
+    <CheckoutProgress stage={2}/>
     <ConnectionStatusPill />
     {offline && !cacheFresh && <Text style={{ color: C.danger, fontSize: 13, marginBottom: 15 }}>
       Saved product stock is missing or older than 48 hours. Connect to refresh before accepting cash.
@@ -396,6 +398,13 @@ export default function Payment() {
       <Text style={s.error}>This is an older Paystack TEST checkout. No new checkout is available; contact the business owner for reconciliation.</Text>}
     {!session.scope && <Text style={s.error}>Sign in to KASSA before completing payments.</Text>}
     {error ? <Text style={s.error}>{error}</Text> : null}
+    {working && <View accessibilityRole="progressbar" style={s.recording}>
+      <ActivityIndicator size="small" color={C.green}/>
+      <View style={{ flex: 1 }}>
+        <Text style={s.recordingTitle}>Recording payment</Text>
+        <Text style={s.recordingText}>KASSA is saving this payment confirmation. Do not submit it again.</Text>
+      </View>
+    </View>}
     <Pressable
       accessibilityRole="button"
       disabled={working || !session.scope || !store.count ||
@@ -417,6 +426,10 @@ export default function Payment() {
 }
 
 const s = StyleSheet.create({
+  recording: { flexDirection: 'row', gap: 12, padding: 13, marginTop: 14, marginBottom: 12,
+    borderRadius: 12, borderWidth: 1, borderColor: C.mintBorder, backgroundColor: C.mint },
+  recordingTitle: { fontWeight: '800', color: C.greenDark, fontSize: 14 },
+  recordingText: { color: C.muted, fontSize: 12, lineHeight: 18, marginTop: 4 },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 11, marginBottom: 25 },
   back: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.mint, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 26, color: C.title, fontWeight: '800' },

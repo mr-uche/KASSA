@@ -5,6 +5,7 @@ import { SymbolView } from 'expo-symbols';
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
+import { CheckoutProgress } from '@/components/kassa-demo/checkout-progress';
 
 type IconName = React.ComponentProps<typeof SymbolView>['name'];
 const icon = (name: IconName, size = 20, color: string = C.green) =>
@@ -22,7 +23,7 @@ export default function ReviewSale() {
   return <KScreen showBrand={false} showPreviewLabel={false}>
     {store.offlineMode && <View style={{ borderWidth: 1, borderColor: C.mintBorder, backgroundColor: C.mint, borderRadius: 9, padding: 12, marginBottom: 15 }}>
       <Text style={{ color: C.greenDark, fontWeight: '800', fontSize: 14 }}>OFFLINE · Cash only</Text>
-      <Text style={{ color: C.muted, fontSize: 13, marginTop: 5 }}>Prices and stock come from this phone. Cash sales are queued until synchronized.</Text>
+      <Text style={{ color: C.muted, fontSize: 13, marginTop: 5 }}>Connect internet to sync sales</Text>
     </View>}
     <View style={s.header}>
       <Pressable accessibilityRole="button" accessibilityLabel="Back to product selection" onPress={() => router.replace('/cashier/new-sale')} style={s.back}>
@@ -31,6 +32,7 @@ export default function ReviewSale() {
       <View><Text style={s.headerTitle}>New Sale</Text><Text style={s.headerCaption}>Select products & quantity</Text></View>
     </View>
 
+    <CheckoutProgress stage={1}/>
     <Pressable style={s.search} onPress={() => router.push('/cashier/new-sale')} accessibilityRole="button" accessibilityLabel="Find more products">
       {icon({ ios: 'magnifyingglass', android: 'search', web: 'search' }, 17, C.muted)}
       <Text style={s.searchText}>Search products or scan barcode</Text>

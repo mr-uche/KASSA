@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Linking, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import * as Print from 'expo-print';
@@ -8,7 +8,8 @@ import { useKassaDemo, type CompletedPayment } from '@/components/kassa-demo/sto
 import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
-import { receiptHtml, receiptMethod, receiptText } from '@/components/kassa-demo/receipt-tools';
+import { CheckoutProgress } from '@/components/kassa-demo/checkout-progress';
+import { receiptHtml, receiptMethod, receiptText, shareReceiptSms, shareReceiptWhatsApp } from '@/components/kassa-demo/receipt-tools';
 import { receiptQrDataUrl } from '@/components/kassa-demo/receipt-qr';
 
 const dateFormatter = new Intl.DateTimeFormat('en-NG', {
@@ -102,6 +103,7 @@ export default function Receipt() {
   }
 
   return <KScreen showBrand={false} showPreviewLabel={false}>
+    <CheckoutProgress stage={3}/>
     <View style={s.header}>
       <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={s.back}>
         <SymbolView name={{ ios: 'arrow.left', android: 'arrow_back', web: 'arrow_back' }}
@@ -194,6 +196,23 @@ export default function Receipt() {
     </View>
 
     {error ? <Text style={s.error}>{error}</Text> : null}
+    <Text style={s.shareHeading}>Share receipt</Text>
+    <Pressable accessibilityRole="button" style={s.sharePrimary}
+      onPress={() => { void safeAction(() => shareReceiptWhatsApp(detail)); }}>
+      <Text style={s.sharePrimaryText}>Send via WhatsApp</Text>
+    </Pressable>
+    <View style={s.actions}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Send receipt via SMS" style={s.outline}
+        onPress={() => { void safeAction(() => shareReceiptSms(detail)); }}>
+        <Text style={s.outlineText}>Send via SMS</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Email receipt" style={s.outline}
+        onPress={() => { void safeAction(() => Linking.openURL('mailto:?subject=' +
+          encodeURIComponent('KASSA receipt ' + sale.reference) + '&body=' +
+          encodeURIComponent(receiptText(detail)))); }}>
+        <Text style={s.outlineText}>Email receipt</Text>
+      </Pressable>
+    </View>
     <View style={s.actions}>
       <Pressable accessibilityRole="button" accessibilityLabel="Share receipt" style={s.outline}
         onPress={() => { void safeAction(() => Share.share({ message: receiptText(detail) })); }}>
@@ -215,6 +234,10 @@ export default function Receipt() {
 }
 
 const s = StyleSheet.create({
+  shareHeading: { fontSize: 19, fontWeight: '800', color: C.title, marginTop: 19, marginBottom: 10 },
+  sharePrimary: { backgroundColor: C.green, borderRadius: 9, minHeight: 50,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
+  sharePrimaryText: { color: C.white, fontSize: 14, fontWeight: '800' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
   back: { backgroundColor: C.mint, width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 27, color: C.title, fontWeight: '800' },

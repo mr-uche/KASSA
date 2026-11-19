@@ -6,6 +6,7 @@ import * as Print from 'expo-print';
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
+import { CheckoutProgress } from '@/components/kassa-demo/checkout-progress';
 import { receiptHtml, receiptMethod, shareReceiptSms, shareReceiptWhatsApp } from '@/components/kassa-demo/receipt-tools';
 
 export default function CompletedSale() {
@@ -48,6 +49,7 @@ export default function CompletedSale() {
   ] as const;
 
   return <KScreen showBrand={false} showPreviewLabel={false}>
+    <CheckoutProgress stage={3}/>
     <View style={s.header}>
       <Pressable accessibilityRole="button" accessibilityLabel="Return to home" onPress={() => router.replace('/cashier')} style={s.back}>
         <SymbolView name={{ ios: 'arrow.left', android: 'arrow_back', web: 'arrow_back' }} size={20} tintColor={C.green} />
@@ -59,7 +61,9 @@ export default function CompletedSale() {
       <SymbolView name={{ ios: 'checkmark', android: 'check', web: 'check' }} tintColor={C.green} size={49} />
     </View>
     <Text style={s.title}>Payment successful</Text>
-    <Text style={s.subtitle}>{isTest ? 'Paystack TEST payment verified by the backend.' : 'Sale has been saved to Transactions.'}</Text>
+    <Text style={s.subtitle}>{isTest ? 'Paystack TEST payment recorded by the backend.' :
+      channel === 'CASH' ? 'Cash recorded and sale completed.' :
+      'Payment recorded as received by the merchant. Bank/POS confirmation was supplied by staff, not independently verified by KASSA.'}</Text>
 
     <View style={s.detailsCard}>
       <View style={[s.detail, compact && s.detailCompact]}>
@@ -115,7 +119,7 @@ export default function CompletedSale() {
       <Text style={s.actionText}>New sale</Text>
     </Pressable>
     <Pressable onPress={() => router.push('/cashier/receipt')} style={s.receiptLink}>
-      <Text style={s.receiptLinkText}>View full receipt</Text>
+      <Text style={s.receiptLinkText}>View receipt</Text>
     </Pressable>
   </KScreen>;
 }

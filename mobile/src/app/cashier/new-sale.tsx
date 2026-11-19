@@ -6,6 +6,7 @@ import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 import { ConnectionStatusPill } from '@/components/kassa-demo/connection-status';
+import { CheckoutProgress } from '@/components/kassa-demo/checkout-progress';
 
 
 function ProductIcon({ category }: { category: string }) {
@@ -30,7 +31,7 @@ export default function NewSale() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
   const categories = useMemo(() => ['All', ...Array.from(new Set(store.catalog.map(p => p.category)))], [store.catalog]);
-  const [showItems, setShowItems] = useState(false);
+  const [showItems, setShowItems] = useState(true);
 
   const items = useMemo(
     () => store.catalog.filter(item =>
@@ -43,6 +44,17 @@ export default function NewSale() {
   return (
     <KScreen showBrand={false} showPreviewLabel={false}>
       <ConnectionStatusPill />
+      <View style={s.heading}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.pageTitle}>New Sale</Text>
+          <Text style={s.pageSubtitle}>Choose products for this transaction</Text>
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Switch branch"
+          onPress={() => router.push('/cashier/switch-branch')} style={s.branchButton}>
+          <Text numberOfLines={1} style={s.branchText}>{store.branch} ⌄</Text>
+        </Pressable>
+      </View>
+      <CheckoutProgress stage={1}/>
       {store.offlineMode && (!store.catalogSavedAt ||
         Date.now() - store.catalogSavedAt > 48 * 60 * 60 * 1000) &&
         <Text style={s.offlineError}>Saved stock is missing or older than 48 hours. Refresh online before accepting cash.</Text>}
@@ -132,27 +144,29 @@ export default function NewSale() {
                     </View>
                   )}
                 </View>
-                <Text numberOfLines={2} style={s.productName}>{item.name}</Text>
-                <View style={s.productInfoRow}>
-                  <View style={s.productDetails}>
-                    <Text style={[s.productMeta, { color: C.green, fontWeight: '800' }]}>{naira(item.price)}</Text>
-                    <Text style={s.productMeta}>In stock: {item.stock}</Text>
+                <View style={s.productBody}>
+                  <Text numberOfLines={2} style={s.productName}>{item.name}</Text>
+                  <View style={s.productInfoRow}>
+                    <View style={s.productDetails}>
+                      <Text style={[s.productMeta, { color: C.green, fontWeight: '800' }]}>{naira(item.price)}</Text>
+                      <Text style={s.productMeta}>SKU: {item.sku || '—'} · Stock: {item.stock}</Text>
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={quantity > 0 ? `Add another ${item.name}; ${quantity} in sale` : `Add ${item.name} to sale`}
+                      onPress={() => store.add(item.id)}
+                      disabled={!!store.pendingSale || item.stock <= quantity}
+                      style={[s.addCircle, quantity > 0 && s.addedCircle, (store.pendingSale || item.stock <= quantity) && { opacity: 0.35 }]}
+                    >
+                      <SymbolView
+                        name={quantity > 0
+                          ? { ios: 'checkmark', android: 'check', web: 'check' }
+                          : { ios: 'plus', android: 'add', web: 'add' }}
+                        size={17}
+                        tintColor={C.white}
+                      />
+                    </Pressable>
                   </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={quantity > 0 ? `Add another ${item.name}; ${quantity} in sale` : `Add ${item.name} to sale`}
-                    onPress={() => store.add(item.id)}
-                    disabled={!!store.pendingSale || item.stock <= quantity}
-                    style={[s.addCircle, quantity > 0 && s.addedCircle, (store.pendingSale || item.stock <= quantity) && { opacity: 0.35 }]}
-                  >
-                    <SymbolView
-                      name={quantity > 0
-                        ? { ios: 'checkmark', android: 'check', web: 'check' }
-                        : { ios: 'plus', android: 'add', web: 'add' }}
-                      size={17}
-                      tintColor={C.white}
-                    />
-                  </Pressable>
                 </View>
               </View>
             );
@@ -240,6 +254,12 @@ export default function NewSale() {
 }
 
 const s = StyleSheet.create({
+  heading: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 14 },
+  pageTitle: { fontSize: 26, color: C.title, fontWeight: '800' },
+  pageSubtitle: { fontSize: 13, color: C.muted, marginTop: 4 },
+  branchButton: { borderRadius: 18, borderWidth: 1, borderColor: C.border, backgroundColor: C.white, paddingHorizontal: 10, minHeight: 33, justifyContent: 'center', maxWidth: '43%' },
+  branchText: { color: C.greenDark, fontSize: 12, fontWeight: '700' },
+  productBody: { flex: 1, minWidth: 0, justifyContent: 'center' },
   offlineBanner: { padding: 13, borderWidth: 1, borderColor: C.mintBorder, borderRadius: 9, backgroundColor: C.mint, marginBottom: 16 },
   offlineTitle: { color: C.greenDark, fontSize: 14, fontWeight: '800' },
   offlineDesc: { color: C.muted, fontSize: 13, lineHeight: 20, marginTop: 5 },
@@ -265,14 +285,15 @@ const s = StyleSheet.create({
   productsHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 46, marginBottom: 14 },
   sectionTitle: { fontSize: 20, fontWeight: '800', color: C.title },
   itemCount: { color: C.faint, fontSize: 14 },
-  productsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
+  productsGrid: { flexDirection: 'column', gap: 10 },
   productCard: {
-    width: '48.4%', backgroundColor: C.white, borderWidth: 1,
-    borderColor: C.border, borderRadius: 12, padding: 10, minHeight: 196, position: 'relative',
+    width: '100%', flexDirection: 'row', alignItems: 'center', gap: 11,
+    backgroundColor: C.white, borderWidth: 1, borderColor: C.border,
+    borderRadius: 12, padding: 10, minHeight: 89, position: 'relative',
   },
   productCardSelected: { borderColor: C.green, borderWidth: 1.5 },
   removeCircle: { position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: 15, backgroundColor: '#F0F1F3', alignItems: 'center', justifyContent: 'center', zIndex: 3 },
-  productImage: { height: 75, backgroundColor: C.mint, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 9 },
+  productImage: { height: 67, width: 63, backgroundColor: C.mint, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   selectedCount: { position: 'absolute', bottom: 3, left: 5, borderRadius: 10, backgroundColor: C.white, paddingHorizontal: 6, paddingVertical: 1, borderWidth: 1, borderColor: C.mintBorder },
   selectedCountText: { color: C.green, fontSize: 11, fontWeight: '800' },
   productIconCircle: { width: 43, height: 43, backgroundColor: '#D7EBE4', borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
