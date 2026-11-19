@@ -1,13 +1,14 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Share, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api';
 import { getOfflineSales, type OfflineCashRecord } from '@/components/kassa-demo/offline-cash';
 import { useKassaConnectivity } from '@/components/kassa-demo/connectivity';
 import { KScreen } from '@/components/kassa-demo/ui';
 import { C } from '@/components/kassa-demo/theme';
+import { DropdownFilter } from '@/components/kassa-demo/dropdown-filter';
 import {
-  ScreenHeading, MetricGrid, ListHeading, SearchBox, Tabs, SmallAction,
+  ScreenHeading, MetricGrid, ListHeading, SearchBox, SmallAction,
   RecordRow, InlineNotice, money,
 } from '@/components/kassa-demo/business-ui';
 
@@ -132,11 +133,13 @@ export default function Transactions() {
   return <KScreen showBrand={false} showPreviewLabel={false}>
     <ScreenHeading title="Transactions" subtitle={scope?.branchName ?? 'Select your branch'}
       right={<SmallAction label="Refresh" secondary onPress={() => { void refresh(); }} disabled={loading}/>} />
-    <Tabs options={periods} value={period} onChange={setPeriod}/>
     <View style={s.filterRow}>
-      <View style={s.half}><Tabs options={statuses} value={status} onChange={setStatus}/></View>
+      <DropdownFilter label="Payment channel" value={channel} options={channels} onChange={setChannel}/>
+      <DropdownFilter label="Payment status" value={status} options={statuses}
+        onChange={next => setStatus(next as Status)}/>
+      <DropdownFilter label="Date range" value={period} options={periods}
+        onChange={next => setPeriod(next as Period)}/>
     </View>
-    <Tabs options={channels} value={channel} onChange={setChannel}/>
     <SearchBox value={search} onChangeText={setSearch} placeholder="Search customer or reference"/>
     <View style={s.exportRow}>
       <Text style={s.help}>Figures cover recent loaded records (up to 100), not lifetime totals.</Text>
@@ -178,8 +181,7 @@ export default function Transactions() {
 }
 
 const s = StyleSheet.create({
-  filterRow: { flexDirection: 'row', alignItems: 'center' },
-  half: { flex: 1 },
+  filterRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 14 },
   exportRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   help: { color: C.muted, fontSize: 11, lineHeight: 16, flex: 1 },
   info: { color: C.muted, fontSize: 14, marginVertical: 16 },

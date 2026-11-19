@@ -6,7 +6,6 @@ import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 import { ConnectionStatusPill } from '@/components/kassa-demo/connection-status';
-import { CheckoutProgress } from '@/components/kassa-demo/checkout-progress';
 
 
 function ProductIcon({ category }: { category: string }) {
@@ -54,7 +53,6 @@ export default function NewSale() {
           <Text numberOfLines={1} style={s.branchText}>{store.branch} ⌄</Text>
         </Pressable>
       </View>
-      <CheckoutProgress stage={1}/>
       {store.offlineMode && (!store.catalogSavedAt ||
         Date.now() - store.catalogSavedAt > 48 * 60 * 60 * 1000) &&
         <Text style={s.offlineError}>Saved stock is missing or older than 48 hours. Refresh online before accepting cash.</Text>}

@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { C } from './theme';
 
-/** A compact, anchored select control for inventory filters. */
+/** A compact, anchored select control. Tap outside or press Back to dismiss. */
 export function DropdownFilter({
   label, value, options, onChange,
 }: {
@@ -42,9 +42,9 @@ export function DropdownFilter({
     </Pressable>
     <Modal visible={open} transparent statusBarTranslucent animationType="fade"
       onRequestClose={() => setOpen(false)}>
-      <View style={StyleSheet.absoluteFillObject}>
+      <View style={s.overlay}>
         <Pressable accessibilityRole="button" accessibilityLabel={'Close ' + label + ' dropdown'}
-          onPress={() => setOpen(false)} style={StyleSheet.absoluteFillObject}/>
+          onPress={() => setOpen(false)} style={StyleSheet.absoluteFill}/>
         <View style={[s.menu, { top, left, width: menuWidth, maxHeight: menuHeight }]}>
           <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="always">
             {options.map(option => (
@@ -65,6 +65,7 @@ export function DropdownFilter({
 }
 
 const s = StyleSheet.create({
+  overlay: { flex: 1 },
   anchor: { flex: 1, minWidth: 0 },
   select: { minHeight: 39, backgroundColor: C.white, borderWidth: 1,
     borderColor: C.border, borderRadius: 8, flexDirection: 'row',
