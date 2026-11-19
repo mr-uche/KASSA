@@ -285,9 +285,7 @@ export default function Payment() {
 
     {offline && <View style={{ backgroundColor: C.mint, borderWidth: 1, borderColor: C.mintBorder, borderRadius: 10, padding: 13, marginBottom: 15 }}>
       <Text style={{ color: C.greenDark, fontWeight: '800', fontSize: 14 }}>OFFLINE MODE · Cash only</Text>
-      <Text style={{ color: C.muted, fontSize: 13, lineHeight: 20, marginTop: 4 }}>
-        Barcode lookup and totals use saved branch products. Cash sales are queued locally, not immediately verified by the cloud.
-      </Text>
+      <Text style={{ color: C.muted, fontSize: 13, lineHeight: 20, marginTop: 4 }}>Connect internet to sync sales</Text>
       {!cacheFresh && <Text style={{ color: C.danger, fontSize: 13, marginTop: 6 }}>
         Saved product stock is missing or older than 48 hours. Connect to refresh before accepting cash.
       </Text>}
