@@ -30,6 +30,14 @@ function method(sale: CheckoutSale): string {
   return ({ BANK_TRANSFER: 'Transfer', CASH: 'Cash', POS: 'POS', CARD: 'Card',
     USSD: 'USSD', WALLET: 'Wallet' } as Record<string, string>)[raw ?? ''] ?? 'Unknown';
 }
+/** Show the actual payment channel if this sale has no recorded customer. */
+function transactionLabel(sale: CheckoutSale): string {
+  const name = sale.customer?.trim();
+  if (name && !/^(walk-in customer|customer details unavailable)$/i.test(name)) return name;
+  const channel = method(sale);
+  return channel === 'Transfer' ? 'Bank transfer'
+    : channel === 'Unknown' ? 'Customer details unavailable' : channel;
+}
 function lagosDay(input: string | number | Date): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Africa/Lagos', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -99,7 +107,7 @@ export default function Transactions() {
 
   const scoped = useMemo(() => sales.filter(sale => matchesDate(sale.createdAt, period) && !isTest(sale)), [sales, period]);
   const visible = useMemo(() => scoped.filter(sale => {
-    const text = (sale.customer ?? '') + ' ' + sale.reference + ' ' + (sale.cashier ?? '') +
+    const text = transactionLabel(sale) + ' ' + sale.reference + ' ' + (sale.cashier ?? '') +
       ' ' + sale.items.map(item => item.name).join(' ');
     return (status === 'All statuses' || state(sale) === status) &&
       (channel === 'All payments' || method(sale) === channel) &&
@@ -157,7 +165,7 @@ export default function Transactions() {
     {visible.map(sale => {
       const current = state(sale);
       const count = sale.items.reduce((sum, item) => sum + item.quantity, 0);
-      return <RecordRow key={sale.id} title={sale.customer && sale.customer !== 'Walk-in customer' ? sale.customer : 'Customer details unavailable'}
+      return <RecordRow key={sale.id} title={transactionLabel(sale)}
         subtitle={method(sale) + ' · ' + new Date(sale.createdAt).toLocaleString('en-NG') +
           ' · ' + count + (count === 1 ? ' item' : ' items')}
         detail={'Cashier: ' + (sale.cashier ?? 'Not assigned')}

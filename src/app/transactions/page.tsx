@@ -15,7 +15,7 @@ import { getInventoryContext, formatNaira } from "@/lib/inventory-client";
 import { listSales, saleStatusLabel, type SavedSale } from "@/lib/sales-client";
 
 type TransactionRow = {
-  id: string; reference: string; customer: string; cashier: string;
+  id: string; reference: string; customer: string; customerDisplay: string; cashier: string;
   channel: string; items: string; amount: string; status: string;
   time: string; createdAt: string; total: number; testMode: boolean;
 };
@@ -23,12 +23,21 @@ const channelLabels: Record<string, string> = {
   CASH: "Cash", BANK_TRANSFER: "Transfer", POS: "POS", CARD: "Card",
   USSD: "USSD", WALLET: "Kassa Wallet",
 };
+/** Keep the true customer identity separate from the list's fallback label. */
+function customerDisplay(customer: string, channel: string): string {
+  const name = customer.trim();
+  if (name && !/^(walk-in customer|customer details unavailable)$/i.test(name)) return name;
+  return channel === "Transfer" ? "Bank transfer"
+    : channel === "Not set" ? "Customer details unavailable" : channel;
+}
 function toTransactionRow(sale: SavedSale): TransactionRow {
   const payment = sale.payments[0];
   const status = payment?.status === "FAILED" ? "Failed" : saleStatusLabel(sale.status);
+  const channel = channelLabels[payment?.channel ?? ""] ?? "Not set";
   return {
     id: sale.id, reference: sale.reference, customer: sale.customer,
-    cashier: sale.cashier, channel: channelLabels[payment?.channel ?? ""] ?? "Not set",
+    customerDisplay: customerDisplay(sale.customer, channel),
+    cashier: sale.cashier, channel,
     items: sale.items.length + (sale.items.length === 1 ? " item" : " items"),
     amount: formatNaira(sale.total), status,
     time: new Date(sale.createdAt).toLocaleString("en-NG"),
@@ -194,7 +203,7 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
   const now = new Date();
   const filteredTransactions = transactions.filter((row) => {
     const search = query.trim().toLowerCase();
-    if (search && !(row.reference + " " + row.customer + " " + row.cashier).toLowerCase().includes(search)) return false;
+    if (search && !(row.reference + " " + row.customer + " " + row.customerDisplay + " " + row.cashier).toLowerCase().includes(search)) return false;
     if (selectedChannels !== "All Channels" && row.channel !== selectedChannels) return false;
     if (selectedStatuses !== "All statuses") {
       const expected = selectedStatuses === "Successful" ? "Success" : selectedStatuses;
@@ -374,10 +383,10 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
                     <td className="whitespace-nowrap px-4 text-[13px] sm:px-[23px]">
                       <Link
                         href={"/transactions/" + encodeURIComponent(transaction.id)}
-                        aria-label={"View transaction for " + transaction.customer}
+                        aria-label={"View transaction: " + transaction.customerDisplay}
                         className="inline-flex items-center gap-1.5 rounded-md bg-[#EAF5F0] px-2.5 py-1.5 font-semibold text-[#0F6E56] underline decoration-[#0F6E56]/40 underline-offset-2 transition-colors hover:bg-[#D6EAE1] hover:text-[#174B3D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F6E56]"
                       >
-                        {transaction.customer}
+                        {transaction.customerDisplay}
                         <span aria-hidden="true" className="text-base leading-none">›</span>
                       </Link>
                     </td>
