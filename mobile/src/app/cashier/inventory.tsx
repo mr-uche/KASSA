@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useKassaSession } from '@/components/kassa-demo/api';
 import { useKassaDemo } from '@/components/kassa-demo/store';
@@ -8,7 +8,7 @@ import { C } from '@/components/kassa-demo/theme';
 import { DropdownFilter } from '@/components/kassa-demo/dropdown-filter';
 import {
   ScreenHeading, Tabs, MetricGrid, ListHeading, RecordRow, SmallAction,
-  SearchBox, InlineNotice, money,
+  InlineNotice, money,
 } from '@/components/kassa-demo/business-ui';
 
 type Tab = 'Catalogue' | 'Categories' | 'Low Stock';
@@ -158,14 +158,24 @@ export default function Inventory() {
           options={sorts} onChange={value => setSort(value as Sort)}/>
       </>}
     </View>
-    <SearchBox value={query} onChangeText={setQuery}
-      placeholder={tab === 'Categories' ? 'Search categories' : 'Search products by name or code'}/>
-    <View style={s.actionRow}>
+    <View style={s.searchActionRow}>
+      <TextInput
+        accessibilityLabel={tab === 'Categories' ? 'Search categories' : 'Search products'}
+        autoCapitalize="none"
+        autoCorrect={false}
+        value={query}
+        onChangeText={setQuery}
+        placeholder={tab === 'Categories' ? 'Search categories' : 'Search products by name or code'}
+        placeholderTextColor={C.faint}
+        style={s.searchInput}
+      />
       {tab === 'Catalogue' && <SmallAction label="+ Add product" onPress={() => router.push('/cashier/add-product')}/>}
       {tab === 'Categories' && <SmallAction label="+ Add category" onPress={() => setCategoryForm(value => !value)}/>}
       {tab === 'Low Stock' && <SmallAction label="Restock products"
         onPress={() => setRestockProduct(products.find(item => stockState(item) !== 'In stock') ?? null)}
         disabled={!low && !out}/>}
+    </View>
+    <View style={s.refreshRow}>
       <SmallAction label="Refresh" secondary disabled={loading} onPress={() => { void load(); }}/>
     </View>
     {categoryForm && tab === 'Categories' && <KCard>
@@ -229,6 +239,10 @@ export default function Inventory() {
 
 const s = StyleSheet.create({
   filterRow: { flexDirection: 'row', gap: 7, marginBottom: 14, alignItems: 'center' },
+  searchActionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  searchInput: { flex: 1, minWidth: 0, minHeight: 44, borderWidth: 1, borderColor: C.border,
+    backgroundColor: C.white, borderRadius: 9, color: C.title, fontSize: 13, paddingHorizontal: 12 },
+  refreshRow: { alignSelf: 'flex-end', marginBottom: 14 },
   actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginBottom: 16, alignItems: 'center' },
   muted: { color: C.muted, fontSize: 13, marginBottom: 14 },
   section: { color: C.title, fontWeight: '800', fontSize: 17, marginBottom: 8 },
