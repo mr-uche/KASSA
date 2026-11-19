@@ -28,7 +28,9 @@ function DemoBottomNav() {
   return <View style={[s.bottomNav, { paddingBottom: Math.max(insets.bottom, 10) }]}>
     {navItems.map(item => {
       const active = pathname === item.path ||
-        (item.name === 'Profile' && ['/cashier/help', '/cashier/chat', '/cashier/change-password', '/cashier/switch-branch', '/cashier/offline-sales', '/cashier/offline-receipt'].includes(pathname));
+        (item.name === 'Sales' && ['/cashier/transactions', '/cashier/transaction-detail'].includes(pathname)) ||
+        (item.name === 'Products' && ['/cashier/inventory', '/cashier/add-product'].includes(pathname)) ||
+        (item.name === 'Profile' && ['/cashier/help', '/cashier/chat', '/cashier/change-password', '/cashier/switch-branch', '/cashier/offline-sales', '/cashier/offline-receipt', '/cashier/reports', '/cashier/staff-branches'].includes(pathname));
       const isNewSale = item.name === 'New sale';
       return <Pressable
         accessibilityRole="button"
