@@ -45,7 +45,7 @@ export class SalesService {
       status: sale.status, subtotal: sale.subtotal.toString(), discount: sale.discount.toString(),
       total: sale.total.toString(), currency: sale.currency, createdAt: sale.createdAt.toISOString(),
       cashier: sale.cashier?.fullName ?? 'Business owner',
-      customerId: sale.customerId, customer: sale.customer?.fullName ?? 'Walk-in customer',
+      customerId: sale.customerId, customer: sale.customer?.fullName ?? 'Customer details unavailable',
       items: sale.items.map((item) => ({
         id: item.id, productId: item.productId, name: item.productNameSnapshot,
         quantity: item.quantity, unitPrice: item.unitPrice.toString(), lineTotal: item.lineTotal.toString(),

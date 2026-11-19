@@ -135,7 +135,7 @@ export default function Receipt() {
       </View>
       <View style={[s.detailRow, compact && s.detailRowCompact]}>
         <Text style={s.label}>Customer</Text>
-        <Text style={[s.valueSmall, compact && s.compactValue]}>{sale.customer || 'Walk-in customer'}</Text>
+        <Text style={[s.valueSmall, compact && s.compactValue]}>{sale.customer && sale.customer !== 'Walk-in customer' ? sale.customer : 'Customer details unavailable'}</Text>
       </View>
       {test && <Text style={s.warning}>PAYSTACK TEST MODE — Not a live payment</Text>}
 

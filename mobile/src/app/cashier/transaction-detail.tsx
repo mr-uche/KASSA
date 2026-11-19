@@ -42,7 +42,7 @@ export default function TransactionDetail() {
         <View style={s.status}><StatusChip label={paid ? 'Successful' : failed ? 'Failed' : 'Pending'}
           color={paid ? 'green' : failed ? 'red' : 'orange'}/></View>
         <Text style={s.total}>{money(sale.total)}</Text>
-        <Text style={s.small}>Recorded amount · {sale.customer || 'Walk-in customer'}</Text>
+        <Text style={s.small}>Customer: {sale.customer && sale.customer !== 'Walk-in customer' ? sale.customer : 'Customer details unavailable'}</Text>
         {sale.cashier ? <Text style={s.small}>Cashier: {sale.cashier}</Text> : null}
       </KCard>
       <ListHeading title="Products"/>

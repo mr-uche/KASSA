@@ -333,17 +333,6 @@ export default function ConfirmPaymentContent() {
                 </p>
               </div>
 
-              {/* Customer */}
-              <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">
-                Customer
-              </p>
-
-              <div className="mb-6 rounded-lg border border-gray-200 px-4 py-3">
-                <p className="text-sm font-semibold text-gray-900">
-                  {draft?.customerName ?? "Walk-in customer"}
-                </p>
-              </div>
-
               {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
               {/* Confirm button */}
               <button

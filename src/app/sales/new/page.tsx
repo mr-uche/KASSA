@@ -13,7 +13,6 @@ import { listCheckoutProducts, type PaymentMethod } from "@/lib/sales-client";
 import {
   readScopedCart, writeScopedCart, SCAN_CART_KEY, SALE_CART_KEY,
 } from "@/lib/scan-client";
-import { listCustomers, type CustomerRecord } from "@/lib/customers-client";
 
 type Product = InventoryProduct;
 type SaleItem = { id: string; name: string; price: number; qty: number };
@@ -26,9 +25,6 @@ export default function NewSalePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [inventoryContext, setInventoryContext] = useState<InventoryContext | null>(null);
-  const [customers, setCustomers] = useState<CustomerRecord[]>([]);
-  const [selectedCustomerId, setSelectedCustomerId] = useState("");
-  const [canManageCustomers, setCanManageCustomers] = useState(false);
   const [canManageInventory, setCanManageInventory] = useState(false);
 
   const [query, setQuery] = useState("");
@@ -75,17 +71,12 @@ export default function NewSalePage() {
         const context = await getInventoryContext();
         const memberships = await loadAccess();
         const business = memberships.find((item) => item.id === context.businessId);
-        const permittedCustomers = hasBusinessAccess(business, "Manage customers");
         const permittedInventory = hasBusinessAccess(business, "Manage products & inventory");
-        // Never require customer-management or cost-price access for a cashier sale.
-        // The checkout catalogue contains public selling prices and branch stock only.
-        const [productsResult, customerRecords] = await Promise.all([
-          listCheckoutProducts(context),
-          permittedCustomers ? listCustomers(context.businessId) : Promise.resolve([]),
-        ]);
+        // Checkout never asks the cashier to select or enter a customer.
+        // Only products and branch stock are needed to create a sale.
+        const productsResult = await listCheckoutProducts(context);
         if (cancelled) return;
         setProducts(productsResult);
-        setCustomers(customerRecords);
         // Preserve an in-progress sale when the cashier opens the scanner.
         // Merge scanner items by product ID; never combine products from
         // different businesses/branches, and never exceed live branch stock.
@@ -105,9 +96,7 @@ export default function NewSalePage() {
         setSale(resumed);
         window.sessionStorage.removeItem(SCAN_CART_KEY);
         setCartReady(true);
-        setCanManageCustomers(permittedCustomers);
         setCanManageInventory(permittedInventory);
-        if (!permittedCustomers) setSelectedCustomerId("");
         setInventoryContext(context);
         setSelectedBranch(context.branchName);
         setError("");
@@ -172,8 +161,6 @@ export default function NewSalePage() {
       clientRequestId: crypto.randomUUID(),
       channel: channelMap[paymentMethod] ?? "BANK_TRANSFER",
       items: sale.map((item) => ({ productId: item.id, quantity: item.qty })),
-      customerId: selectedCustomerId || undefined,
-      customerName: customers.find((customer) => customer.id === selectedCustomerId)?.fullName ?? "Walk-in customer",
       previewItems: sale,
     }));
     sessionStorage.removeItem(SALE_CART_KEY);
@@ -369,24 +356,6 @@ export default function NewSalePage() {
             <p className="text-sm text-gray-500 mb-5">
               Review your order. Payment confirmation happens after the sale is saved.
             </p>
-
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-              Customer
-            </p>
-
-            <select value={selectedCustomerId} disabled={!canManageCustomers}
-              onChange={(event) => setSelectedCustomerId(event.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm bg-white mb-5 focus:outline-none focus:ring-2 focus:ring-emerald-700 disabled:opacity-70">
-              <option value="">Walk-in customer</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>{customer.fullName}</option>
-              ))}
-            </select>
-            {!canManageCustomers && (
-              <p className="-mt-3 mb-4 text-xs text-gray-500">
-                Walk-in sale. Customer records require Manage customers permission.
-              </p>
-            )}
 
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
               Items ({sale.length})

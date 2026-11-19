@@ -157,7 +157,7 @@ export default function Transactions() {
     {visible.map(sale => {
       const current = state(sale);
       const count = sale.items.reduce((sum, item) => sum + item.quantity, 0);
-      return <RecordRow key={sale.id} title={sale.customer || 'Walk-in customer'}
+      return <RecordRow key={sale.id} title={sale.customer && sale.customer !== 'Walk-in customer' ? sale.customer : 'Customer details unavailable'}
         subtitle={method(sale) + ' · ' + new Date(sale.createdAt).toLocaleString('en-NG') +
           ' · ' + count + (count === 1 ? ' item' : ' items')}
         detail={'Cashier: ' + (sale.cashier ?? 'Not assigned')}
