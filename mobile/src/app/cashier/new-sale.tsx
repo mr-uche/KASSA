@@ -43,10 +43,7 @@ export default function NewSale() {
     <KScreen showBrand={false} showPreviewLabel={false}>
       {store.offlineMode && <View style={s.offlineBanner}>
         <Text style={s.offlineTitle}>OFFLINE MODE · Cash sales only</Text>
-        <Text style={s.offlineDesc}>
-          Products, barcode scanning and totals use saved branch data. Completed cash sales will sync after reconnecting.
-          {!store.catalogSavedAt ? ' Connect online once to save the catalogue.' : ''}
-        </Text>
+        <Text style={s.offlineDesc}>Connect internet to sync sales</Text>
         {store.catalogSavedAt && Date.now() - store.catalogSavedAt > 48 * 60 * 60 * 1000 &&
           <Text style={s.offlineError}>Stock is over 48 hours old. Refresh online before accepting cash.</Text>}
       </View>}
