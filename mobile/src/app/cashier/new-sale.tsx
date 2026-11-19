@@ -5,6 +5,7 @@ import { SymbolView } from 'expo-symbols';
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
+import { ConnectionStatusPill } from '@/components/kassa-demo/connection-status';
 
 
 function ProductIcon({ category }: { category: string }) {
@@ -41,12 +42,10 @@ export default function NewSale() {
 
   return (
     <KScreen showBrand={false} showPreviewLabel={false}>
-      {store.offlineMode && <View style={s.offlineBanner}>
-        <Text style={s.offlineTitle}>OFFLINE MODE · Cash sales only</Text>
-        <Text style={s.offlineDesc}>Connect internet to sync sales</Text>
-        {store.catalogSavedAt && Date.now() - store.catalogSavedAt > 48 * 60 * 60 * 1000 &&
-          <Text style={s.offlineError}>Stock is over 48 hours old. Refresh online before accepting cash.</Text>}
-      </View>}
+      <ConnectionStatusPill />
+      {store.offlineMode && (!store.catalogSavedAt ||
+        Date.now() - store.catalogSavedAt > 48 * 60 * 60 * 1000) &&
+        <Text style={s.offlineError}>Saved stock is missing or older than 48 hours. Refresh online before accepting cash.</Text>}
       <View style={s.searchRow}>
         <SymbolView
           name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}

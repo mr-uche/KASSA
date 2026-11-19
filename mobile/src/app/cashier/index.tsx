@@ -6,6 +6,7 @@ import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { useKassaSession } from '@/components/kassa-demo/api';
+import { ConnectionStatusPill } from '@/components/kassa-demo/connection-status';
 
 type CashierDashboard = {
   scope: { businessId: string; branchId: string; timezone: string };
@@ -37,16 +38,7 @@ const quickActions = [
 
 export default function CashierHome() {
   const router = useRouter();
-  const { count, offlineMode, catalogSavedAt, catalogSource, offlineQueue,
-    syncingOfflineSales, refreshOfflineQueue } = useKassaDemo();
-  const cacheReady = catalogSource === 'cached' && !!catalogSavedAt &&
-    Date.now() - catalogSavedAt <= 48 * 60 * 60 * 1000;
-  const headline = offlineMode
-    ? cacheReady ? 'Offline — you can continue selling' : 'Offline — saved stock unavailable'
-    : catalogSource !== 'live' ? 'Checking KASSA connection…'
-    : syncingOfflineSales && (offlineQueue?.queued ?? 0) > 0 ? 'Online — syncing sales'
-    : offlineQueue?.waiting === 0 ? 'Online — all sales synced'
-    : 'Online — sales awaiting sync';
+  const { count, refreshOfflineQueue } = useKassaDemo();
   const session = useKassaSession();
   const { scope, user } = session;
   const [dashboard, setDashboard] = useState<CashierDashboard | null>(null);
@@ -128,18 +120,7 @@ export default function CashierHome() {
 
   return (
     <KScreen showBrand={false} showPreviewLabel={false}>
-      <Pressable accessibilityRole="button" accessibilityLabel="View connection and sales sync status"
-        onPress={() => go('/cashier/offline-sales')} style={s.offlineBanner}>
-        <Text style={s.offlineTitle}>{headline}</Text>
-        {offlineMode && <Text style={s.offlineBody}>Connect internet to sync sales</Text>}
-        {offlineQueue?.queued ? <Text style={s.offlineBody}>
-          {offlineQueue.queued} {offlineQueue.queued === 1 ? 'sale' : 'sales'} waiting to sync
-        </Text> : null}
-        {offlineQueue?.review ? <Text style={s.offlineReview}>
-          {offlineQueue.review} {offlineQueue.review === 1 ? 'sale needs' : 'sales need'} review
-        </Text> : null}
-        {!offlineQueue && <Text style={s.offlineBody}>Sync queue status unavailable — tap to check.</Text>}
-      </Pressable>
+      <ConnectionStatusPill showQueue />
       <Text style={s.greeting}>{greeting}, {firstName}</Text>
       <Text style={s.intro}>Ready to make today's sales quick and easy.</Text>
 
@@ -279,10 +260,6 @@ export default function CashierHome() {
 }
 
 const s = StyleSheet.create({
-  offlineBanner: { borderWidth: 1, borderColor: C.mintBorder, borderRadius: 10, backgroundColor: C.mint, padding: 13, marginBottom: 16 },
-  offlineTitle: { fontSize: 14, color: C.greenDark, fontWeight: '800' },
-  offlineBody: { fontSize: 13, lineHeight: 20, color: C.muted, marginTop: 4 },
-  offlineReview: { fontSize: 13, lineHeight: 20, color: C.danger, fontWeight: '700', marginTop: 4 },
   greeting: { color: C.title, fontSize: 28, fontWeight: '800', letterSpacing: -0.45 },
   loginButton: { backgroundColor: C.green, borderRadius: 10, paddingVertical: 16, paddingHorizontal: 18, alignItems: 'center' },
   loginButtonText: { color: C.white, fontSize: 14, fontWeight: '800' },
