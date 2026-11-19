@@ -15,42 +15,6 @@ export function KassaLogo({ compact = false }: { compact?: boolean }) {
   </View>;
 }
 
-const navItems = [
-  { name: 'Home', path: '/cashier', symbol: { ios: 'house', android: 'home', web: 'home' } },
-  { name: 'Sales', path: '/cashier/sales', symbol: { ios: 'list.bullet', android: 'receipt_long', web: 'receipt_long' } },
-  { name: 'New sale', path: '/cashier/new-sale', symbol: { ios: 'plus', android: 'add', web: 'add' } },
-  { name: 'Products', path: '/cashier/products', symbol: { ios: 'shippingbox', android: 'inventory_2', web: 'inventory_2' } },
-  { name: 'Profile', path: '/cashier/profile', symbol: { ios: 'person.crop.circle', android: 'account_circle', web: 'account_circle' } },
-] as const;
-
-function DemoBottomNav() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  return <View style={[s.bottomNav, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-    {navItems.map(item => {
-      const active = pathname === item.path ||
-        (item.name === 'Sales' && ['/cashier/transactions', '/cashier/transaction-detail'].includes(pathname)) ||
-        (item.name === 'Products' && ['/cashier/inventory', '/cashier/add-product'].includes(pathname)) ||
-        (item.name === 'Profile' && ['/cashier/help', '/cashier/chat', '/cashier/change-password', '/cashier/switch-branch', '/cashier/offline-sales', '/cashier/offline-receipt', '/cashier/reports', '/cashier/staff-branches', '/cashier/settings'].includes(pathname));
-      const isNewSale = item.name === 'New sale';
-      return <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={item.name}
-        accessibilityState={{ selected: active }}
-        key={item.path}
-        onPress={() => router.push(item.path as Href)}
-        style={[s.bottomItem, active && !isNewSale && s.bottomActive]}
-      >
-        {isNewSale
-          ? <View style={s.newSaleNavIcon}><SymbolView name={item.symbol} size={28} tintColor={C.white} /></View>
-          : <SymbolView name={item.symbol} size={21} tintColor={active ? C.green : C.muted} />}
-        <Text style={[s.bottomLabel, active && !isNewSale && s.bottomLabelActive]}>{item.name}</Text>
-      </Pressable>;
-    })}
-  </View>;
-}
-
 export function KScreen({ title, subtitle, children, nav = true, back = false, showBrand = true, showPreviewLabel = true }: { title?: string; subtitle?: string; children: React.ReactNode; nav?: boolean; back?: boolean; showBrand?: boolean; showPreviewLabel?: boolean }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -70,7 +34,6 @@ export function KScreen({ title, subtitle, children, nav = true, back = false, s
       <View style={{ marginTop: title ? 22 : standaloneBrand ? 28 : 0 }}>{children}</View>
       {showPreviewLabel ? <Text style={s.demoLabel}>KASSA SCREEN PREVIEW  ·  SAMPLE DATA ONLY</Text> : null}
     </ScrollView>
-    {nav ? <DemoBottomNav /> : null}
   </View></KassaBackground>;
 }
 
@@ -116,11 +79,5 @@ const s = StyleSheet.create({
   tagSelected: { backgroundColor: C.green, borderColor: C.green }, tagText: { fontSize: 14, color: C.text, fontWeight: '600' },
   linkRow: { borderBottomWidth: 1, borderBottomColor: C.border, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', gap: 10 },
   linkTitle: { fontSize: 14, fontWeight: '700', color: C.title }, linkSubtitle: { fontSize: 14, color: C.muted, paddingTop: 5 },
-  bottomNav: { backgroundColor: C.white, borderTopColor: C.border, borderTopWidth: 1, flexDirection: 'row', paddingTop: 8, justifyContent: 'space-around' },
-  bottomItem: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', paddingVertical: 5, marginHorizontal: 3, borderRadius: 9 },
-  bottomActive: { backgroundColor: C.mint },
-  newSaleNavIcon: { width: 49, height: 49, borderRadius: 25, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center', marginTop: -24 },
-  bottomLabel: { color: C.muted, fontSize: 12, marginTop: 4 },
-  bottomLabelActive: { color: C.green, fontWeight: '800' },
   demoLabel: { fontSize: 12, color: C.faint, marginTop: 42, textAlign: 'center', letterSpacing: 0.6 },
 });
