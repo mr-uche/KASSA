@@ -11,7 +11,7 @@ import { useKassaSession } from './api';
 export function KassaLogo({ compact = false }: { compact?: boolean }) {
   return <View style={s.brand}>
     <Image source={require('../../../assets/images/logo.png')} style={[s.logo, compact && { width: 31, height: 31 }]} resizeMode="contain" />
-    <Text style={[s.brandText, compact && { fontSize: 23 }]}>KASSA</Text>
+    <Text style={[s.brandText, compact && { fontSize: 18 }]}>{compact ? "Kassa" : "KASSA"}</Text>
   </View>;
 }
 
