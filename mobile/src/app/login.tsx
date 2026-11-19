@@ -51,7 +51,7 @@ export default function LoginScreen() {
      </View>
       <Text style={styles.heading}>Welcome back</Text>
       <Text style={styles.subtitle}>
-        Sign in to your account .
+        Enter your details to access your dashboard.
       </Text>
 
 
@@ -153,7 +153,7 @@ export default function LoginScreen() {
 {/* Sign Up Section */}
 <View style={styles.signUpContainer}>
   <Text style={styles.signUpText}>
-    Don't have an account?
+    New to Kassa?
   </Text>
 
   <Pressable
@@ -162,7 +162,7 @@ export default function LoginScreen() {
     }
   >
     <Text style={styles.signUpLink}>
-      Create business account
+      {"\n"}Create business account
     </Text>
   </Pressable>
 </View>
@@ -315,11 +315,11 @@ circleBottom: {
 },
 
 signUpContainer: {
-  flexDirection: "row",
+  flexDirection: "column",
   justifyContent: "center",
   alignItems: "center",
   marginTop: 30,
-  gap: 6,
+  gap:1,
 },
 
 signUpText: {
