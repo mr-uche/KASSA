@@ -53,9 +53,9 @@ function urlFor(path: string): string {
   return address.replace(/\/api\/v1$/, '') + '/api/v1/' + path.replace(/^\//, '');
 }
 
-async function http<T>(path: string, token?: string, body?: unknown): Promise<T> {
+async function http<T>(path: string, token?: string, body?: unknown, method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'): Promise<T> {
   const response = await fetch(urlFor(path), {
-    method: body === undefined ? 'GET' : 'POST',
+    method: method ?? (body === undefined ? 'GET' : 'POST'),
     headers: {
       Accept: 'application/json',
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
@@ -141,7 +141,7 @@ type Session = {
   signIn(email: string, password: string): Promise<KassaScope[]>;
   selectScope(scope: KassaScope): void;
   signOut(): Promise<void>;
-  request<T>(path: string, body?: unknown): Promise<T>;
+  request<T>(path: string, body?: unknown, method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'): Promise<T>;
 };
 const SessionContext = createContext<Session | null>(null);
 
@@ -186,17 +186,17 @@ export function KassaSessionProvider({ children }: { children: React.ReactNode }
     if (token) await http('auth/logout', undefined, { refreshToken: token }).catch(() => undefined);
   }, [refreshToken]);
 
-  const request = useCallback(async <T,>(path: string, body?: unknown): Promise<T> => {
+  const request = useCallback(async <T,>(path: string, body?: unknown, method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'): Promise<T> => {
     if (!accessToken) throw new Error('Sign in to make a sale.');
     try {
-      return await http<T>(path, accessToken, body);
+      return await http<T>(path, accessToken, body, method);
     } catch (error) {
       if (!refreshToken || !(error instanceof Error) || !/unauthorized|expired|sign in|401/i.test(error.message)) {
         throw error;
       }
       const refreshed = await http<LoginResponse>('auth/refresh', undefined, { refreshToken });
       setAccessToken(refreshed.accessToken);
-      return http<T>(path, refreshed.accessToken, body);
+      return http<T>(path, refreshed.accessToken, body, method);
     }
   }, [accessToken, refreshToken]);
 

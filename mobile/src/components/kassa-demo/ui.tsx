@@ -30,7 +30,7 @@ function DemoBottomNav() {
       const active = pathname === item.path ||
         (item.name === 'Sales' && ['/cashier/transactions', '/cashier/transaction-detail'].includes(pathname)) ||
         (item.name === 'Products' && ['/cashier/inventory', '/cashier/add-product'].includes(pathname)) ||
-        (item.name === 'Profile' && ['/cashier/help', '/cashier/chat', '/cashier/change-password', '/cashier/switch-branch', '/cashier/offline-sales', '/cashier/offline-receipt', '/cashier/reports', '/cashier/staff-branches'].includes(pathname));
+        (item.name === 'Profile' && ['/cashier/help', '/cashier/chat', '/cashier/change-password', '/cashier/switch-branch', '/cashier/offline-sales', '/cashier/offline-receipt', '/cashier/reports', '/cashier/staff-branches', '/cashier/settings'].includes(pathname));
       const isNewSale = item.name === 'New sale';
       return <Pressable
         accessibilityRole="button"

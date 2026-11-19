@@ -15,6 +15,7 @@ const accountLinks = [
   { title: 'Reports & Analytics', route: '/cashier/reports', icon: { ios: 'chart.bar', android: 'bar_chart', web: 'bar_chart' } },
   { title: 'Products & Inventory', route: '/cashier/inventory', icon: { ios: 'shippingbox', android: 'inventory_2', web: 'inventory_2' } },
   { title: 'Staff & Branches', route: '/cashier/staff-branches', icon: { ios: 'person.3', android: 'groups', web: 'groups' } },
+  { title: 'Settings', route: '/cashier/settings', icon: { ios: 'gearshape', android: 'settings', web: 'settings' } },
 ] as const;
 
 export default function Profile() {
