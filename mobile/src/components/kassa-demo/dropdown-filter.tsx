@@ -11,7 +11,7 @@ export function DropdownFilter({
   options: readonly string[];
   onChange(next: string): void;
 }) {
-  const anchor = useRef<View>(null);
+  const anchor = useRef<React.ComponentRef<typeof View>>(null);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState({ x: 12, y: 80, width: 125, height: 38 });

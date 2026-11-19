@@ -160,7 +160,8 @@ export async function recordOfflineCash(scope: OfflineScope,
   const id = Crypto.randomUUID();
   const recordedAt = new Date().toISOString();
 
-  return db.withExclusiveTransactionAsync(async tx => {
+  const result: { saved?: OfflineCashRecord } = {};
+  await db.withExclusiveTransactionAsync(async tx => {
     const age = await tx.getFirstAsync<CatalogAge>(
       'SELECT savedAt FROM offline_catalog_meta WHERE userId=? AND businessId=? AND branchId=?',
       ...params(scope));
@@ -205,8 +206,11 @@ export async function recordOfflineCash(scope: OfflineScope,
       VALUES (?,?,?,?,?,?,?,?,?)`,
       row.id, ...params(scope), row.recordedAt, row.status, row.total, row.cashReceived,
       JSON.stringify(lines));
-    return row;
+    result.saved = row;
   });
+  // Only return the receipt once SQLite has committed the exclusive transaction.
+  if (!result.saved) throw new Error('Offline sale could not be recorded.');
+  return result.saved;
 }
 
 let syncing = false;

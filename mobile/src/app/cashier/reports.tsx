@@ -207,7 +207,7 @@ export default function Reports() {
     <ScreenHeading title="Reports & Analytics" subtitle="Confirmed business sales"
       right={<SmallAction label="Export PDF" secondary disabled={!report}
         onPress={() => { void exportPdf(); }}/>} />
-    <Tabs options={periods} value={period} onChange={setPeriod}/>
+    <Tabs options={periods} value={period} onChange={next => setPeriod(next as Period)}/>
     {owner && <Tabs options={['This branch', 'All branches']} value={allBranches ? 'All branches' : 'This branch'}
       onChange={value => setAllBranches(value === 'All branches')}/>}
     {period === 'Custom range' && <KCard>

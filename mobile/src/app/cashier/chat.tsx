@@ -19,7 +19,7 @@ export default function ChatSupport() {
   const router = useRouter();
   const session = useKassaSession();
   const insets = useSafeAreaInsets();
-  const scroller = useRef<ScrollView>(null);
+  const scroller = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const [draft, setDraft] = useState('');
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [working, setWorking] = useState(false);
