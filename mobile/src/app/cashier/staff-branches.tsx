@@ -1,12 +1,13 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useKassaSession } from '@/components/kassa-demo/api';
 import { KScreen, KCard, KField } from '@/components/kassa-demo/ui';
 import { C } from '@/components/kassa-demo/theme';
+import { DropdownFilter } from '@/components/kassa-demo/dropdown-filter';
 import {
   ScreenHeading, Tabs, MetricGrid, ListHeading, RecordRow,
-  InlineNotice, SearchBox, SmallAction,
+  InlineNotice, SmallAction,
 } from '@/components/kassa-demo/business-ui';
 
 type Tab = 'Staff' | 'Branches' | 'Roles & Permissions';
@@ -34,7 +35,9 @@ export default function StaffAndBranches() {
   const [tab, setTab] = useState<Tab>('Staff');
   const [data, setData] = useState<StaffData>({ staff: [], branches: [], roles: [] });
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('All');
+  const [filter, setFilter] = useState('All statuses');
+  const [groupFilter, setGroupFilter] = useState('All branches');
+  const [sort, setSort] = useState('Sort');
   const [showAll, setShowAll] = useState(false);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -73,20 +76,36 @@ export default function StaffAndBranches() {
 
   const activeBranches = data.branches.filter(item => item.status === 'Active');
   const availableRoles = data.roles.filter(item => item.name !== 'Owner');
+  const groupOptions = tab === 'Staff'
+    ? ['All branches', ...new Set(data.staff.map(item => item.branch).filter(Boolean))]
+    : tab === 'Branches'
+      ? ['All locations', ...new Set(data.branches.map(item => item.location).filter(Boolean))]
+      : ['All roles', 'System roles', 'Custom roles'];
+  const statusOptions = tab === 'Staff'
+    ? ['All statuses', 'Active', 'Pending', 'Expired']
+    : tab === 'Branches' ? ['All statuses', 'Active', 'Inactive']
+      : ['All access', ...new Set(data.roles.map(item => item.access).filter(Boolean))];
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const sortByName = <T extends { name: string }>(items: T[]): T[] =>
+      sort === 'Name A–Z' ? items.sort((a, b) => a.name.localeCompare(b.name)) :
+        sort === 'Name Z–A' ? items.sort((a, b) => b.name.localeCompare(a.name)) : items;
     return {
-      staff: data.staff.filter(item =>
+      staff: sortByName(data.staff.filter(item =>
         (item.name + ' ' + item.email + ' ' + item.role + ' ' + item.branch).toLowerCase().includes(q) &&
-        (filter === 'All' || item.status === filter)),
-      branches: data.branches.filter(item =>
+        (filter === 'All statuses' || item.status === filter) &&
+        (groupFilter === 'All branches' || item.branch === groupFilter))),
+      branches: sortByName(data.branches.filter(item =>
         (item.name + ' ' + item.location).toLowerCase().includes(q) &&
-        (filter === 'All' || item.status === filter)),
-      roles: data.roles.filter(item =>
+        (filter === 'All statuses' || item.status === filter) &&
+        (groupFilter === 'All locations' || item.location === groupFilter))),
+      roles: sortByName(data.roles.filter(item =>
         (item.name + ' ' + item.description + ' ' + item.access).toLowerCase().includes(q) &&
-        (filter === 'All' || item.access === filter)),
+        (filter === 'All access' || item.access === filter) &&
+        (groupFilter === 'All roles' ||
+          (groupFilter === 'System roles' ? item.isSystem : !item.isSystem)))),
     };
-  }, [data, search, filter]);
+  }, [data, search, filter, groupFilter, sort]);
   const stats = tab === 'Staff' ? [
     { label: 'Total staff', value: String(data.staff.length) },
     { label: 'Active', value: String(data.staff.filter(item => item.status === 'Active').length) },
@@ -157,15 +176,35 @@ export default function StaffAndBranches() {
     <ScreenHeading title="Staff & Branches" subtitle={scope?.businessName ?? 'Your business'}
       right={<SmallAction label="Refresh" secondary onPress={() => { void reload(); }} disabled={loading}/>}/>
     <Tabs options={tabs} value={tab} onChange={value => {
-      setTab(value); setFilter('All'); setSearch(''); setShowAll(false); setForm(null);
+      setTab(value);
+      setGroupFilter(value === 'Staff' ? 'All branches' : value === 'Branches' ? 'All locations' : 'All roles');
+      setFilter(value === 'Roles & Permissions' ? 'All access' : 'All statuses');
+      setSort('Sort');
+      setSearch('');
+      setShowAll(false);
+      setForm(null);
     }}/>
-    <Tabs options={tab === 'Staff' ? ['All', 'Active', 'Pending', 'Expired'] :
-      tab === 'Branches' ? ['All', 'Active', 'Inactive'] : ['All', 'Full access', 'Custom']}
-      value={filter} onChange={setFilter}/>
-    <SearchBox value={search} onChangeText={setSearch}
-      placeholder={tab === 'Staff' ? 'Search staff, name, email or role' :
-        tab === 'Branches' ? 'Search branches' : 'Search roles'}/>
-    <View style={s.actions}>
+    <View style={s.filtersRow}>
+      <DropdownFilter label={tab === 'Staff' ? 'Branch' : tab === 'Branches' ? 'Location' : 'Role type'}
+        value={groupFilter} options={groupOptions} onChange={setGroupFilter}/>
+      <DropdownFilter label={tab === 'Roles & Permissions' ? 'Access' : 'Status'}
+        value={filter} options={statusOptions} onChange={setFilter}/>
+      <DropdownFilter label="Sort" value={sort} options={['Sort', 'Name A–Z', 'Name Z–A']}
+        onChange={setSort}/>
+    </View>
+    <View style={s.searchActionRow}>
+      <TextInput
+        accessibilityLabel={tab === 'Staff' ? 'Search staff by name, email or role' :
+          tab === 'Branches' ? 'Search branches' : 'Search roles'}
+        autoCapitalize="none"
+        autoCorrect={false}
+        value={search}
+        onChangeText={setSearch}
+        placeholder={tab === 'Staff' ? 'Search staff by name, email or role' :
+          tab === 'Branches' ? 'Search branches' : 'Search roles'}
+        placeholderTextColor={C.faint}
+        style={s.searchInput}
+      />
       {tab === 'Staff' && <SmallAction label="+ Invite staff" onPress={() => {
         setForm(value => value === 'invite' ? null : 'invite'); setInviteResult(null);
       }}/>}
@@ -228,7 +267,11 @@ export default function StaffAndBranches() {
 }
 
 const s = StyleSheet.create({
-  actions: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  filtersRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
+  searchActionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  searchInput: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 12,
+    borderWidth: 1, borderColor: C.border, borderRadius: 9,
+    backgroundColor: C.white, color: C.title, fontSize: 13 },
   section: { color: C.title, fontSize: 17, fontWeight: '800', marginBottom: 15 },
   fieldLabel: { color: C.text, fontSize: 14, fontWeight: '700', marginBottom: 4 },
   message: { color: C.muted, fontSize: 14, marginBottom: 14 },
