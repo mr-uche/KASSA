@@ -133,6 +133,22 @@ export async function getOfflineSales(scope: OfflineScope): Promise<OfflineCashR
   return records.map(fromDb);
 }
 
+export type OfflineSaleQueueStatus = { waiting: number; queued: number; review: number };
+
+/** Count all unsynced sales, not just the latest 150 shown in history. */
+export async function getOfflineSaleQueueStatus(scope: OfflineScope): Promise<OfflineSaleQueueStatus> {
+  const db = await database();
+  const row = await db.getFirstAsync<{ waiting: number; queued: number; review: number }>(
+    `SELECT COUNT(*) AS waiting,
+      COALESCE(SUM(CASE WHEN state='QUEUED' THEN 1 ELSE 0 END), 0) AS queued,
+      COALESCE(SUM(CASE WHEN state='REVIEW' THEN 1 ELSE 0 END), 0) AS review
+    FROM offline_cash_sales
+    WHERE userId=? AND businessId=? AND branchId=? AND state!='SYNCED'`,
+    ...params(scope),
+  );
+  return { waiting: row?.waiting ?? 0, queued: row?.queued ?? 0, review: row?.review ?? 0 };
+}
+
 export async function recordOfflineCash(scope: OfflineScope,
   selected: { productId: string; quantity: number }[], cashReceived: number,
 ): Promise<OfflineCashRecord> {

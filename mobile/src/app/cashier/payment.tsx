@@ -336,7 +336,7 @@ export default function Payment() {
     })}
 
     {method.channel === 'CASH' ? <>
-      <Text style={s.sectionTitle}>Cash received</Text>
+      <Text style={s.sectionTitle}>Cash collected</Text>
       <TextInput
         accessibilityLabel="Cash received amount in naira"
         keyboardType="decimal-pad"
@@ -347,7 +347,12 @@ export default function Payment() {
         editable={!working}
         style={s.cashInput}
       />
-      <View style={s.changeRow}><Text style={s.changeLabel}>Change to customer</Text><Text style={s.changeNumber}>{naira(change)}</Text></View>
+      <View style={s.changeRow}>
+        <Text style={s.changeLabel}>Change to give</Text>
+        <Text style={s.changeNumber}>{naira(change)}</Text>
+      </View>
+      {enteredCash.length > 0 && enteredCashKobo !== null && enteredCashKobo < amountDueKobo &&
+        <Text style={s.error}>Remaining cash to collect: {naira((amountDueKobo - enteredCashKobo) / 100)}</Text>}
     </> : <View style={s.note}>
       <Text style={s.noteText}>The customer pays the BUSINESS directly. KASSA never receives or holds the money. Check the business bank credit or terminal success record — never a customer screenshot alone.</Text>
       {method.channel === 'BANK_TRANSFER' &&

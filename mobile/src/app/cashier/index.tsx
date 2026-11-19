@@ -33,12 +33,19 @@ const quickActions = [
   { label: 'Scan product', route: '/cashier/scan-product', icon: { ios: 'barcode.viewfinder', android: 'barcode_scanner', web: 'barcode_scanner' } },
   { label: 'Find product', route: '/cashier/products', icon: { ios: 'magnifyingglass', android: 'search', web: 'search' } },
   { label: 'My sales', route: '/cashier/sales', icon: { ios: 'list.bullet', android: 'receipt_long', web: 'receipt_long' } },
-  { label: 'Offline cash', route: '/cashier/offline-sales', icon: { ios: 'wifi.slash', android: 'wifi_off', web: 'wifi_off' } },
 ] as const;
 
 export default function CashierHome() {
   const router = useRouter();
-  const { count, offlineMode, catalogSavedAt } = useKassaDemo();
+  const { count, offlineMode, catalogSavedAt, catalogSource, offlineQueue,
+    syncingOfflineSales, refreshOfflineQueue } = useKassaDemo();
+  const cacheReady = catalogSource === 'cached' && !!catalogSavedAt &&
+    Date.now() - catalogSavedAt <= 48 * 60 * 60 * 1000;
+  const headline = offlineMode
+    ? cacheReady ? 'Offline — you can continue selling' : 'Offline — saved stock unavailable'
+    : syncingOfflineSales && (offlineQueue?.queued ?? 0) > 0 ? 'Online — syncing sales'
+    : offlineQueue?.waiting === 0 ? 'Online — all sales synced'
+    : 'Online — sales awaiting sync';
   const session = useKassaSession();
   const { scope, user } = session;
   const [dashboard, setDashboard] = useState<CashierDashboard | null>(null);
@@ -100,8 +107,9 @@ export default function CashierHome() {
     let active = true;
     void refresh(() => active);
     void refreshProfit(() => active);
+    void refreshOfflineQueue();
     return () => { active = false; };
-  }, [refresh, refreshProfit]));
+  }, [refresh, refreshProfit, refreshOfflineQueue]));
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -119,13 +127,22 @@ export default function CashierHome() {
 
   return (
     <KScreen showBrand={false} showPreviewLabel={false}>
-      {offlineMode && <Pressable accessibilityRole="button" accessibilityLabel="View offline cash sales"
+      <Pressable accessibilityRole="button" accessibilityLabel="View connection and sales sync status"
         onPress={() => go('/cashier/offline-sales')} style={s.offlineBanner}>
-        <Text style={s.offlineTitle}>OFFLINE · Cash sales are available</Text>
-        <Text style={s.offlineBody}>Scan saved barcodes, calculate totals and queue cash sales.
-          {catalogSavedAt ? ' Last stock download: ' + new Date(catalogSavedAt).toLocaleString('en-NG') : ' Connect once to save branch stock.'}
-        </Text>
-      </Pressable>}
+        <Text style={s.offlineTitle}>{headline}</Text>
+        {offlineMode && <Text style={s.offlineBody}>
+          {cacheReady
+            ? 'Continue selling cash payments in New Sale. They are saved on this phone until synced.'
+            : 'Reconnect and refresh branch products before accepting offline cash.'}
+        </Text>}
+        {offlineQueue?.queued ? <Text style={s.offlineBody}>
+          {offlineQueue.queued} {offlineQueue.queued === 1 ? 'sale' : 'sales'} waiting to sync
+        </Text> : null}
+        {offlineQueue?.review ? <Text style={s.offlineReview}>
+          {offlineQueue.review} {offlineQueue.review === 1 ? 'sale needs' : 'sales need'} review
+        </Text> : null}
+        {!offlineQueue && <Text style={s.offlineBody}>Sync queue status unavailable — tap to check.</Text>}
+      </Pressable>
       <Text style={s.greeting}>{greeting}, {firstName}</Text>
       <Text style={s.intro}>Ready to make today's sales quick and easy.</Text>
 
@@ -268,6 +285,7 @@ const s = StyleSheet.create({
   offlineBanner: { borderWidth: 1, borderColor: C.mintBorder, borderRadius: 10, backgroundColor: C.mint, padding: 13, marginBottom: 16 },
   offlineTitle: { fontSize: 14, color: C.greenDark, fontWeight: '800' },
   offlineBody: { fontSize: 13, lineHeight: 20, color: C.muted, marginTop: 4 },
+  offlineReview: { fontSize: 13, lineHeight: 20, color: C.danger, fontWeight: '700', marginTop: 4 },
   greeting: { color: C.title, fontSize: 28, fontWeight: '800', letterSpacing: -0.45 },
   loginButton: { backgroundColor: C.green, borderRadius: 10, paddingVertical: 16, paddingHorizontal: 18, alignItems: 'center' },
   loginButtonText: { color: C.white, fontSize: 14, fontWeight: '800' },

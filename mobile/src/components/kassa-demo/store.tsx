@@ -1,9 +1,9 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { type Product } from './data';
 import { useKassaSession, type CatalogItem, type CheckoutSale } from './api';
 import { toKobo } from './theme';
-import { cacheOfflineCatalog, loadOfflineCatalogue, syncOfflineCash, type OfflineScope } from './offline-cash';
+import { cacheOfflineCatalog, getOfflineSaleQueueStatus, loadOfflineCatalogue, syncOfflineCash, type OfflineSaleQueueStatus, type OfflineScope } from './offline-cash';
 import { useKassaConnectivity } from './connectivity';
 
 export type SaleLine = { id: string; quantity: number };
@@ -18,6 +18,8 @@ type DemoStore = {
   catalogSource: 'live' | 'cached' | 'none';
   catalogSavedAt: number | null;
   offlineMode: boolean;
+  offlineQueue: OfflineSaleQueueStatus | null;
+  syncingOfflineSales: boolean;
   loadingCatalog: boolean;
   catalogError: string | null;
   pendingSale: CheckoutSale | null;
@@ -28,6 +30,7 @@ type DemoStore = {
   clear(): void;
   beginNewSale(): void;
   refreshCatalog(): Promise<void>;
+  refreshOfflineQueue(): Promise<void>;
   setBranch(value: string): void;
   setPaymentMethod(value: string): void;
   setPendingSale(value: CheckoutSale | null): void;
@@ -49,6 +52,26 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [pendingSale, setPendingSale] = useState<CheckoutSale | null>(null);
   const [completedPayment, setCompletedPayment] = useState<CompletedPayment | null>(null);
+  const [offlineQueue, setOfflineQueue] = useState<OfflineSaleQueueStatus | null>(null);
+  const [syncingOfflineSales, setSyncingOfflineSales] = useState(false);
+  const catalogSourceRef = useRef(catalogSource);
+  catalogSourceRef.current = catalogSource;
+
+  const refreshOfflineQueue = useCallback(async () => {
+    if (!scope || !session.user) {
+      setOfflineQueue(null);
+      return;
+    }
+    const offlineScope: OfflineScope = {
+      userId: session.user.id, businessId: scope.businessId, branchId: scope.branchId,
+    };
+    try {
+      setOfflineQueue(await getOfflineSaleQueueStatus(offlineScope));
+    } catch {
+      // A failed read is unknown, not proof that all sales are synced.
+      setOfflineQueue(null);
+    }
+  }, [scope?.businessId, scope?.branchId, session.user?.id]);
 
   const refreshCatalog = useCallback(async () => {
     const selected = scope;
@@ -130,8 +153,9 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
       }
     } finally {
       setLoadingCatalog(false);
+      await refreshOfflineQueue();
     }
-  }, [scope?.businessId, scope?.branchId, session.user?.id, session.request, disconnected]);
+  }, [scope?.businessId, scope?.branchId, session.user?.id, session.request, disconnected, refreshOfflineQueue]);
 
   const offlineMode = disconnected || catalogSource === 'cached';
 
@@ -142,15 +166,20 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
     setCatalog([]);
     setCatalogSource('none');
     setCatalogSavedAt(null);
+    setOfflineQueue(null);
     setBranch(scope?.branchName ?? 'Main Branch');
   }, [scope?.businessId, scope?.branchId]);
 
   useEffect(() => { void refreshCatalog(); }, [refreshCatalog]);
+  useEffect(() => { void refreshOfflineQueue(); }, [refreshOfflineQueue]);
 
   // Retry cash sales on reconnect, when the app resumes and while in the
   // foreground. Keep server-rejected records for owner reconciliation.
   useEffect(() => {
-    if (!scope || !session.user || disconnected) return;
+    if (!scope || !session.user || disconnected) {
+      setSyncingOfflineSales(false);
+      return;
+    }
     let active = true;
     let syncing = false;
     const offlineScope: OfflineScope = {
@@ -159,13 +188,23 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
     const attemptSync = async () => {
       if (!active || syncing) return;
       syncing = true;
+      if (active) setSyncingOfflineSales(true);
       try {
         const result = await syncOfflineCash(offlineScope, session.request);
-        if (active && result.synced > 0) await refreshCatalog();
+        if (active) {
+          await refreshOfflineQueue();
+          // Network signal alone does not prove the KASSA API is reachable.
+          // Retry catalogue loading while cached so checkout automatically
+          // returns to live mode after the backend is restored.
+          if (result.synced > 0 || catalogSourceRef.current === 'cached') {
+            await refreshCatalog();
+          }
+        }
       } catch {
-        // Connectivity interruptions never discard a locally recorded sale.
+        // Connectivity interruptions never discard locally recorded sales.
       } finally {
         syncing = false;
+        if (active) setSyncingOfflineSales(false);
       }
     };
     void attemptSync();
@@ -174,7 +213,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
       if (state === 'active') void attemptSync();
     });
     return () => { active = false; clearInterval(timer); listener.remove(); };
-  }, [scope?.businessId, scope?.branchId, session.user?.id, disconnected, session.request, refreshCatalog]);
+  }, [scope?.businessId, scope?.branchId, session.user?.id, disconnected, session.request, refreshCatalog, refreshOfflineQueue]);
 
   const add = (id: string) => {
     const product = catalog.find(p => p.id === id);
@@ -217,8 +256,8 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
   const count = lines.reduce((sum, line) => sum + line.quantity, 0);
 
   return <DemoContext.Provider value={{
-    lines, branch, paymentMethod, total, count, catalog, catalogSource, catalogSavedAt, offlineMode, loadingCatalog, catalogError,
-    pendingSale, completedPayment, add, subtract, remove, clear, beginNewSale, refreshCatalog,
+    lines, branch, paymentMethod, total, count, catalog, catalogSource, catalogSavedAt, offlineMode, offlineQueue, syncingOfflineSales, loadingCatalog, catalogError,
+    pendingSale, completedPayment, add, subtract, remove, clear, beginNewSale, refreshCatalog, refreshOfflineQueue,
     setBranch, setPaymentMethod, setPendingSale, setCompletedPayment,
   }}>{children}</DemoContext.Provider>;
 }
