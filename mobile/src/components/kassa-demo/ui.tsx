@@ -12,10 +12,10 @@ import { useKassaSession } from './api';
 export function KassaLogo({ compact = false, loginSize = false }: { compact?: boolean; loginSize?: boolean }) {
   return <View style={[s.brand, loginSize && s.loginBrand]}>
     <Image source={require('../../../assets/images/logo.png')}
-      style={[s.logo, compact && { width: 31, height: 31 }, loginSize && { width: 70, height: 70 }]}
+      style={[s.logo, compact && { width: 31, height: 31 }, loginSize && { width: 40, height: 40 }]}
       resizeMode="contain"/>
     <Text style={[s.brandText, compact && { fontSize: 18 },
-      loginSize && { fontSize: 30, marginTop: 8, letterSpacing: 0 }]}>
+      loginSize && { fontSize: 24, marginTop: 8, letterSpacing: 0 }]}>
       {compact && !loginSize ? 'Kassa' : 'KASSA'}
     </Text>
   </View>;
