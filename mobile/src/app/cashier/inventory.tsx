@@ -188,7 +188,7 @@ export default function Inventory() {
         <SmallAction label={busy ? 'Saving…' : 'Confirm restock'} disabled={busy || !selectedRestockProduct}
           onPress={() => { void restock(); }}/>
       </View>
-    </KCard>
+    </KCard>}
     {!!error && <InlineNotice warning text={error}/>}
     {loading && <Text style={s.muted}>Loading inventory…</Text>}
     {tab === 'Catalogue' && <MetricGrid items={[
