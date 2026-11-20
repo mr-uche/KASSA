@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { C } from '@/components/kassa-demo/theme';
-import { KButton, KCard, KField, KScreen } from '@/components/kassa-demo/ui';
+import { KButton, KField, KScreen } from '@/components/kassa-demo/ui';
 import {
   useKassaSession, registerMerchantUser, onboardMerchantBusiness,
   type MerchantRegistration, type MerchantBranchDraft, type MerchantStaffDraft,
@@ -214,7 +214,7 @@ export default function SignUp() {
       })}
     </View>}
 
-    <KCard style={s.card}>
+    <View style={s.formBody}>
       {step === 0 && <>
         <Text style={s.cardTitle}>Your account details</Text>
         <Text style={s.cardHelp}>These details will be used to sign in to KASSA.</Text>
@@ -338,7 +338,7 @@ export default function SignUp() {
             onPress={step === 4 ? () => { void submit(); } : continueStep}/>
         </View>
       </View>
-    </KCard>
+    </View>
 
     {step === 0 && <Pressable onPress={() => router.replace('/login')}
       accessibilityRole="button" style={s.login}>
@@ -348,7 +348,7 @@ export default function SignUp() {
 }
 
 const s = StyleSheet.create({
-  card: { padding: 19, marginBottom: 20 },
+  formBody: { marginBottom: 20 },
   cardTitle: { color: C.title, fontSize: 20, fontWeight: '800', marginBottom: 5 },
   cardHelp: { color: C.muted, fontSize: 14, lineHeight: 20, marginBottom: 23 },
   fieldLabel: { color: C.text, fontWeight: '700', fontSize: 14, marginBottom: 9 },

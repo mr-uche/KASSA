@@ -1,13 +1,10 @@
 import { Stack } from 'expo-router';
-import { View } from 'react-native';
-import { KassaConnectionToast } from '@/components/kassa-demo/connection-toast';
 import { KassaDemoProvider } from '@/components/kassa-demo/store';
 
-export default function CashierPreviewLayout() {
+// Retain internal route handling and offline-sale state, but no connection
+// popup: a Wi-Fi / slashed Wi-Fi status icon is now in the KASSA header.
+export default function CashierLayout() {
   return <KassaDemoProvider>
-    <View style={{ flex: 1 }}>
-      <Stack screenOptions={{ headerShown: false }}/>
-      <KassaConnectionToast/>
-    </View>
+    <Stack screenOptions={{ headerShown: false }}/>
   </KassaDemoProvider>;
 }

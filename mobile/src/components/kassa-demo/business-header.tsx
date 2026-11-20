@@ -1,26 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, usePathname, useRouter, type Href } from 'expo-router';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import { useKassaSession } from './api';
-import { canAccess } from './access';
+import { useKassaConnectivity } from './connectivity';
 import { useKassaDemo } from './store';
 import { getOfflineSaleQueueStatus, getOfflineSales, type OfflineCashRecord } from './offline-cash';
 import { C, naira } from './theme';
-
-type MenuItem = {
-  label: string; route: Href; permission: string;
-  symbol: React.ComponentProps<typeof SymbolView>['name'];
-};
-const menuItems: MenuItem[] = [
-  { label: 'Home', route: '/cashier', permission: 'View dashboard', symbol: { ios: 'house', android: 'home', web: 'home' } },
-  { label: 'Transactions', route: '/cashier/transactions', permission: 'View transactions', symbol: { ios: 'list.bullet', android: 'receipt_long', web: 'receipt_long' } },
-  { label: 'Reports & Analytics', route: '/cashier/reports', permission: 'View reports & analytics', symbol: { ios: 'chart.bar', android: 'bar_chart', web: 'bar_chart' } },
-  { label: 'Products & Inventory', route: '/cashier/inventory', permission: 'Manage products & inventory', symbol: { ios: 'shippingbox', android: 'inventory_2', web: 'inventory_2' } },
-  { label: 'Staff & Branches', route: '/cashier/staff-branches', permission: 'Manage staff & branches', symbol: { ios: 'person.3', android: 'groups', web: 'groups' } },
-  { label: 'Settings', route: '/cashier/settings', permission: 'Manage business settings', symbol: { ios: 'gearshape', android: 'settings', web: 'settings' } },
-];
 
 function initials(name: string) {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -33,18 +20,16 @@ function initials(name: string) {
 
 export function KassaBusinessHeader({ logo }: { logo: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { user, scope } = useKassaSession();
-  const { offlineQueue, syncingOfflineSales } = useKassaDemo();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const { offlineQueue, syncingOfflineSales, offlineMode } = useKassaDemo();
+  const { disconnected, connected } = useKassaConnectivity();
+  const isOffline = disconnected || offlineMode;
   const [bellOpen, setBellOpen] = useState(false);
   const [alerts, setAlerts] = useState(0);
   const [recent, setRecent] = useState<OfflineCashRecord[]>([]);
   const [notificationError, setNotificationError] = useState('');
   const name = user?.fullName?.trim() || 'Staff member';
-  const role = scope?.myRole || 'Staff';
-  const menu = menuItems.filter(item => canAccess(scope, item.permission));
 
   const refresh = useCallback(async (isCurrent: () => boolean = () => true) => {
     if (!user || !scope) { if (isCurrent()) { setAlerts(0); setRecent([]); } return; }
@@ -73,23 +58,27 @@ export function KassaBusinessHeader({ logo }: { logo: React.ReactNode }) {
   useEffect(() => { void refresh(); }, [refresh, offlineQueue?.waiting, syncingOfflineSales]);
 
   const navigate = (route: Href) => {
-    setMenuOpen(false);
     setBellOpen(false);
     router.push(route);
   };
 
   return <>
     <View style={[s.header, { paddingTop: Math.max(insets.top, 10) + 5 }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Open navigation menu"
-        accessibilityState={{ expanded: menuOpen }}
-        onPress={() => { setBellOpen(false); setMenuOpen(true); }} style={s.headerAction}>
-        <SymbolView name={{ ios: 'line.3.horizontal', android: 'menu', web: 'menu' }} size={22} tintColor={C.text}/>
-      </Pressable>
       <View style={s.brand}>{logo}</View>
+      <View accessible accessibilityLabel={isOffline
+        ? 'Offline: no internet or KASSA is using its offline catalogue'
+        : connected ? 'Network connected. KASSA server status may differ.'
+          : 'Checking internet connection'}
+        style={s.networkIcon}>
+        <SymbolView name={isOffline
+          ? { ios: 'wifi.slash', android: 'wifi_off', web: 'wifi_off' }
+          : { ios: 'wifi', android: 'wifi', web: 'wifi' }}
+          size={21} tintColor={isOffline ? C.orange : connected ? C.green : C.muted}/>
+      </View>
       <Pressable accessibilityRole="button"
         accessibilityLabel={alerts ? 'Notifications, ' + alerts + ' unsynced offline sales' : 'Notifications'}
         accessibilityState={{ expanded: bellOpen }}
-        onPress={() => { setMenuOpen(false); void refresh(); setBellOpen(true); }}
+        onPress={() => { void refresh(); setBellOpen(true); }}
         style={s.bell}>
         <SymbolView name={{ ios: 'bell', android: 'notifications_none', web: 'notifications_none' }} size={21} tintColor={C.muted}/>
         {alerts > 0 && <View style={s.alertDot}/>}
@@ -99,37 +88,6 @@ export function KassaBusinessHeader({ logo }: { logo: React.ReactNode }) {
         <Text style={s.avatarText} numberOfLines={1}>{initials(name)}</Text>
       </Pressable>
     </View>
-
-    <Modal visible={menuOpen} transparent animationType="slide" statusBarTranslucent
-      onRequestClose={() => setMenuOpen(false)}>
-      <View style={[s.drawer, { paddingTop: Math.max(insets.top, 10) + 8, paddingBottom: Math.max(insets.bottom, 14) }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close navigation menu"
-          onPress={() => setMenuOpen(false)} style={s.close}>
-          <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} size={23} tintColor={C.text}/>
-        </Pressable>
-        <ScrollView contentContainerStyle={s.drawerContents}>
-          <Pressable accessibilityRole="button" onPress={() => navigate('/cashier/profile')}
-            style={s.profileCard}>
-            <View style={s.profileAvatar}><Text style={s.profileAvatarText}>{initials(name)}</Text></View>
-            <View style={s.profileBody}>
-              <Text numberOfLines={1} style={s.profileName}>{name}</Text>
-              <Text style={s.profileRole}>{role === 'Owner' ? 'Business Owner' : role}</Text>
-              {!!scope?.businessName && <Text style={s.profileBusiness} numberOfLines={1}>{scope.businessName}</Text>}
-            </View>
-            <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={17} tintColor={C.faint}/>
-          </Pressable>
-          <View style={s.links}>
-            {menu.map(item => <Pressable key={item.label} accessibilityRole="button"
-              accessibilityLabel={item.label} accessibilityState={{ selected: pathname === item.route }}
-              onPress={() => navigate(item.route)} style={[s.link, pathname === item.route && s.linkActive]}>
-              <View style={s.linkIcon}><SymbolView name={item.symbol} size={18} tintColor={C.greenDark}/></View>
-              <Text style={[s.linkLabel, pathname === item.route && s.linkLabelActive]}>{item.label}</Text>
-              <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={16} tintColor={C.faint}/>
-            </Pressable>)}
-          </View>
-        </ScrollView>
-      </View>
-    </Modal>
 
     <Modal visible={bellOpen} transparent animationType="fade" statusBarTranslucent
       onRequestClose={() => setBellOpen(false)}>
@@ -171,8 +129,9 @@ export function KassaBusinessHeader({ logo }: { logo: React.ReactNode }) {
 const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 17,
     paddingBottom: 11, gap: 8, backgroundColor: 'transparent', minHeight: 62 },
-  headerAction: { width: 29, height: 36, justifyContent: 'center', alignItems: 'center' },
   brand: { flex: 1, minWidth: 0, alignItems: 'flex-start' },
+  networkIcon: { width: 35, height: 35, borderRadius: 18,
+    justifyContent: 'center', alignItems: 'center' },
   bell: { width: 35, height: 35, borderRadius: 18, backgroundColor: '#F8F9FA',
     justifyContent: 'center', alignItems: 'center' },
   alertDot: { position: 'absolute', right: 6, top: 5, height: 9, width: 9,
@@ -180,28 +139,6 @@ const s = StyleSheet.create({
   avatar: { height: 35, width: 35, borderRadius: 18, backgroundColor: '#006045',
     justifyContent: 'center', alignItems: 'center' },
   avatarText: { color: '#E5F5F0', fontSize: 12, fontWeight: '800' },
-  drawer: { flex: 1, backgroundColor: '#F6F7F8', paddingHorizontal: 17 },
-  close: { height: 38, width: 34, justifyContent: 'center', alignItems: 'flex-start', marginBottom: 12 },
-  drawerContents: { paddingBottom: 24 },
-  profileCard: { minHeight: 79, backgroundColor: C.white, borderRadius: 12,
-    borderWidth: 1, borderColor: C.border, padding: 12, flexDirection: 'row',
-    alignItems: 'center', gap: 12, marginBottom: 16 },
-  profileAvatar: { width: 49, height: 49, borderRadius: 25, backgroundColor: C.mint,
-    justifyContent: 'center', alignItems: 'center' },
-  profileAvatarText: { color: C.green, fontWeight: '800', fontSize: 16 },
-  profileBody: { flex: 1, minWidth: 0 },
-  profileName: { fontSize: 15, fontWeight: '800', color: C.title },
-  profileRole: { marginTop: 4, fontSize: 12, color: C.muted },
-  profileBusiness: { marginTop: 3, fontSize: 11, color: C.muted },
-  links: { gap: 9 },
-  link: { minHeight: 57, flexDirection: 'row', gap: 12, paddingHorizontal: 13,
-    alignItems: 'center', backgroundColor: C.white, borderColor: C.border,
-    borderWidth: 1, borderRadius: 11 },
-  linkActive: { backgroundColor: '#F2FAF7', borderColor: C.mintBorder },
-  linkIcon: { backgroundColor: C.mint, borderRadius: 16, height: 31, width: 31,
-    justifyContent: 'center', alignItems: 'center' },
-  linkLabel: { flex: 1, color: C.title, fontWeight: '700', fontSize: 14 },
-  linkLabelActive: { color: C.greenDark },
   notificationOverlay: { flex: 1, backgroundColor: 'rgba(17,24,39,0.14)' },
   notificationPanel: { position: 'absolute', left: 15, right: 15, backgroundColor: C.white,
     borderColor: C.border, borderWidth: 1, borderRadius: 14, padding: 17,

@@ -6,6 +6,7 @@ import { C } from './theme';
 import { SymbolView } from 'expo-symbols';
 import KassaBackground from '@/components/KassaBackground';
 import { KassaBusinessHeader } from './business-header';
+import { KassaBottomNavigation } from './bottom-navigation';
 import { useKassaSession } from './api';
 
 export function KassaLogo({ compact = false }: { compact?: boolean }) {
@@ -34,6 +35,7 @@ export function KScreen({ title, subtitle, children, nav = true, back = false, s
       <View style={{ marginTop: title ? 22 : standaloneBrand ? 28 : 0 }}>{children}</View>
       {showPreviewLabel ? <Text style={s.demoLabel}>KASSA SCREEN PREVIEW  ·  SAMPLE DATA ONLY</Text> : null}
     </ScrollView>
+    {headerVisible && <KassaBottomNavigation/>}
   </View></KassaBackground>;
 }
 

@@ -1,21 +1,15 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
-
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { useEffect } from 'react';
 import { KassaSessionProvider } from '@/components/kassa-demo/api';
 
-SplashScreen.preventAutoHideAsync();
+// Keep Expo Router for screen routing but remove the starter Expo tabs,
+// demo navigation, and the old animated Expo-logo overlay.
+void SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <KassaSessionProvider>
-        <AnimatedSplashOverlay />
-        <AppTabs />
-      </KassaSessionProvider>
-    </ThemeProvider>
-  );
+export default function RootLayout() {
+  useEffect(() => { void SplashScreen.hideAsync(); }, []);
+  return <KassaSessionProvider>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F8FAF9' } }}/>
+  </KassaSessionProvider>;
 }
