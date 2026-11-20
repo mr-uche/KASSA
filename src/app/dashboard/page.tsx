@@ -530,7 +530,7 @@ export default function DashboardPage() {
                   ))}
                   {transactions.length === 0 && (
                     <tr><td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
-                      {canViewSales === false ? "Recent transactions require sales permission." : "No recent sales yet."}
+                      {"No recent sales yet."}
                     </td></tr>
                   )}
                 </tbody>
