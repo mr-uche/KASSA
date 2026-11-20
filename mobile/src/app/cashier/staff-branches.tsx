@@ -31,10 +31,14 @@ const tabs: Tab[] = ['Staff', 'Branches', 'Roles & Permissions'];
 // Match the permissions accepted by the business role-creation endpoint.
 const rolePermissionOptions = [
   'View dashboard',
-  'Manage sales & transactions',
+  'Manage sales',
+  'View transactions',
   'Manage products & inventory',
   'View reports & analytics',
   'Manage customers',
+  'Manage staff & branches',
+  'Manage business settings',
+  'View financial overview',
 ] as const;
 
 export default function StaffAndBranches() {
@@ -51,6 +55,7 @@ export default function StaffAndBranches() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState<'invite' | 'branch' | 'role' | null>(null);
+  const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('');
@@ -61,8 +66,10 @@ export default function StaffAndBranches() {
   const [roleName, setRoleName] = useState('');
   const [roleDescription, setRoleDescription] = useState('');
   const [rolePermissions, setRolePermissions] = useState<string[]>([
-    'View dashboard', 'Manage sales & transactions',
+    'View dashboard', 'Manage sales',
   ]);
+  const isOwner = scope?.myRole === 'Owner';
+  const visibleTabs: Tab[] = isOwner ? tabs : ['Staff', 'Branches'];
 
   const reload = useCallback(async (alive: () => boolean = () => true) => {
     if (!scope) return;
@@ -192,17 +199,24 @@ export default function StaffAndBranches() {
     setBusy(true);
     setError('');
     try {
-      await session.request('staff-branches/roles', {
-        businessId: scope.businessId,
-        name, description,
-        permissions: rolePermissions,
-      });
+      if (!isOwner) throw new Error('Only business owners can edit role permissions.');
+      if (editingRole) {
+        await session.request('staff-branches/roles/' + encodeURIComponent(editingRole.id), {
+          businessId: scope.businessId, name, description, permissions: rolePermissions,
+        }, 'PATCH');
+      } else {
+        await session.request('staff-branches/roles', {
+          businessId: scope.businessId, name, description, permissions: rolePermissions,
+        });
+      }
       setRoleName('');
       setRoleDescription('');
-      setRolePermissions(['View dashboard', 'Manage sales & transactions']);
+      setRolePermissions(['View dashboard', 'Manage sales']);
+      setEditingRole(null);
       setForm(null);
       await reload();
-      Alert.alert('Role created', 'The new role is available for staff assignments.');
+      Alert.alert(editingRole ? 'Role updated' : 'Role created',
+        editingRole ? 'Role permissions were updated.' : 'The new role is available for staff assignments.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to create the role.');
     } finally {
@@ -210,10 +224,46 @@ export default function StaffAndBranches() {
     }
   }
 
+  const editRole = (role: Role) => {
+    if (!isOwner || role.isSystem) return;
+    setEditingRole(role);
+    setRoleName(role.name);
+    setRoleDescription(role.description);
+    const legacy = role.permissions.includes('Manage sales & transactions');
+    setRolePermissions([
+      ...role.permissions.filter(permission => permission !== 'Manage sales & transactions'),
+      ...(legacy ? ['Manage sales', 'View transactions'] : []),
+    ].filter((value, index, values) => values.indexOf(value) === index));
+    setError('');
+    setForm('role');
+  };
+  const removeRole = (role: Role) => {
+    if (!scope || !isOwner || role.isSystem) return;
+    Alert.alert('Remove role?', 'Remove "' + role.name +
+      '"? Only roles without assigned staff or invitations can be removed.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove role', style: 'destructive', onPress: () => {
+        void (async () => {
+          if (busy) return;
+          setBusy(true); setError('');
+          try {
+            await session.request('staff-branches/roles/' + encodeURIComponent(role.id),
+              { businessId: scope.businessId }, 'DELETE');
+            if (editingRole?.id === role.id) { setEditingRole(null); setForm(null); }
+            await reload();
+            Alert.alert('Role removed', 'The role is no longer available.');
+          } catch (cause) {
+            setError(cause instanceof Error ? cause.message : 'Unable to remove the role.');
+          } finally { setBusy(false); }
+        })();
+      } },
+    ]);
+  };
+
   return <KScreen showBrand={false} showPreviewLabel={false}>
     <ScreenHeading title="Staff & Branches" subtitle={scope?.businessName ?? 'Your business'}
       right={<SmallAction label="Refresh" secondary onPress={() => { void reload(); }} disabled={loading}/>}/>
-    <SegmentedTabs options={tabs} value={tab} onChange={value => {
+    <SegmentedTabs options={visibleTabs} value={tab} onChange={value => {
       setTab(value);
       setGroupFilter('All categories');
       setFilter(value === 'Staff' ? 'All statuses' :
@@ -265,8 +315,14 @@ export default function StaffAndBranches() {
       }}/>}
       {tab === 'Branches' && <SmallAction label="+ Add branch"
         onPress={() => setForm(value => value === 'branch' ? null : 'branch')}/>}
-      {tab === 'Roles & Permissions' && <SmallAction label="+ Add role"
-        onPress={() => setForm(value => value === 'role' ? null : 'role')}/>}
+      {tab === 'Roles & Permissions' && isOwner && <SmallAction label="+ Add role"
+        onPress={() => {
+          setEditingRole(null);
+          setRoleName('');
+          setRoleDescription('');
+          setRolePermissions(['View dashboard', 'Manage sales']);
+          setForm(value => value === 'role' ? null : 'role');
+        }}/>}
     </View>
     {form === 'invite' && <KCard>
       <Text style={s.section}>Invite a staff member</Text>
@@ -301,8 +357,8 @@ export default function StaffAndBranches() {
       <SmallAction label={busy ? 'Creating…' : 'Save branch'} disabled={busy}
         onPress={() => { void createBranch(); }}/>
     </KCard>}
-    {form === 'role' && tab === 'Roles & Permissions' && <KCard>
-      <Text style={s.section}>Add role</Text>
+    {form === 'role' && tab === 'Roles & Permissions' && isOwner && <KCard>
+      <Text style={s.section}>{editingRole ? 'Edit role' : 'Add role'}</Text>
       <KField label="Role name" value={roleName} onChangeText={setRoleName}
         placeholder="e.g. Sales Supervisor"/>
       <KField label="Description (optional)" value={roleDescription}
@@ -325,7 +381,7 @@ export default function StaffAndBranches() {
       })}
       <View style={s.roleActions}>
         <SmallAction label="Cancel" secondary disabled={busy} onPress={() => setForm(null)}/>
-        <SmallAction label={busy ? 'Creating…' : 'Create role'} disabled={busy}
+        <SmallAction label={busy ? 'Saving…' : editingRole ? 'Save role' : 'Create role'} disabled={busy}
           onPress={() => { void createRole(); }}/>
       </View>
     </KCard>}
@@ -346,16 +402,28 @@ export default function StaffAndBranches() {
         onPress={() => Alert.alert(branch.name,
           'Location: ' + branch.location + '\nStaff: ' + branch.staffCount + '\nStatus: ' + branch.status)}/>)}
     {tab === 'Roles & Permissions' && (showAll ? visible.roles : visible.roles.slice(0, 10)).map(role =>
-      <RecordRow key={role.id} title={role.name}
-        subtitle={role.description || role.access}
-        detail={role.staff + ' staff assigned · ' + role.access}
-        onPress={() => Alert.alert(role.name,
-          (role.description || role.access) + '\n\nPermissions:\n' + (role.permissions.join('\n') || 'None'))}/>)}
+      <View key={role.id} style={s.roleListRow}>
+        <View style={s.roleListInfo}>
+          <RecordRow title={role.name} subtitle={role.description || role.access}
+            detail={role.staff + ' staff assigned · ' + role.access}
+            onPress={() => Alert.alert(role.name,
+              (role.description || role.access) + '\n\nPermissions:\n' + (role.permissions.join('\n') || 'None'))}/>
+        </View>
+        {isOwner && !role.isSystem && <Pressable accessibilityRole="button"
+          accessibilityLabel={'More options for ' + role.name}
+          style={s.roleMore} onPress={() => Alert.alert(role.name, 'Choose an action', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Edit', onPress: () => editRole(role) },
+            { text: 'Remove role', style: 'destructive', onPress: () => removeRole(role) },
+          ])}>
+          <Text style={s.roleMoreText}>⋮</Text>
+        </Pressable>}
+      </View>)}
     {!loading && !error && (tab === 'Staff' ? !visible.staff.length :
       tab === 'Branches' ? !visible.branches.length : !visible.roles.length) &&
       <InlineNotice text="No records match these filters."/>}
     {tab === 'Roles & Permissions' && <InlineNotice
-      text="Permission tip: Staff members only have access granted by their saved role. No role rules are changed on this screen."/>}
+      text="Changes to role permissions affect assigned staff. System roles cannot be edited or removed."/>}
   </KScreen>;
 }
 
@@ -382,4 +450,10 @@ const s = StyleSheet.create({
   permissionTick: { color: C.white, fontSize: 13, fontWeight: '800' },
   permissionText: { flex: 1, fontSize: 13, color: C.text },
   roleActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 16 },
+  roleListRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  roleListInfo: { flex: 1, minWidth: 0 },
+  roleMore: { minHeight: 48, minWidth: 40, alignItems: 'center',
+    justifyContent: 'center', backgroundColor: C.white, borderWidth: 1,
+    borderColor: C.border, borderRadius: 9 },
+  roleMoreText: { fontSize: 24, color: C.muted },
 });

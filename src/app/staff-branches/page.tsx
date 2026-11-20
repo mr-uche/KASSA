@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import {
-  createInvitation, getStaffSummary, revokeInvitation, staffContext, updateStaff, staffPatch,
+  createInvitation, getStaffSummary, revokeInvitation, staffContext, updateStaff, staffPatch, deleteRole,
   type BranchRecord, type RoleRecord, type StaffRecord, type StaffSummary,
 } from "@/lib/staff-branches-client";
 
@@ -41,6 +41,8 @@ function FilterSelect({ value, choices, onChange }: {
 export default function StaffBranchPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("Staff");
+  const [isOwner, setIsOwner] = useState(false);
+  const [roleMenu, setRoleMenu] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [businessId, setBusinessId] = useState("");
   const [branchDisplay, setBranchDisplay] = useState("All branches");
@@ -71,8 +73,9 @@ export default function StaffBranchPage() {
     name: "", code: "", address: "", city: "", state: "", phone: "", isActive: true,
   });
   const editablePermissions = [
-    "View dashboard", "Manage sales & transactions", "Manage products & inventory",
-    "View reports & analytics", "Manage customers",
+    "View dashboard", "Manage sales", "View transactions", "Manage products & inventory",
+    "View reports & analytics", "Manage customers", "Manage staff & branches",
+    "Manage business settings", "View financial overview",
   ];
 
   const reload = useCallback(async (id: string) => {
@@ -85,12 +88,10 @@ export default function StaffBranchPage() {
     async function init() {
       try {
         const context = await staffContext();
-        if (context.myRole !== "Owner") {
-          throw new Error("Only business owners may manage staff, branches and roles.");
-        }
         const summary = await getStaffSummary(context.businessId);
         if (!active) return;
         setBusinessId(context.businessId);
+        setIsOwner(context.myRole === "Owner");
         setBranchDisplay(context.branchName);
         setData(summary);
         const created = new URLSearchParams(window.location.search).get("added");
@@ -221,7 +222,10 @@ export default function StaffBranchPage() {
     setSelectedRole(role);
     setRoleDraft({
       name: role.name, description: role.description,
-      permissions: Array.isArray(role.permissions) ? role.permissions : [],
+      permissions: Array.isArray(role.permissions)
+        ? [...new Set(role.permissions.flatMap(permission =>
+            permission === "Manage sales & transactions"
+              ? ["Manage sales", "View transactions"] : [permission]))] : [],
     });
   }
 
@@ -237,6 +241,23 @@ export default function StaffBranchPage() {
       setToast("Role permissions updated.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to update role.");
+    } finally { setSaving(false); }
+  }
+
+  async function removeRole(role: RoleRecord) {
+    if (!businessId || !isOwner || role.isSystem || saving) return;
+    if (!window.confirm('Remove "' + role.name +
+      '"? Roles with assigned staff or invitations cannot be removed.')) return;
+    setSaving(true);
+    setError("");
+    try {
+      await deleteRole(businessId, role.id);
+      if (selectedRole?.id === role.id) setSelectedRole(null);
+      setRoleMenu(null);
+      await reload(businessId);
+      setToast("Role removed.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to remove role.");
     } finally { setSaving(false); }
   }
 
@@ -302,7 +323,7 @@ export default function StaffBranchPage() {
 
         <div className="mb-6 flex flex-col gap-3 px-4 sm:flex-row sm:items-center sm:px-6 lg:px-8">
           <div className="flex flex-1 overflow-x-auto rounded-lg border border-gray-200 bg-white p-1">
-            {tabs.map((item) => (
+            {(isOwner ? tabs : tabs.filter((item) => item !== "Roles & Permissions")).map((item) => (
               <button key={item} onClick={() => { setTab(item); setInviteFormOpen(false); setEditing(null); }}
                 className={"shrink-0 flex-1 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium " +
                   (tab === item ? "border-b-2 border-emerald-700 text-emerald-700" : "text-gray-500 hover:text-gray-700")}>
@@ -526,7 +547,7 @@ export default function StaffBranchPage() {
           </section>
         )}
 
-        {tab === "Roles & Permissions" && (
+        {isOwner && tab === "Roles & Permissions" && (
           <section className="px-4 sm:px-6 lg:px-8">
             <h2 className="mb-1 text-xl font-semibold text-gray-900">Roles &amp; permissions</h2>
             <p className="mb-4 text-sm text-gray-500">Control what each role can view, create, edit, and manage.</p>
@@ -549,7 +570,23 @@ export default function StaffBranchPage() {
                     <td className="px-6 py-4 text-gray-600">{role.description || "No description"}</td>
                     <td className="px-6 py-4 text-gray-700">{role.staff}</td><td className="px-6 py-4 text-gray-700">{role.access}</td>
                     <td className="whitespace-nowrap px-6 py-4">
-                      <button className="text-xs text-emerald-700" onClick={() => viewRole(role)}>{role.isSystem ? "View permissions" : "Edit permissions"}</button>
+                      {role.isSystem ? <button className="text-xs text-emerald-700"
+                        onClick={() => viewRole(role)}>View permissions</button> : isOwner && (
+                        <div className="relative inline-flex">
+                          <button type="button" aria-label={"More options for " + role.name}
+                            aria-expanded={roleMenu === role.id}
+                            onClick={() => setRoleMenu(current => current === role.id ? null : role.id)}
+                            className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600">
+                            <MoreHorizontal size={17}/>
+                          </button>
+                          {roleMenu === role.id && <div className="absolute right-0 top-full z-30 mt-1 w-36 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
+                            <button type="button" onClick={() => { setRoleMenu(null); viewRole(role); }}
+                              className="block w-full rounded px-3 py-2 text-left text-xs text-gray-800 hover:bg-gray-50">Edit role</button>
+                            <button type="button" onClick={() => { setRoleMenu(null); void removeRole(role); }}
+                              className="block w-full rounded px-3 py-2 text-left text-xs text-red-700 hover:bg-red-50">Remove role</button>
+                          </div>}
+                        </div>
+                      )}
                     </td>
                   </tr>)}
                   {!loading && roles.length === 0 && <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No roles found.</td></tr>}

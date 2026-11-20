@@ -4,7 +4,7 @@ import {
 } from "@/lib/kassa-server";
 
 type Context = { params: Promise<{ segments?: string[] }> };
-type Method = "GET" | "POST" | "PATCH";
+type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
 function route(segments: string[], method: Method) {
   const joined = segments.join("/");
@@ -13,6 +13,8 @@ function route(segments: string[], method: Method) {
   if (method === "POST" && ["branches", "roles", "invitations", "invitations/accept"].includes(joined))
     return joined;
   if (method === "PATCH" && ["members", "branches", "roles"].includes(segments[0]) &&
+      segments.length === 2 && /^[a-f0-9-]{36}$/i.test(segments[1])) return joined;
+  if (method === "DELETE" && segments[0] === "roles" &&
       segments.length === 2 && /^[a-f0-9-]{36}$/i.test(segments[1])) return joined;
   if (method === "POST" && segments[0] === "invitations" &&
       segments[2] === "revoke" && segments.length === 3 &&
@@ -52,3 +54,4 @@ async function handler(request: NextRequest, context: Context, method: Method) {
 export function GET(req: NextRequest, context: Context) { return handler(req, context, "GET"); }
 export function POST(req: NextRequest, context: Context) { return handler(req, context, "POST"); }
 export function PATCH(req: NextRequest, context: Context) { return handler(req, context, "PATCH"); }
+export function DELETE(req: NextRequest, context: Context) { return handler(req, context, "DELETE"); }

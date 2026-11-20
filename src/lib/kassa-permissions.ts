@@ -1,9 +1,14 @@
 export const KASSA_PERMISSIONS = {
   dashboard: "View dashboard",
-  sales: "Manage sales & transactions",
+  sales: "Manage sales",
+  transactions: "View transactions",
+  legacySales: "Manage sales & transactions",
   inventory: "Manage products & inventory",
   reports: "View reports & analytics",
   customers: "Manage customers",
+  staff: "Manage staff & branches",
+  settings: "Manage business settings",
+  financial: "View financial overview",
 } as const;
 
 export type KassaPermission = (typeof KASSA_PERMISSIONS)[keyof typeof KASSA_PERMISSIONS];
@@ -25,7 +30,9 @@ export function hasBusinessAccess(
   if (!business) return false;
   if (business.myRole === "Owner") return true;
   if (permission === "Owner") return false;
-  return business.myPermissions?.includes(permission) === true;
+  return business.myPermissions?.includes(permission) === true ||
+    (business.myPermissions?.includes("Manage sales & transactions") === true &&
+      (permission === "Manage sales" || permission === "View transactions"));
 }
 
 export async function loadAccess(): Promise<BusinessAccess[]> {
@@ -74,10 +81,13 @@ export function firstPermittedPath(businesses: BusinessAccess[]): string {
   if (!businesses.length) return "/onboarding";
   const priorities: Array<[KassaPermission | "Owner", string]> = [
     ["View dashboard", "/dashboard"],
-    ["Manage sales & transactions", "/sales/new"],
+    ["Manage sales", "/sales/new"],
+    ["View transactions", "/transactions"],
     ["Manage products & inventory", "/products"],
     ["View reports & analytics", "/reports"],
     ["Manage customers", "/customers"],
+    ["Manage staff & branches", "/staff-branches"],
+    ["Manage business settings", "/settings"],
     ["Owner", "/staff-branches"],
   ];
   for (const business of businesses) {

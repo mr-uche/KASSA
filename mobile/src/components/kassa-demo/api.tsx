@@ -159,7 +159,12 @@ export function KassaSessionProvider({ children }: { children: React.ReactNode }
     });
     const businesses = await http<Business[]>('businesses/mine', login.accessToken);
     const permitted = businesses
-      .filter(b => b.myPermissions.includes('*') || b.myPermissions.includes('Manage sales & transactions'))
+      .filter(b => b.myRole === 'Owner' || b.myPermissions.includes('*') ||
+        b.myPermissions.some(permission => [
+          'View dashboard', 'Manage sales', 'View transactions', 'Manage sales & transactions',
+          'Manage customers', 'Manage products & inventory', 'View reports & analytics',
+          'Manage staff & branches', 'Manage business settings', 'View financial overview',
+        ].includes(permission)))
       .flatMap(b => b.branches.filter(branch => branch.isActive).map(branch => ({
         businessId: b.id, businessName: b.name, branchId: branch.id, branchName: branch.name,
         branchAddress: branch.address ?? null, myRole: b.myRole, myPermissions: b.myPermissions,

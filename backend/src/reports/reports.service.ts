@@ -44,7 +44,7 @@ export class ReportsService {
 
   async profitToday(userId: string, businessId: string, branchId: string) {
     // Cost and gross-profit information is sensitive; never expose to sales-only cashiers.
-    await requireBusinessPermission(this.prisma, userId, businessId, 'View reports & analytics', branchId);
+    await requireBusinessPermission(this.prisma, userId, businessId, 'View financial overview', branchId);
     const parts = new Intl.DateTimeFormat('en-GB', {
       timeZone: 'Africa/Lagos', year: 'numeric', month: '2-digit', day: '2-digit',
     }).formatToParts(new Date());

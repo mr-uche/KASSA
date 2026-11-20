@@ -3,7 +3,7 @@ import KassaAccessGate from "@/components/KassaAccessGate";
 
 export default function SalesAccessLayout({ children }: { children: ReactNode }) {
   return (
-    <KassaAccessGate permission="Manage sales & transactions" title="Sales">
+    <KassaAccessGate permission="Manage sales" title="Sales">
       {children}
     </KassaAccessGate>
   );

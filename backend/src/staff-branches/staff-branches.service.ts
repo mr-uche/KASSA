@@ -6,6 +6,7 @@ import { JwtService } from '@nestjs/jwt';
 import { hash } from 'bcryptjs';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { requireBusinessPermission } from '../business-access';
 import {
   CreateBranchDto, CreateInvitationDto, CreateRoleDto, RegisterInvitationDto,
   UpdateStaffDto, UpdateBranchDto, UpdateRoleDto,
@@ -40,8 +41,36 @@ export class StaffBranchesService {
     }
   }
 
+  private async canManageStaff(userId: string, businessId: string) {
+    await requireBusinessPermission(this.prisma, userId, businessId, 'Manage staff & branches');
+  }
+
+  private async canAssignRole(userId: string, businessId: string, roleId: string) {
+    const actor = await this.prisma.businessMembership.findUnique({
+      where: { businessId_userId: { businessId, userId } },
+      select: { role: { select: { name: true, permissions: true } } },
+    });
+    if (!actor) throw new ForbiddenException('Not a member of this business');
+    if (actor.role.name === 'Owner') return;
+    const target = await this.prisma.businessRole.findFirst({
+      where: { id: roleId, businessId },
+      select: { name: true, permissions: true },
+    });
+    if (!target || target.name === 'Owner') throw new ForbiddenException('Cannot assign owner role');
+    const held = Array.isArray(actor.role.permissions)
+      ? actor.role.permissions.filter((item): item is string => typeof item === 'string') : [];
+    const requested = Array.isArray(target.permissions)
+      ? target.permissions.filter((item): item is string => typeof item === 'string') : [];
+    const mayGrant = (permission: string) => held.includes(permission) ||
+      (held.includes('Manage sales & transactions') &&
+        (permission === 'Manage sales' || permission === 'View transactions'));
+    if (!requested.every(mayGrant)) {
+      throw new ForbiddenException('You cannot assign a role with permissions beyond your own');
+    }
+  }
+
   async summary(userId: string, businessId: string) {
-    await this.owner(userId, businessId);
+    await this.canManageStaff(userId, businessId);
     const [members, branches, roles, invitations, latestSales] = await Promise.all([
       this.prisma.businessMembership.findMany({
         where: { businessId },
@@ -110,7 +139,7 @@ export class StaffBranchesService {
   }
 
   async createBranch(userId: string, dto: CreateBranchDto) {
-    await this.owner(userId, dto.businessId);
+    await this.canManageStaff(userId, dto.businessId);
     const name = tidy(dto.name);
     if (!name) throw new BadRequestException('Branch name is required');
     try {
@@ -155,7 +184,7 @@ export class StaffBranchesService {
 
 
   async updateBranch(userId: string, branchId: string, dto: UpdateBranchDto) {
-    await this.owner(userId, dto.businessId);
+    await this.canManageStaff(userId, dto.businessId);
     const branch = await this.prisma.branch.findFirst({
       where: { id: branchId, businessId: dto.businessId },
       select: { id: true, isActive: true },
@@ -220,6 +249,32 @@ export class StaffBranchesService {
     }
   }
 
+  // Editing permission sets remains owner-only, to prevent privilege escalation.
+  async deleteRole(userId: string, roleId: string, businessId: string) {
+    await this.owner(userId, businessId);
+    const role = await this.prisma.businessRole.findFirst({
+      where: { id: roleId, businessId }, select: { id: true, isSystem: true },
+    });
+    if (!role) throw new NotFoundException('Role not found in this business');
+    if (role.isSystem) throw new ForbiddenException('System roles cannot be removed');
+    const [members, invites] = await Promise.all([
+      this.prisma.businessMembership.count({ where: { businessId, roleId } }),
+      this.prisma.staffInvitation.count({ where: { businessId, roleId } }),
+    ]);
+    if (members || invites) {
+      throw new ConflictException('Reassign staff and resolve invitations before removing this role');
+    }
+    try {
+      await this.prisma.businessRole.delete({ where: { id: roleId, businessId } });
+    } catch (cause) {
+      if ((cause as { code?: string })?.code === 'P2003') {
+        throw new ConflictException('This role is currently in use and cannot be removed');
+      }
+      throw cause;
+    }
+    return { deleted: true };
+  }
+
   private async validAssignment(businessId: string, roleId: string, branchId: string) {
     const [role, branch] = await Promise.all([
       this.prisma.businessRole.findFirst({
@@ -234,8 +289,9 @@ export class StaffBranchesService {
   }
 
   async invite(userId: string, dto: CreateInvitationDto) {
-    await this.owner(userId, dto.businessId);
+    await this.canManageStaff(userId, dto.businessId);
     await this.validAssignment(dto.businessId, dto.roleId, dto.branchId);
+    await this.canAssignRole(userId, dto.businessId, dto.roleId);
     const email = dto.email.trim().toLowerCase();
     const name = tidy(dto.fullName);
     if (!name) throw new BadRequestException('Staff full name is required');
@@ -400,13 +456,17 @@ export class StaffBranchesService {
   }
 
   async updateStaff(userId: string, membershipId: string, dto: UpdateStaffDto) {
-    await this.owner(userId, dto.businessId);
+    await this.canManageStaff(userId, dto.businessId);
     await this.validAssignment(dto.businessId, dto.roleId, dto.branchId);
+    await this.canAssignRole(userId, dto.businessId, dto.roleId);
     const member = await this.prisma.businessMembership.findFirst({
       where: { id: membershipId, businessId: dto.businessId },
       include: { role: { select: { name: true } } },
     });
     if (!member) throw new NotFoundException('Staff member not found');
+    if (member.userId === userId) {
+      throw new ForbiddenException('Staff managers cannot change their own role or branch');
+    }
     if (member.role.name === 'Owner') throw new ForbiddenException('Cannot modify the business owner');
     const updated = await this.prisma.businessMembership.update({
       where: { id: member.id },
@@ -417,7 +477,7 @@ export class StaffBranchesService {
   }
 
   async revoke(userId: string, businessId: string, invitationId: string) {
-    await this.owner(userId, businessId);
+    await this.canManageStaff(userId, businessId);
     const result = await this.prisma.staffInvitation.updateMany({
       where: { id: invitationId, businessId, acceptedAt: null, revokedAt: null },
       data: { revokedAt: new Date() },

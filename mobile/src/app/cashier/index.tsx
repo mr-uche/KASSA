@@ -6,6 +6,7 @@ import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { useKassaSession } from '@/components/kassa-demo/api';
+import { canAccess } from '@/components/kassa-demo/access';
 
 type CashierDashboard = {
   scope: { businessId: string; branchId: string; timezone: string };
@@ -46,8 +47,10 @@ export default function CashierHome() {
   const [error, setError] = useState('');
   const [profit, setProfit] = useState<{ estimatedGrossProfit: string | null; missingCostUnits: number } | null>(null);
   const [profitError, setProfitError] = useState('');
-  const reportsAllowed = !!scope && (scope.myRole === 'Owner' || scope.myPermissions?.includes('*') ||
-    scope.myPermissions?.includes('View reports & analytics'));
+  const financialAllowed = canAccess(scope, 'View financial overview');
+  const canSell = canAccess(scope, 'Manage sales');
+  const canManageCustomers = canAccess(scope, 'Manage customers') &&
+    canAccess(scope, 'View transactions');
   const go = (path: string) => router.push(path as Href);
 
   const refresh = useCallback(async (isCurrent: () => boolean = () => true) => {
@@ -79,7 +82,7 @@ export default function CashierHome() {
   }, [scope?.businessId, scope?.branchId, session.request]);
 
   const refreshProfit = useCallback(async (isCurrent: () => boolean = () => true) => {
-    if (!scope || !reportsAllowed) {
+    if (!scope || !financialAllowed) {
       setProfit(null); setProfitError('');
       return;
     }
@@ -93,7 +96,7 @@ export default function CashierHome() {
     } catch (cause) {
       if (isCurrent()) setProfitError(cause instanceof Error ? cause.message : 'Profit estimate unavailable.');
     }
-  }, [scope?.businessId, scope?.branchId, reportsAllowed, session.request]);
+  }, [scope?.businessId, scope?.branchId, financialAllowed, session.request]);
 
   // Refetch after each completed payment and whenever the cashier returns home.
   useFocusEffect(useCallback(() => {
@@ -123,7 +126,7 @@ export default function CashierHome() {
       <Text style={s.greeting}>{greeting}, {firstName}</Text>
       <Text style={s.intro}>Ready to make today's sales quick and easy.</Text>
 
-      <Pressable
+      {canSell && <Pressable
         accessibilityRole="button"
         accessibilityLabel="Start a new sale"
         onPress={() => go('/cashier/new-sale')}
@@ -141,7 +144,7 @@ export default function CashierHome() {
             tintColor={C.green}
           />
         </View>
-      </Pressable>
+      </Pressable>}
 
       <View style={s.sectionHeading}>
         <Text style={s.sectionTitle}>Today's Activity</Text>
@@ -168,7 +171,7 @@ export default function CashierHome() {
         </View>
       </View>
 
-      {reportsAllowed && (
+      {financialAllowed && (
         <View style={s.profitCard}>
           <View style={{ flex: 1 }}>
             <Text style={s.cardLabel}>Estimated gross profit today</Text>
@@ -191,7 +194,8 @@ export default function CashierHome() {
 
       <Text style={[s.sectionTitle, s.actionsHeading]}>Quick Actions</Text>
       <View style={s.actionsRow}>
-        {quickActions.map(action => (
+        {quickActions.filter(action =>
+          action.label === 'Customers' ? canManageCustomers : canSell).map(action => (
           <Pressable
             key={action.label}
             accessibilityRole="button"

@@ -37,10 +37,12 @@ export async function staffContext() {
   // so owners can reactivate an existing branch or create a new one.
   const businesses = await inventoryFetch<{
     id: string; myRole: string;
+    myPermissions: string[];
     branches: { id: string; name: string; isActive: boolean }[];
   }[]>("/api/businesses/mine");
-  const owners = businesses.filter((business) => business.myRole === "Owner");
-  if (!owners.length) throw new Error("Only a business owner can manage staff and branches.");
+  const owners = businesses.filter((business) => business.myRole === "Owner" ||
+    business.myPermissions.includes("Manage staff & branches"));
+  if (!owners.length) throw new Error("Your role does not permit staff and branch management.");
   const selectedBranchId = typeof window !== "undefined"
     ? localStorage.getItem("selectedBranchId") ?? "" : "";
   const selectedBusiness = owners.find((business) =>
@@ -71,6 +73,23 @@ export function createRole(payload: {
 }) {
   return kassaPost("/api/staff-branches/roles", payload);
 }
+export async function deleteRole(businessId: string, roleId: string): Promise<{ deleted: boolean }> {
+  const response = await fetch("/api/staff-branches/roles/" + encodeURIComponent(roleId), {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ businessId }),
+  });
+  const result: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = result && typeof result === "object" && "message" in result
+      ? (result as { message: unknown }).message : null;
+    throw new Error(typeof message === "string" ? message :
+      Array.isArray(message) ? message.join(". ") : "Unable to remove role");
+  }
+  return result as { deleted: boolean };
+}
+
 export function createInvitation(payload: {
   businessId: string; fullName: string; email: string;
   roleId: string; branchId: string; message: string;

@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { requireBusinessPermission } from '../business-access';
 import { OnboardingDto } from './dto/onboarding.dto';
 import { UpdateBusinessSettingsDto } from './dto/update-business-settings.dto';
 import { CreateMerchantBankAccountDto, UpdateMerchantBankAccountDto } from './dto/merchant-bank-account.dto';
@@ -19,7 +20,7 @@ export class BusinessesService {
   }
 
   async settings(userId: string, businessId: string, branchId?: string) {
-    await this.requireOwner(userId, businessId);
+    await requireBusinessPermission(this.prisma, userId, businessId, 'Manage business settings');
     const business = await this.prisma.business.findUnique({
       where: { id: businessId },
       select: {
@@ -53,7 +54,7 @@ export class BusinessesService {
   }
 
   async updateSettings(userId: string, businessId: string, dto: UpdateBusinessSettingsDto) {
-    await this.requireOwner(userId, businessId);
+    await requireBusinessPermission(this.prisma, userId, businessId, 'Manage business settings');
     const includesBusiness = dto.businessName !== undefined ||
       dto.businessType !== undefined || dto.payoutSchedule !== undefined;
     const includesBranch = dto.branchAddress !== undefined || dto.branchPhone !== undefined;

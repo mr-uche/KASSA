@@ -4,6 +4,7 @@ import { useFocusEffect, usePathname, useRouter, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import { useKassaSession } from './api';
+import { canAccess } from './access';
 import { useKassaDemo } from './store';
 import { getOfflineSaleQueueStatus, getOfflineSales, type OfflineCashRecord } from './offline-cash';
 import { C, naira } from './theme';
@@ -14,11 +15,11 @@ type MenuItem = {
 };
 const menuItems: MenuItem[] = [
   { label: 'Home', route: '/cashier', permission: 'View dashboard', symbol: { ios: 'house', android: 'home', web: 'home' } },
-  { label: 'Transactions', route: '/cashier/transactions', permission: 'Manage sales & transactions', symbol: { ios: 'list.bullet', android: 'receipt_long', web: 'receipt_long' } },
+  { label: 'Transactions', route: '/cashier/transactions', permission: 'View transactions', symbol: { ios: 'list.bullet', android: 'receipt_long', web: 'receipt_long' } },
   { label: 'Reports & Analytics', route: '/cashier/reports', permission: 'View reports & analytics', symbol: { ios: 'chart.bar', android: 'bar_chart', web: 'bar_chart' } },
   { label: 'Products & Inventory', route: '/cashier/inventory', permission: 'Manage products & inventory', symbol: { ios: 'shippingbox', android: 'inventory_2', web: 'inventory_2' } },
-  { label: 'Staff & Branches', route: '/cashier/staff-branches', permission: 'Owner', symbol: { ios: 'person.3', android: 'groups', web: 'groups' } },
-  { label: 'Settings', route: '/cashier/settings', permission: 'Owner', symbol: { ios: 'gearshape', android: 'settings', web: 'settings' } },
+  { label: 'Staff & Branches', route: '/cashier/staff-branches', permission: 'Manage staff & branches', symbol: { ios: 'person.3', android: 'groups', web: 'groups' } },
+  { label: 'Settings', route: '/cashier/settings', permission: 'Manage business settings', symbol: { ios: 'gearshape', android: 'settings', web: 'settings' } },
 ];
 
 function initials(name: string) {
@@ -43,10 +44,7 @@ export function KassaBusinessHeader({ logo }: { logo: React.ReactNode }) {
   const [notificationError, setNotificationError] = useState('');
   const name = user?.fullName?.trim() || 'Staff member';
   const role = scope?.myRole || 'Staff';
-  const permissions = scope?.myPermissions || [];
-  const menu = menuItems.filter(item => item.permission === 'Owner'
-    ? role === 'Owner'
-    : role === 'Owner' || permissions.includes('*') || permissions.includes(item.permission));
+  const menu = menuItems.filter(item => canAccess(scope, item.permission));
 
   const refresh = useCallback(async (isCurrent: () => boolean = () => true) => {
     if (!user || !scope) { if (isCurrent()) { setAlerts(0); setRecent([]); } return; }

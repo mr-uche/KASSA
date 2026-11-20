@@ -30,14 +30,14 @@ const offlineItems = [
 
 const menuItems: MenuItem[] = [
   { name: "Home", href: "/dashboard", permission: "View dashboard" },
-  { name: "New Sale", href: "/sales/new", permission: "Manage sales & transactions" },
-  { name: "Transactions", href: "/transactions", permission: "Manage sales & transactions" },
-  { name: "Scan Product", href: "/scan", permission: "Manage sales & transactions" },
+  { name: "New Sale", href: "/sales/new", permission: "Manage sales" },
+  { name: "Transactions", href: "/transactions", permission: "View transactions" },
+  { name: "Scan Product", href: "/scan", permission: "Manage sales" },
   { name: "Reports & Analytics", href: "/reports", permission: "View reports & analytics" },
   { name: "Products & Inventory", href: "/products", permission: "Manage products & inventory" },
   { name: "Customers", href: "/customers", permission: "Manage customers" },
-  { name: "Staff & Branches", href: "/staff-branches", permission: "Owner" },
-  { name: "Settings", href: "/settings", permission: "Owner" },
+  { name: "Staff & Branches", href: "/staff-branches", permission: "Manage staff & branches" },
+  { name: "Settings", href: "/settings", permission: "Manage business settings" },
 ];
 
 export default function KassaSidebar({

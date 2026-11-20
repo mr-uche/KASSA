@@ -6,10 +6,14 @@ import {
 
 export const ROLE_PERMISSIONS = [
   'View dashboard',
-  'Manage sales & transactions',
+  'Manage sales',
+  'View transactions',
   'Manage products & inventory',
   'View reports & analytics',
   'Manage customers',
+  'Manage staff & branches',
+  'Manage business settings',
+  'View financial overview',
 ] as const;
 
 export class BusinessScopeDto {

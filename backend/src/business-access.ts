@@ -19,7 +19,11 @@ export async function requireBusinessPermission(
   const owner = membership.role.name === 'Owner';
   const assigned = Array.isArray(membership.role.permissions)
     ? membership.role.permissions : [];
-  if (!owner && !assigned.includes(permission)) {
+  // Migrate legacy combined-sale permissions without unexpectedly locking
+  // existing staff out. New roles can grant each capability independently.
+  const legacySales = assigned.includes('Manage sales & transactions') &&
+    (permission === 'Manage sales' || permission === 'View transactions');
+  if (!owner && !assigned.includes(permission) && !legacySales) {
     throw new ForbiddenException('Your assigned role does not permit this action');
   }
   if (branchId) {

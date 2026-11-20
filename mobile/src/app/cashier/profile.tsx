@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api';
+import { canAccess } from '@/components/kassa-demo/access';
 import { getOfflineSales } from '@/components/kassa-demo/offline-cash';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
@@ -23,11 +24,15 @@ export default function Profile() {
   const [salesError, setSalesError] = useState('');
 
   const refresh = useCallback(async () => {
-    if (!session.scope) { setToday(null); return; }
+    if (!session.scope || !canAccess(session.scope, 'Manage sales')) {
+      setToday(null);
+      setSalesError('');
+      return;
+    }
     setSalesError('');
     try {
       const sales = await session.request<CheckoutSale[]>(
-        'sales?businessId=' + encodeURIComponent(session.scope.businessId) +
+        'sales/mine?businessId=' + encodeURIComponent(session.scope.businessId) +
         '&branchId=' + encodeURIComponent(session.scope.branchId)
       );
       const date = new Date().toDateString();
@@ -93,7 +98,8 @@ export default function Profile() {
 
     <Text style={s.groupLabel}>ACCOUNT</Text>
     <View style={s.group}>
-      {accountLinks.map(item => <Pressable
+      {accountLinks.filter(item => item.route !== '/cashier/settings' ||
+        canAccess(session.scope, 'Manage business settings')).map(item => <Pressable
         accessibilityRole="button" key={item.route} style={s.row}
         onPress={() => router.push(item.route)}
       >

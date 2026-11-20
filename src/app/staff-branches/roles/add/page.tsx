@@ -11,10 +11,14 @@ import { createRole, staffContext } from "@/lib/staff-branches-client";
 
 const permissionOptions = [
   "View dashboard",
-  "Manage sales & transactions",
+  "Manage sales",
+  "View transactions",
   "Manage products & inventory",
   "View reports & analytics",
   "Manage customers",
+  "Manage staff & branches",
+  "Manage business settings",
+  "View financial overview",
 ];
 
 export default function AddRolePage() {
@@ -35,7 +39,8 @@ export default function AddRolePage() {
   }, []);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({
     "View dashboard": true,
-    "Manage sales & transactions": true,
+    "Manage sales": true,
+    "View transactions": true,
     "Manage products & inventory": false,
     "View reports & analytics": false,
     "Manage customers": false,

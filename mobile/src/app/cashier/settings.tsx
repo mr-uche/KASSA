@@ -6,6 +6,7 @@ import * as Print from 'expo-print';
 import { KCard, KField, KScreen } from '@/components/kassa-demo/ui';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { useKassaSession } from '@/components/kassa-demo/api';
+import { canAccess } from '@/components/kassa-demo/access';
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { getOfflineSaleQueueStatus } from '@/components/kassa-demo/offline-cash';
 import { InlineNotice, ScreenHeading, SmallAction, StatusChip } from '@/components/kassa-demo/business-ui';
@@ -132,6 +133,9 @@ export default function Settings() {
   const store = useKassaDemo();
   const businessId = session.scope?.businessId;
   const branchId = session.scope?.branchId;
+  const isOwner = session.scope?.myRole === 'Owner';
+  const canManageBusiness = canAccess(session.scope, 'Manage business settings');
+  const availableSections = isOwner ? sections : (['Business profile', 'Notifications'] as Section[]);
   const userId = session.user?.id;
   const [section, setSection] = useState<Section>('Business profile');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -154,7 +158,7 @@ export default function Settings() {
   const [success, setSuccess] = useState('');
 
   const loadProfile = useCallback(async (alive: () => boolean = () => true) => {
-    if (!businessId || !branchId || session.scope?.myRole !== 'Owner') return;
+    if (!businessId || !branchId || !canManageBusiness) return;
     if (alive()) { setLoading(true); setError(''); }
     try {
       const result = await session.request<BusinessSettings>('businesses/' + encodeURIComponent(businessId) +
@@ -166,7 +170,7 @@ export default function Settings() {
       }
     } catch (cause) { if (alive()) setError(cause instanceof Error ? cause.message : 'Cannot load business settings.'); }
     finally { if (alive()) setLoading(false); }
-  }, [businessId, branchId, session.scope?.myRole, session.request]);
+  }, [businessId, branchId, canManageBusiness, session.request]);
 
   const loadBanks = useCallback(async (alive: () => boolean = () => true) => {
     if (!businessId || session.scope?.myRole !== 'Owner') return;
@@ -362,16 +366,21 @@ export default function Settings() {
     </KCard>
   </KScreen>;
 
+  if (!canManageBusiness) return <KScreen showBrand={false} showPreviewLabel={false}>
+    <ScreenHeading title="Settings" subtitle="Business administration"/>
+    <InlineNotice warning text="Your role cannot manage business settings. Use Profile to manage your own account."/>
+  </KScreen>;
+
   return <KScreen showBrand showPreviewLabel={false}>
     <ScreenHeading title="Settings" subtitle="Manage your business account and preferences"/>
     <SettingsButton label={section} selected onPress={() => setMenuOpen(value => !value)}
       danger={section === 'Delete Account'}/>
     {menuOpen && <View style={s.sectionMenu}>
-      {sections.map(item => <SettingsButton key={item} label={item} selected={item === section}
+      {availableSections.map(item => <SettingsButton key={item} label={item} selected={item === section}
         danger={item === 'Delete Account'} onPress={() => changeSection(item)}/>)}
     </View>}
-    {session.scope?.myRole !== 'Owner' && <InlineNotice
-      text="Business administration is managed through existing KASSA permissions. These settings require the owner’s access." warning/>}
+    {!isOwner && <InlineNotice
+      text="Only business profile and notification preferences are available to delegated staff. Financial exports, account closure and merchant bank accounts remain owner-only."/>}
     {!!error && <InlineNotice text={error} warning/>}
     {!!success && <InlineNotice text={success}/>}
     {loading && <Text style={s.loading}>Loading settings…</Text>}
@@ -389,7 +398,7 @@ export default function Settings() {
         onPress={() => { void saveProfile(); }}/>
     </KCard>}
 
-    {section === 'Subscription & Billing' && <>
+    {isOwner && section === 'Subscription & Billing' && <>
       <KCard>
         <Text style={s.cardTitle}>Current subscription</Text>
         <Text style={s.businessName}>{profile?.businessName || session.scope?.businessName || 'KASSA Business'}</Text>
@@ -403,7 +412,7 @@ export default function Settings() {
       </KCard>
     </>}
 
-    {section === 'Business receiving accounts' && <>
+    {isOwner && section === 'Business receiving accounts' && <>
       <KCard>
         <Text style={s.cardTitle}>Business receiving accounts</Text>
         <Text style={s.cardNote}>Customers transfer directly to these accounts. Cashiers see the selected account at checkout. KASSA does not receive or pay out these funds.</Text>
@@ -454,7 +463,7 @@ export default function Settings() {
       <InlineNotice text="Preferences are saved automatically to this device. No messages are sent by these settings."/>
     </KCard>}
 
-    {section === 'Data Export' && <KCard>
+    {isOwner && section === 'Data Export' && <KCard>
       <Text style={s.cardTitle}>Data Export</Text>
       <Text style={s.cardNote}>Choose the business data you want to export.</Text>
       <Text style={s.groupTitle}>Datasets</Text>
@@ -496,7 +505,7 @@ export default function Settings() {
       {!!lastExport && <Text style={s.lastExport}>Most recent export: {lastExport}</Text>}
     </KCard>}
 
-    {section === 'Delete Account' && <>
+    {isOwner && section === 'Delete Account' && <>
       <KCard>
         <Text style={[s.cardTitle, { color: C.danger }]}>Delete Account</Text>
         <InlineNotice warning text="This action is permanent. Your KASSA login and access will be disabled. Financial and business records may be retained for audit or legal reasons."/>

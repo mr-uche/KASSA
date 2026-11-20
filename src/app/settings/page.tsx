@@ -76,6 +76,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () =
 export default function SettingsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [section, setSection] = useState<Section>("Business profile");
+  const [isOwner, setIsOwner] = useState(false);
   const [context, setContext] = useState<{ businessId: string; branchId: string } | null>(null);
   const [settings, setSettings] = useState<BusinessSettings | null>(null);
   const [form, setForm] = useState({
@@ -111,6 +112,7 @@ export default function SettingsPage() {
     try {
       const membership = await getInventoryContext();
       const scope = { businessId: membership.businessId, branchId: membership.branchId };
+      setIsOwner(membership.myRole === "Owner");
       const record = await getBusinessSettings(scope.businessId, scope.branchId);
       setContext(scope);
       setSettings(record);
@@ -344,7 +346,7 @@ export default function SettingsPage() {
         <div className="flex min-w-0 flex-col gap-4 px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:flex-row lg:gap-6 lg:px-8 lg:pb-10 lg:pt-12">
           <nav aria-label="Settings sections" className="w-full min-w-0 shrink-0 overflow-x-auto pb-1 lg:w-64 lg:overflow-visible lg:pb-0">
             <div className="flex w-max gap-1 rounded-xl border border-gray-200 bg-white p-2 lg:w-full lg:flex-col">
-              {navigation.map((item) => (
+              {navigation.filter(item => isOwner || item === "Business profile" || item === "Notifications").map((item) => (
                 <button type="button" key={item} aria-pressed={section === item}
                   onClick={() => { setSection(item); setError(""); setSuccess(""); }}
                   className={"shrink-0 whitespace-nowrap rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors lg:w-full lg:whitespace-normal " +
@@ -410,7 +412,7 @@ export default function SettingsPage() {
               </>
             )}
 
-            {section === "Subscription & Billing" && (
+            {isOwner && section === "Subscription & Billing" && (
               <section className={cardClass}>
                 <h2 className="text-lg font-semibold text-gray-900">KASSA Subscription & Billing</h2>
                 <p className="mt-3 text-sm leading-6 text-gray-600">
@@ -426,7 +428,7 @@ export default function SettingsPage() {
               </section>
             )}
 
-            {section === "Merchant Payment Details" && (
+            {isOwner && section === "Merchant Payment Details" && (
               <section className={cardClass}>
                 <h2 className="text-lg font-semibold text-gray-900">Business Bank Accounts</h2>
                 <p className="mt-2 text-sm leading-6 text-gray-600">
@@ -534,7 +536,7 @@ export default function SettingsPage() {
               </section>
             )}
 
-            {section === "Data Export" && (
+            {isOwner && section === "Data Export" && (
               <section className={cardClass}>
                 <h2 className="text-lg font-semibold text-gray-900">Data export</h2>
                 <p className="mt-2 text-sm leading-6 text-gray-600">
@@ -597,7 +599,7 @@ export default function SettingsPage() {
               </section>
             )}
 
-            {section === "Delete Account" && (
+            {isOwner && section === "Delete Account" && (
               <section className={cardClass}>
                 <h2 className="flex items-center gap-2 text-lg font-semibold text-red-700">
                   <ShieldAlert size={20}/> Permanently close your account

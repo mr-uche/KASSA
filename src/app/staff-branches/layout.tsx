@@ -3,7 +3,7 @@ import KassaAccessGate from "@/components/KassaAccessGate";
 
 export default function StaffbranchesAccessLayout({ children }: { children: ReactNode }) {
   return (
-    <KassaAccessGate permission="Owner" title="Staff & Branches">
+    <KassaAccessGate permission="Manage staff & branches" title="Staff & Branches">
       {children}
     </KassaAccessGate>
   );

@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post,
+  Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post,
   Query, Req, UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -49,6 +49,13 @@ export class StaffBranchesController {
              @Param('roleId', ParseUUIDPipe) id: string,
              @Body() dto: UpdateRoleDto) {
     return this.service.updateRole(req.userId, id, dto);
+  }
+
+  @Delete('roles/:roleId')
+  @UseGuards(AccessTokenGuard) @ApiBearerAuth()
+  removeRole(@Req() req: AuthenticatedRequest, @Param('roleId', ParseUUIDPipe) id: string,
+             @Body() dto: BusinessScopeDto) {
+    return this.service.deleteRole(req.userId, id, dto.businessId);
   }
 
   @Post('invitations')

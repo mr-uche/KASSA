@@ -17,7 +17,6 @@ export default function AddBranchPage() {
   useEffect(() => {
     let active = true;
     staffContext().then((context) => {
-      if (context.myRole !== "Owner") throw new Error("Only owners can create branches.");
       if (active) setBusinessId(context.businessId);
     }).catch((cause) => {
       if (active) setError(cause instanceof Error ? cause.message : "Unable to load your business.");

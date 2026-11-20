@@ -26,10 +26,9 @@ export class SalesService {
     payments: { select: { id: true, reference: true, channel: true, status: true, confirmedAt: true, provider: true, providerReference: true } },
   } as const;
 
-  private async checkAccess(userId: string, businessId: string, branchId: string, writing = false) {
-    await requireBusinessPermission(
-      this.prisma, userId, businessId, 'Manage sales & transactions', branchId,
-    );
+  private async checkAccess(userId: string, businessId: string, branchId: string,
+    permission: 'Manage sales' | 'View transactions' = 'Manage sales') {
+    await requireBusinessPermission(this.prisma, userId, businessId, permission, branchId);
   }
 
   private serialize(sale: {
@@ -173,7 +172,7 @@ export class SalesService {
   }
 
   async create(userId: string, dto: CreateSaleDto) {
-    await this.checkAccess(userId, dto.businessId, dto.branchId, true);
+    await this.checkAccess(userId, dto.businessId, dto.branchId, 'Manage sales');
     const ids = dto.items.map((line) => line.productId);
     if (new Set(ids).size !== ids.length) throw new BadRequestException('Duplicate product in sale');
     const reference = 'KSA-' + dto.clientRequestId.replace(/-/g, '');
@@ -246,8 +245,8 @@ export class SalesService {
   }
 
   async dashboard(userId: string, query: SalesListQueryDto) {
-    // Cashiers may view only their own activity in their authorised branch.
-    await this.checkAccess(userId, query.businessId, query.branchId);
+    // Only this cashier's sales activity; never business-wide revenue.
+    await requireBusinessPermission(this.prisma, userId, query.businessId, 'View dashboard', query.branchId);
 
     // Africa/Lagos is UTC+01:00 year-round. Use an explicit Lagos day boundary,
     // independent of Render's server timezone or the cashier's phone timezone.
@@ -319,7 +318,7 @@ export class SalesService {
   }
 
   async list(userId: string, query: SalesListQueryDto) {
-    await this.checkAccess(userId, query.businessId, query.branchId);
+    await this.checkAccess(userId, query.businessId, query.branchId, 'View transactions');
     const sales = await this.prisma.sale.findMany({
       where: { businessId: query.businessId, branchId: query.branchId },
       include: this.include, orderBy: { createdAt: 'desc' }, take: 100,
@@ -347,7 +346,18 @@ export class SalesService {
   async getOne(userId: string, id: string) {
     const sale = await this.prisma.sale.findUnique({ where: { id }, include: this.include });
     if (!sale) throw new NotFoundException('Sale not found');
-    await this.checkAccess(userId, sale.businessId, sale.branchId);
+    // View transactions permits branch history. Sales-only staff may inspect
+    // their own checkout, but not other cashiers' sales.
+    if (sale.cashierId === userId) {
+      try {
+        await this.checkAccess(userId, sale.businessId, sale.branchId, 'Manage sales');
+      } catch (cause) {
+        if (!(cause instanceof ForbiddenException)) throw cause;
+        await this.checkAccess(userId, sale.businessId, sale.branchId, 'View transactions');
+      }
+    } else {
+      await this.checkAccess(userId, sale.businessId, sale.branchId, 'View transactions');
+    }
     return this.serialize(sale);
   }
 
@@ -355,7 +365,7 @@ export class SalesService {
     if (dto.cashReceived !== true) throw new BadRequestException('Confirm that physical cash was received');
     const sale = await this.prisma.sale.findUnique({ where: { id }, include: this.include });
     if (!sale) throw new NotFoundException('Sale not found');
-    await this.checkAccess(userId, sale.businessId, sale.branchId, true);
+    await this.checkAccess(userId, sale.businessId, sale.branchId, 'Manage sales');
     if (sale.status === 'PAID' && sale.payments.some((p) => p.channel === 'CASH' && p.status === 'SUCCEEDED')) {
       return this.serialize(sale);
     }
@@ -420,7 +430,7 @@ export class SalesService {
     if (externalRef && externalRef.length > 100) throw new BadRequestException('Invalid payment reference');
     const sale = await this.prisma.sale.findUnique({ where: { id }, include: this.include });
     if (!sale) throw new NotFoundException('Sale not found');
-    await this.checkAccess(userId, sale.businessId, sale.branchId, true);
+    await this.checkAccess(userId, sale.businessId, sale.branchId, 'Manage sales');
     const payment = sale.payments[0];
     const merchantChannels = ['BANK_TRANSFER', 'POS', 'CARD'];
     if (!payment || sale.payments.length !== 1 || !merchantChannels.includes(payment.channel)) {
@@ -488,7 +498,7 @@ export class SalesService {
    * or stock as current cloud truth, never turn a conflict into a paid sale.
    */
   async syncOfflineCash(userId: string, dto: OfflineCashSaleDto) {
-    await this.checkAccess(userId, dto.businessId, dto.branchId, true);
+    await this.checkAccess(userId, dto.businessId, dto.branchId, 'Manage sales');
     const recordedAt = new Date(dto.recordedAt);
     if (!Number.isFinite(recordedAt.getTime()) ||
       recordedAt.getTime() > Date.now() + 5 * 60_000 ||

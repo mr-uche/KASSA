@@ -55,6 +55,11 @@ export default function DashboardPage() {
   const [sales, setSales] = useState<SavedSale[]>([]);
   const [salesError, setSalesError] = useState("");
   const [canViewSales, setCanViewSales] = useState<boolean | null>(null);
+  const [canManageSales, setCanManageSales] = useState(false);
+  const [myActivity, setMyActivity] = useState<{
+    today: { paidSales: number; amountReceived: string };
+    recentSales: { id: string; reference: string; total: string; createdAt: string; status: string }[];
+  } | null>(null);
   const [canManageCustomers, setCanManageCustomers] = useState(false);
   const [canManageInventory, setCanManageInventory] = useState(false);
   const [canViewProfit, setCanViewProfit] = useState(false);
@@ -82,10 +87,11 @@ export default function DashboardPage() {
         if (!current) return;
         const activeBranches = (current.branches ?? []).filter((branch) => branch.isActive);
         if (cancelled) return;
-        setCanViewSales(hasBusinessAccess(current, "Manage sales & transactions"));
+        setCanViewSales(hasBusinessAccess(current, "View transactions"));
+        setCanManageSales(hasBusinessAccess(current, "Manage sales"));
         setCanManageCustomers(hasBusinessAccess(current, "Manage customers"));
         setCanManageInventory(hasBusinessAccess(current, "Manage products & inventory"));
-        setCanViewProfit(hasBusinessAccess(current, "View reports & analytics"));
+        setCanViewProfit(hasBusinessAccess(current, "View financial overview"));
         if (cancelled) return;
         setBranches(activeBranches);
         if (!activeBranches.length) {
@@ -141,6 +147,30 @@ export default function DashboardPage() {
       window.removeEventListener("branchChanged", loadSales);
     };
   }, [canViewSales]);
+
+  // A sale-only cashier sees their own activity; never fetch branch-wide
+  // transaction data unless View transactions was granted separately.
+  useEffect(() => {
+    if (!canManageSales || canViewSales === true) { setMyActivity(null); return; }
+    let live = true;
+    const load = async () => {
+      try {
+        const context = await getInventoryContext();
+        const query = new URLSearchParams({
+          businessId: context.businessId, branchId: context.branchId,
+        });
+        const response = await fetch("/api/sales/dashboard?" + query.toString(), {
+          credentials: "same-origin", cache: "no-store",
+        });
+        if (!response.ok) throw new Error("Own sales activity unavailable.");
+        const result = await response.json();
+        if (live) setMyActivity(result);
+      } catch { if (live) setMyActivity(null); }
+    };
+    void load();
+    window.addEventListener("branchChanged", load);
+    return () => { live = false; window.removeEventListener("branchChanged", load); };
+  }, [canManageSales, canViewSales]);
 
   useEffect(() => {
     if (!canViewProfit) { setProfit(null); setProfitError(""); return; }
@@ -299,19 +329,21 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
             <StatCard
               title="Total sales today"
-              value={canViewSales ? formatNaira(salesToday) : "Restricted"}
-              subtitle={canViewSales ? "Confirmed paid sales today" : "Sales permission required"}
+              value={canViewSales ? formatNaira(salesToday)
+                : myActivity ? formatNaira(myActivity.today.amountReceived) : "—"}
+              subtitle={canViewSales ? "Confirmed paid sales today" : "My confirmed sales today"}
               subtitleClass="text-[#4D7C27]"
             />
 
             <StatCard
               title="Recent transactions"
-              value={canViewSales ? String(sales.length) : "Restricted"}
-              subtitle={canViewSales ? "Latest 100 sales" : "Sales permission required"}
+              value={canViewSales ? String(sales.length)
+                : myActivity ? String(myActivity.today.paidSales) : "—"}
+              subtitle={canViewSales ? "Latest 100 branch sales" : "My paid sales today"}
               subtitleClass="text-[#4D7C27]"
             />
 
-            <StatCard
+            {canViewProfit && <StatCard
               title="Estimated gross profit"
               value={!canViewProfit ? "Restricted"
                 : profitError ? "Unavailable" : !profit ? "Loading…"
@@ -319,7 +351,7 @@ export default function DashboardPage() {
               subtitle={!canViewProfit ? "Reports permission required"
                 : profitError || (profit?.missingCostUnits ? "Enter missing product costs" : "Based on current cost prices")}
               subtitleClass="text-[#70798A]"
-            />
+            />}
 
             <StatCard
               title="Branches active"
@@ -337,7 +369,7 @@ export default function DashboardPage() {
 
            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {/* New sale */}
-              {canViewSales && <Link
+              {canManageSales && <Link
                 href="/sales/new"
                 className="flex h-[72px] w-full flex-col items-center justify-center rounded-[9px] bg-[#08745F] text-white shadow-sm transition hover:bg-[#075F50]"
               >
@@ -352,7 +384,7 @@ export default function DashboardPage() {
               </Link>}
 
               {/* Scan product */}
-              {canViewSales && <Link
+              {canManageSales && <Link
                 href="/scan"
                 className="flex h-[72px] w-full flex-col items-center justify-center rounded-[9px] border border-[#D2D7DE] bg-white text-[#182033] transition hover:bg-[#F8FAFA] sm:w-auto sm:min-w-[164px]"
               >
@@ -389,7 +421,7 @@ export default function DashboardPage() {
                   Manage records
                 </span>
               </Link>}
-              {canViewSales === false && !canManageCustomers && !canManageInventory && (
+              {canManageSales === false && !canManageCustomers && !canManageInventory && (
                 <p className="col-span-full text-sm text-gray-500">No quick actions are assigned to this role.</p>
               )}
             </div>
@@ -413,8 +445,19 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Responsive table wrapper */}
-            <div className="w-full overflow-x-auto rounded-[12px] border border-[#E0E3E8] bg-white">
+            {canManageSales && canViewSales === false && (
+              <div className="mb-4 grid gap-2">
+                {(myActivity?.recentSales ?? []).map(sale => (
+                  <div key={sale.id} className="flex justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm">
+                    <span className="min-w-0 truncate">My sale #{sale.reference.slice(-8)}</span>
+                    <span>{formatNaira(sale.total)}</span>
+                  </div>
+                ))}
+                {myActivity?.recentSales.length === 0 && <p className="text-sm text-gray-500">No personal sales recorded yet.</p>}
+              </div>
+            )}
+            {/* Branch-wide history only for users with View transactions. */}
+            {canViewSales && <div className="w-full overflow-x-auto rounded-[12px] border border-[#E0E3E8] bg-white">
               <table className="w-full min-w-[800px] border-collapse">
                 <thead>
                   <tr className="h-[47px] border-b border-[#E5E7EB]">
@@ -492,7 +535,7 @@ export default function DashboardPage() {
                   )}
                 </tbody>
               </table>
-            </div>
+            </div>}
 
             {/* Mobile table hint */}
             <p className="mt-2 text-[11px] text-[#8A93A2] sm:hidden">
