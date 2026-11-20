@@ -194,7 +194,7 @@ export default function SignUp() {
   return <KScreen
     title={step === 0 ? 'Create your business account' : 'Set up your business'}
     subtitle={step === 0
-      ? 'Start with your account details. Your business setup comes next.'
+      ? 'Start with your business details. '
       : 'A few details before you start taking sales.'}
     nav={false} back={false} showPreviewLabel={false}>
     {step > 0 && <View style={s.progress} accessibilityLabel={'Business setup step ' + step + ' of 4'}>

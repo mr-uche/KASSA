@@ -71,6 +71,7 @@ export default function LoginScreen() {
   {/* Password input */}
   
 <View style={styles.passwordContainer}>
+<Text style={styles.label}>Password</Text>
   <TextInput
     style={[styles.input, styles.passwordInput]}
     placeholder="Enter your password"
@@ -162,7 +163,7 @@ export default function LoginScreen() {
     }
   >
     <Text style={styles.signUpLink}>
-      {"\n"}Create business account
+      Create business account
     </Text>
   </Pressable>
 </View>
@@ -181,7 +182,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  branchChoices: { marginTop: 17, gap: 8 },
+  branchChoices: { marginTop: 17 , gap: 8 },
   branchTitle: { color: '#111827', fontWeight: '700', fontSize: 20 },
   branchChoice: { padding: 12, borderColor: '#D6EAE1', borderWidth: 1, borderRadius: 9, backgroundColor: '#EAF5F0' },
   branchChoiceText: { color: '#0F6E56', fontWeight: '700', fontSize: 14 },
@@ -209,16 +210,16 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
   alignItems: "center",
-  marginBottom: 60,
+  marginBottom: 40,
 },
 
 logo: {
-  width: 70,
-  height: 70,
+  width: 40,
+  height: 40,
 },
 
 brandName: {
-  fontSize: 30,
+  fontSize: 24,
   fontWeight: "bold",
   color: "#0F6E56",
   marginTop: 8,
@@ -226,7 +227,7 @@ brandName: {
 
 
 formContainer: {
-  marginTop: 40,
+  marginTop: 30,
 },
 
 label: {
@@ -244,7 +245,7 @@ input: {
   paddingHorizontal: 16,
   fontSize: 14,
   color: "#111827",
-  marginBottom: 24,
+  marginBottom: 20,
   backgroundColor: "#FFFFFF",
 },
 
@@ -260,7 +261,7 @@ passwordInput: {
 eyeButton: {
   position: "absolute",
   right: 10,
-  top: 0,
+  top: 30,
   width: 44,
   height: 56,
   justifyContent: "center",
@@ -270,7 +271,7 @@ eyeButton: {
 
 forgotPasswordContainer: {
   alignSelf: "flex-end",
-  marginBottom: 24,
+  marginBottom: 15,
 },
 
 forgotPassword: {
@@ -281,7 +282,7 @@ forgotPassword: {
 
 signInButton: {
   backgroundColor: "#0F6E56",
-  height: 56,
+  height: 40,
   borderRadius: 10,
   justifyContent: "center",
   alignItems: "center",
@@ -315,11 +316,11 @@ circleBottom: {
 },
 
 signUpContainer: {
-  flexDirection: "column",
+  flexDirection: "row",
   justifyContent: "center",
   alignItems: "center",
-  marginTop: 30,
-  gap:1,
+  marginTop: 25,
+  gap:5,
 },
 
 signUpText: {
