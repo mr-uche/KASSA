@@ -32,9 +32,9 @@ const businessLinks = [
   { title: 'Business settings', route: '/cashier/settings',
     permission: 'Manage business settings',
     icon: { ios: 'gearshape', android: 'settings', web: 'settings' } },
-  { title: 'Offline sales & sync', route: '/cashier/offline-sales',
-    permission: 'Manage sales',
-    icon: { ios: 'arrow.triangle.2.circlepath', android: 'sync', web: 'sync' } },
+  { title: 'Products & Inventory', route: '/cashier/inventory',
+    permission: 'Manage products & inventory',
+    icon: { ios: 'square.on.square', android: 'inventory_2', web: 'inventory_2' } },
 ] as const;
 
 export default function Profile() {

@@ -8,7 +8,7 @@ import { canAccess } from './access';
 import { C } from './theme';
 
 type TabItem = {
-  key: 'home' | 'sales' | 'new-sale' | 'products' | 'profile';
+  key: 'home' | 'sales' | 'new-sale' | 'customers' | 'profile';
   label: string;
   route: Href;
   allowed: boolean;
@@ -38,7 +38,8 @@ export function KassaBottomNavigation() {
 
   const maySell = canAccess(scope, 'Manage sales');
   const mayViewTransactions = canAccess(scope, 'View transactions');
-  const mayManageProducts = canAccess(scope, 'Manage products & inventory');
+  const mayManageCustomers = canAccess(scope, 'Manage customers') &&
+    canAccess(scope, 'View transactions');
 
   const tabs: TabItem[] = [
     {
@@ -61,16 +62,16 @@ export function KassaBottomNavigation() {
       symbol: { ios: 'plus', android: 'add', web: 'add' },
     },
     {
-      key: 'products', label: 'Products', route: '/cashier/inventory',
-      allowed: mayManageProducts, active: pathname === '/cashier/inventory',
-      symbol: { ios: 'square.on.square', android: 'inventory_2', web: 'inventory_2' },
+      key: 'customers', label: 'Customers', route: '/cashier/customers',
+      allowed: mayManageCustomers, active: pathname === '/cashier/customers',
+      symbol: { ios: 'person.2', android: 'people', web: 'people' },
     },
     {
       key: 'profile', label: 'Profile', route: '/cashier/profile',
       allowed: true,
       active: ![
         '/cashier', '/cashier/sales', '/cashier/transactions',
-        '/cashier/new-sale', '/cashier/inventory',
+        '/cashier/new-sale', '/cashier/customers',
       ].includes(pathname),
       symbol: { ios: 'person.crop.circle', android: 'account_circle', web: 'account_circle' },
     },

@@ -33,8 +33,7 @@ function saleStatus(sale: CashierDashboard['recentSales'][number]): string {
 const quickActions = [
   { label: 'Scan product', route: '/cashier/scan-product', icon: { ios: 'barcode.viewfinder', android: 'barcode_scanner', web: 'barcode_scanner' } },
   { label: 'Find product', route: '/cashier/new-sale', icon: { ios: 'magnifyingglass', android: 'search', web: 'search' } },
-  { label: 'New sale', route: '/cashier/new-sale', icon: { ios: 'plus.circle', android: 'add_circle', web: 'add_circle' } },
-  { label: 'Customers', route: '/cashier/customers', icon: { ios: 'person.2', android: 'people', web: 'people' } },
+  { label: 'Transactions', route: '/cashier/transactions', icon: { ios: 'list.bullet.rectangle', android: 'receipt_long', web: 'receipt_long' } },
 ] as const;
 
 export default function CashierHome() {
@@ -49,8 +48,7 @@ export default function CashierHome() {
   const [profitError, setProfitError] = useState('');
   const financialAllowed = canAccess(scope, 'View financial overview');
   const canSell = canAccess(scope, 'Manage sales');
-  const canManageCustomers = canAccess(scope, 'Manage customers') &&
-    canAccess(scope, 'View transactions');
+  const canViewTransactions = canAccess(scope, 'View transactions');
   const go = (path: string) => router.push(path as Href);
 
   const refresh = useCallback(async (isCurrent: () => boolean = () => true) => {
@@ -126,26 +124,6 @@ export default function CashierHome() {
       <Text style={s.greeting}>{greeting}, {firstName}</Text>
       <Text style={s.intro}>Ready to make today's sales quick and easy.</Text>
 
-      {canSell && <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Start a new sale"
-        onPress={() => go('/cashier/new-sale')}
-        style={s.saleBanner}
-      >
-        <View style={s.bannerCopy}>
-          <Text style={s.bannerEyebrow}>POINT OF SALE</Text>
-          <Text style={s.bannerTitle}>Start a new sale</Text>
-          <Text style={s.bannerDescription}>Scan products and checkout customers.</Text>
-        </View>
-        <View style={s.bannerAdd}>
-          <SymbolView
-            name={{ ios: 'plus', android: 'add', web: 'add' }}
-            size={27}
-            tintColor={C.green}
-          />
-        </View>
-      </Pressable>}
-
       <View style={s.sectionHeading}>
         <Text style={s.sectionTitle}>Today's Activity</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Refresh dashboard"
@@ -195,7 +173,7 @@ export default function CashierHome() {
       <Text style={[s.sectionTitle, s.actionsHeading]}>Quick Actions</Text>
       <View style={s.actionsRow}>
         {quickActions.filter(action =>
-          action.label === 'Customers' ? canManageCustomers : canSell).map(action => (
+          action.label === 'Transactions' ? canViewTransactions : canSell).map(action => (
           <Pressable
             key={action.label}
             accessibilityRole="button"
@@ -206,7 +184,8 @@ export default function CashierHome() {
             <View style={s.actionIcon}>
               <SymbolView name={action.icon} size={19} tintColor={C.green} />
             </View>
-            <Text style={s.actionText}>{action.label}</Text>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}
+              style={s.actionText}>{action.label}</Text>
           </Pressable>
         ))}
       </View>
@@ -274,18 +253,6 @@ const s = StyleSheet.create({
   profitCard: { backgroundColor: C.white, borderColor: C.border, borderWidth: 1, borderRadius: 12, marginTop: 12, paddingHorizontal: 17, paddingVertical: 16 },
   profitAmount: { color: C.green, fontSize: 23, fontWeight: '800', marginTop: 8 },
   profitNote: { color: C.muted, fontSize: 13, marginTop: 5 },
-  saleBanner: {
-    backgroundColor: C.green, borderRadius: 13, paddingHorizontal: 20, paddingVertical: 19,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  },
-  bannerCopy: { flex: 1, paddingRight: 8 },
-  bannerEyebrow: { color: '#D4F1E7', fontSize: 14, fontWeight: '800', letterSpacing: 0.6 },
-  bannerTitle: { color: C.white, fontSize: 25, fontWeight: '800', marginTop: 6 },
-  bannerDescription: { color: '#D4F1E7', fontSize: 14, marginTop: 5 },
-  bannerAdd: {
-    width: 49, height: 49, borderRadius: 25, backgroundColor: C.white,
-    alignItems: 'center', justifyContent: 'center',
-  },
   sectionHeading: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginTop: 24, marginBottom: 13,
@@ -304,17 +271,17 @@ const s = StyleSheet.create({
   cardNote: { color: C.muted, fontSize: 14 },
   today: { color: C.green, fontSize: 14, marginTop: 6 },
   actionsHeading: { marginTop: 24, marginBottom: 13 },
-  actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+  actionsRow: { flexDirection: 'row', flexWrap: 'nowrap', gap: 8 },
   quickAction: {
-    flexGrow: 1, flexBasis: '46%', minHeight: 103, backgroundColor: C.white, borderColor: C.border,
-    borderWidth: 1, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 4,
+    flex: 1, minWidth: 0, minHeight: 99, backgroundColor: C.white, borderColor: C.border,
+    borderWidth: 1, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 4,
     alignItems: 'center', justifyContent: 'center',
   },
   actionIcon: {
     width: 37, height: 37, borderRadius: 19, backgroundColor: C.mint,
     alignItems: 'center', justifyContent: 'center', marginBottom: 10,
   },
-  actionText: { color: C.title, fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  actionText: { color: C.title, fontSize: 12, fontWeight: '700', textAlign: 'center', width: '100%' },
   recentHeading: { marginTop: 31 },
   viewAll: { color: C.green, fontSize: 14, fontWeight: '700' },
   recentCard: {
