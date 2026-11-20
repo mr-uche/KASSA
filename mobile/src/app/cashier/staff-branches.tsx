@@ -273,12 +273,20 @@ export default function StaffAndBranches() {
       <KField label="Full name" value={fullName} onChangeText={setFullName} placeholder="Full name"/>
       <KField label="Email address" value={email} onChangeText={setEmail}
         keyboardType="email-address" placeholder="staff@example.com"/>
-      <Text style={s.fieldLabel}>Role</Text>
-      <Tabs options={availableRoles.map(item => item.name)} value={selectedRole?.name ?? ''}
-        onChange={name => setInviteRole(availableRoles.find(role => role.name === name)?.id ?? '')}/>
-      <Text style={s.fieldLabel}>Branch</Text>
-      <Tabs options={activeBranches.map(item => item.name)} value={selectedBranch?.name ?? ''}
-        onChange={name => setInviteBranch(activeBranches.find(branch => branch.name === name)?.id ?? '')}/>
+      <View style={s.inviteSelectRow}>
+        <View style={s.inviteSelectField}>
+          <Text style={s.fieldLabel}>Role</Text>
+          <DropdownFilter label="Staff role" value={selectedRole?.name ?? 'Select role'}
+            options={availableRoles.map(item => item.name)}
+            onChange={name => setInviteRole(availableRoles.find(role => role.name === name)?.id ?? '')}/>
+        </View>
+        <View style={s.inviteSelectField}>
+          <Text style={s.fieldLabel}>Branch</Text>
+          <DropdownFilter label="Staff branch" value={selectedBranch?.name ?? 'Select branch'}
+            options={activeBranches.map(item => item.name)}
+            onChange={name => setInviteBranch(activeBranches.find(branch => branch.name === name)?.id ?? '')}/>
+        </View>
+      </View>
       <SmallAction label={busy ? 'Creating…' : 'Create invite'} disabled={busy}
         onPress={() => { void invite(); }}/>
       {!!inviteResult && <View style={s.invitation}>
@@ -361,6 +369,8 @@ const s = StyleSheet.create({
     backgroundColor: C.white, color: C.title, fontSize: 13 },
   section: { color: C.title, fontSize: 17, fontWeight: '800', marginBottom: 15 },
   fieldLabel: { color: C.text, fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  inviteSelectRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 18 },
+  inviteSelectField: { flex: 1, minWidth: 0 },
   message: { color: C.muted, fontSize: 14, marginBottom: 14 },
   invitation: { marginTop: 14 },
   permissionHint: { color: C.muted, fontSize: 12, marginBottom: 12 },
