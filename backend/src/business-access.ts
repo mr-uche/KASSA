@@ -1,5 +1,6 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service';
+import { requireSubscriptionFeature } from './subscription/subscription-access';
 
 // Never rely on hidden frontend buttons for authorization.
 // Owner role has full access. Other roles are restricted to explicitly granted
@@ -26,6 +27,16 @@ export async function requireBusinessPermission(
   if (!owner && !assigned.includes(permission) && !legacySales) {
     throw new ForbiddenException('Your assigned role does not permit this action');
   }
+  // Subscription entitlements are business-wide and independent of the
+  // member's role. Owners do not bypass an enabled plan feature restriction.
+  if (permission === 'Manage customers') {
+    await requireSubscriptionFeature(prisma, businessId, 'customers');
+  } else if (permission === 'View reports & analytics') {
+    await requireSubscriptionFeature(prisma, businessId, 'reports');
+  } else if (permission === 'View financial overview') {
+    await requireSubscriptionFeature(prisma, businessId, 'grossProfit');
+  }
+
   if (branchId) {
     if (!owner && membership.branchId !== branchId) {
       throw new ForbiddenException('You cannot access another branch');

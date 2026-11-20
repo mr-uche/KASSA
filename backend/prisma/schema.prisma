@@ -101,10 +101,39 @@ model Business {
   merchantBankAccounts MerchantBankAccount[]
   staffDrafts  StaffOnboardingDraft[]
   staffInvitations StaffInvitation[]
+  subscriptionCharges SubscriptionCharge[]
 }
 
 // Merchant receiving accounts: customer funds never pass through KASSA.
 // Account details are owner-supplied, NOT independently bank-verified.
+/** KASSA service fees only, entirely separate from customer sales and receipts.
+ * A single pending charge per business prevents duplicate checkout sessions.
+ * Successful charges remain as an immutable billing/audit history.
+ */
+model SubscriptionCharge {
+  id               String    @id @default(uuid()) @db.Uuid
+  businessId       String    @db.Uuid
+  planCode         String    @db.VarChar(48)
+  planName         String    @db.VarChar(80)
+  durationDays     Int
+  amountKobo       Int
+  currency         String    @default("NGN") @db.VarChar(3)
+  reference        String    @unique @db.VarChar(70)
+  checkoutUrl      String?   @db.VarChar(512)
+  status           String    @default("PENDING") @db.VarChar(20)
+  gatewayDomain    String    @default("test") @db.VarChar(8)
+  providerTxnId    String?   @unique @db.VarChar(80)
+  confirmedAt      DateTime?
+  periodStart      DateTime?
+  periodEnd        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  business         Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@index([businessId, status, periodEnd])
+}
+
 model MerchantBankAccount {
   id            String   @id @default(uuid()) @db.Uuid
   businessId    String   @db.Uuid

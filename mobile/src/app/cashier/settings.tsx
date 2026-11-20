@@ -3,6 +3,7 @@ import { Alert, Pressable, Share, StyleSheet, Switch, Text, View } from 'react-n
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as SQLite from 'expo-sqlite';
 import * as Print from 'expo-print';
+import * as WebBrowser from 'expo-web-browser';
 import { KCard, KField, KScreen } from '@/components/kassa-demo/ui';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { useKassaSession } from '@/components/kassa-demo/api';
@@ -22,6 +23,27 @@ type BusinessSettings = {
   branchId: string | null; branchName: string; branchAddress: string; branchPhone: string;
 };
 type Bank = { id: string; bankName: string; accountNumber: string; accountName: string; isDefault: boolean };
+type SubscriptionEntitlement = {
+  tier: 'free' | 'monthly' | 'quarterly' | 'annual';
+  maxBranches: number; maxStaff: number;
+  features: { customers: boolean; reports: boolean; grossProfit: boolean; dataExport: boolean };
+};
+type BillingState = {
+  configured: boolean; environment: 'test' | 'live' | null;
+  currency: 'NGN';
+  plans: { code: string; name: string; amountKobo: number; durationDays: number;
+    testPricing: boolean; entitlement: SubscriptionEntitlement }[];
+  entitlement: SubscriptionEntitlement & { expiresAt: string | null };
+  featureRestrictionsEnabled: boolean;
+  subscription: { status: 'ACTIVE' | 'EXPIRED' | 'NOT_ACTIVE'; planName: string | null; expiresAt: string | null };
+  pending: { reference: string; planName: string; checkoutUrl: string | null } | null;
+  history: { id: string; reference: string; planName: string; amountKobo: number;
+    status: string; environment: 'test' | 'live'; createdAt: string }[];
+  automaticRenewal: false;
+};
+function validPaystackCheckout(url: string): boolean {
+  return /^https:\/\/checkout\.paystack\.com\/[A-Za-z0-9/?=&._%-]+$/.test(url);
+}
 type NotificationKey = 'successfulPayments' | 'failedPayments' | 'lowStockAlerts' |
   'staffActivity' | 'securityAlerts' | 'productUpdates' |
   'channelEmail' | 'channelInApp' | 'channelSms';
@@ -156,6 +178,11 @@ export default function Settings() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [billing, setBilling] = useState<BillingState | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingBusy, setBillingBusy] = useState(false);
+  const [billingError, setBillingError] = useState('');
+  const [billingMessage, setBillingMessage] = useState('');
 
   const loadProfile = useCallback(async (alive: () => boolean = () => true) => {
     if (!businessId || !branchId || !canManageBusiness) return;
@@ -179,6 +206,57 @@ export default function Settings() {
       if (alive()) setBanks(Array.isArray(result) ? result : []);
     } catch (cause) { if (alive()) setError(cause instanceof Error ? cause.message : 'Cannot load receiving accounts.'); }
   }, [businessId, session.scope?.myRole, session.request]);
+
+  const refreshBilling = useCallback(async (alive: () => boolean = () => true) => {
+    if (!businessId || !isOwner) return;
+    if (alive()) { setBillingLoading(true); setBillingError(''); }
+    try {
+      const result = await session.request<BillingState>(
+        'billing/status?businessId=' + encodeURIComponent(businessId));
+      if (alive()) setBilling(result);
+    } catch (cause) {
+      if (alive()) { setBilling(null);
+        setBillingError(cause instanceof Error ? cause.message : 'Unable to load subscription billing.'); }
+    } finally { if (alive()) setBillingLoading(false); }
+  }, [businessId, isOwner, session.request]);
+
+  useEffect(() => {
+    if (section === 'Subscription & Billing' && isOwner) void refreshBilling();
+  }, [section, isOwner, refreshBilling]);
+
+  const subscribe = async (planCode: string) => {
+    if (!businessId || !isOwner || billingBusy || !billing?.configured) return;
+    setBillingBusy(true); setBillingError(''); setBillingMessage('');
+    try {
+      const result = await session.request<{
+        authorizationUrl: string; reference: string; environment: 'test' | 'live';
+      }>('billing/initialize', { businessId, planCode });
+      if (!validPaystackCheckout(result.authorizationUrl)) {
+        throw new Error('Paystack returned an invalid checkout URL.');
+      }
+      await WebBrowser.openBrowserAsync(result.authorizationUrl);
+      setBillingMessage('If payment succeeded, tap Verify payment to confirm it with Paystack.');
+      await refreshBilling();
+    } catch (cause) {
+      setBillingError(cause instanceof Error ? cause.message : 'Unable to start subscription.');
+      await refreshBilling();
+    } finally { setBillingBusy(false); }
+  };
+
+  const verifyBilling = async (reference: string) => {
+    if (!businessId || !isOwner || billingBusy) return;
+    setBillingBusy(true); setBillingError(''); setBillingMessage('');
+    try {
+      const result = await session.request<{ status: string; expiresAt: string | null }>(
+        'billing/verify', { businessId, reference });
+      setBillingMessage(result.status === 'SUCCEEDED'
+        ? 'Subscription verified. Your billing period has been updated.'
+        : 'Paystack status: ' + result.status + '. No subscription was activated.');
+      await refreshBilling();
+    } catch (cause) {
+      setBillingError(cause instanceof Error ? cause.message : 'Subscription verification failed.');
+    } finally { setBillingBusy(false); }
+  };
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -402,13 +480,81 @@ export default function Settings() {
       <KCard>
         <Text style={s.cardTitle}>Current subscription</Text>
         <Text style={s.businessName}>{profile?.businessName || session.scope?.businessName || 'KASSA Business'}</Text>
-        <StatusChip label="Not activated" color="orange"/>
-        <Text style={s.cardNote}>Subscription pricing, invoices, renewals and Paystack billing are not connected yet.</Text>
-        <InlineNotice text="Paystack will be used for KASSA subscriptions only, never customer checkout payments."/>
+        {billingLoading && <Text style={s.cardNote}>Loading subscription…</Text>}
+        {!!billingError && <InlineNotice text={billingError} warning/>}
+        {!!billingMessage && <InlineNotice text={billingMessage}/>}
+        {billing && <>
+          <StatusChip label={billing.subscription.status === 'ACTIVE' ? 'Active' :
+            billing.subscription.status === 'EXPIRED' ? 'Expired' : 'Not active'}
+            color={billing.subscription.status === 'ACTIVE' ? 'green' : 'orange'}/>
+          <Text style={s.billingDetail}>{billing.subscription.planName || 'No subscription purchased'}</Text>
+          {!!billing.subscription.expiresAt && <Text style={s.cardNote}>
+            Expires {new Date(billing.subscription.expiresAt).toLocaleDateString('en-NG')}
+          </Text>}
+          <Text style={s.billingDetail}>Current tier: {billing.entitlement.tier.toUpperCase()}</Text>
+          <Text style={s.cardNote}>
+            Includes {billing.entitlement.maxBranches} branch(es) and {billing.entitlement.maxStaff} staff account(s), including the owner.
+          </Text>
+          <Text style={s.cardNote}>{billing.featureRestrictionsEnabled
+            ? 'Subscription feature limits are enforced.'
+            : 'Feature limits are in preview until the platform administrator enables enforcement.'}</Text>
+          <Text style={s.cardNote}>{billing.environment === 'test'
+            ? 'Paystack TEST mode — no real money is charged.'
+            : billing.environment === 'live' ? 'Paystack LIVE payments.' : 'Billing gateway not configured.'}
+            {' '}Renewal is manual. There are no automatic charges.</Text>
+          {!billing.configured && <InlineNotice warning
+            text="KASSA's billing plans or Paystack credentials have not been configured by the platform administrator."/>}
+          {!!billing.pending && <>
+            <Text style={s.groupTitle}>Payment awaiting verification</Text>
+            <Text style={s.billingDetail}>{billing.pending.planName}</Text>
+            <Text style={s.cardNote}>Reference: {billing.pending.reference}</Text>
+            {!!billing.pending.checkoutUrl && <SmallAction secondary label="Continue Paystack checkout"
+              disabled={billingBusy} onPress={() => {
+                if (billing.pending?.checkoutUrl && validPaystackCheckout(billing.pending.checkoutUrl))
+                  void WebBrowser.openBrowserAsync(billing.pending.checkoutUrl);
+              }}/>}
+            <SmallAction label={billingBusy ? 'Verifying…' : 'Verify payment'} disabled={billingBusy}
+              onPress={() => { if (billing.pending) void verifyBilling(billing.pending.reference); }}/>
+          </>}
+        </>}
+        <SmallAction label="Refresh billing status" secondary disabled={billingLoading}
+          onPress={() => { void refreshBilling(); }}/>
       </KCard>
+      {billing && <KCard>
+        <Text style={s.cardTitle}>Monthly, Quarterly & Annual plans</Text>
+        {billing.plans.map(plan => <View key={plan.code} style={s.billingPlan}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.bankTitle}>{plan.name}</Text>
+            <Text style={s.billingDetail}>{naira(plan.amountKobo / 100)}</Text>
+            <Text style={s.cardNote}>{plan.durationDays} days</Text>
+            {plan.testPricing && <Text style={s.testPrice}>Test price only — not final pricing</Text>}
+            <Text style={s.cardNote}>Up to {plan.entitlement.maxBranches} branch(es) · {plan.entitlement.maxStaff} staff accounts</Text>
+            <Text style={s.cardNote}>{plan.entitlement.features.customers ? '✓' : '×'} Customers
+              {' · '}{plan.entitlement.features.reports ? '✓' : '×'} Reports</Text>
+            <Text style={s.cardNote}>{plan.entitlement.features.grossProfit ? '✓' : '×'} Gross profit
+              {' · '}{plan.entitlement.features.dataExport ? '✓' : '×'} Data export</Text>
+          </View>
+          <SmallAction label={billing.subscription.status === 'ACTIVE' ? 'Extend' : 'Subscribe'}
+            disabled={billingBusy || !billing.configured || !!billing.pending}
+            onPress={() => { void subscribe(plan.code); }}/>
+        </View>)}
+      </KCard>}
       <KCard>
         <Text style={s.cardTitle}>Billing history</Text>
-        <Text style={s.cardNote}>No subscription invoices can be shown until the billing system is activated.</Text>
+        {!billing?.history.length && <Text style={s.cardNote}>No subscription payments recorded.</Text>}
+        {billing?.history.map(charge => <View key={charge.id} style={s.billingHistory}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.bankTitle}>{charge.planName}</Text>
+            <Text style={s.cardNote}>
+              {new Date(charge.createdAt).toLocaleDateString('en-NG')} · {charge.environment.toUpperCase()}
+            </Text>
+          </View>
+          <View style={s.billingAmount}>
+            <Text style={s.bankTitle}>{naira(charge.amountKobo / 100)}</Text>
+            <Text style={s.cardNote}>{charge.status}</Text>
+          </View>
+        </View>)}
+        <InlineNotice text="Only KASSA subscription fees use Paystack. Customer checkout payments go directly to the business."/>
       </KCard>
     </>}
 
@@ -537,6 +683,13 @@ const s = StyleSheet.create({
   cardTitle: { color: C.title, fontSize: 19, fontWeight: '800', marginBottom: 6 },
   cardNote: { color: C.muted, fontSize: 12, lineHeight: 19, marginBottom: 16 },
   businessName: { fontSize: 17, fontWeight: '800', color: C.title, marginTop: 11, marginBottom: 9 },
+  billingPlan: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1,
+    borderColor: C.border, borderRadius: 9, padding: 12, marginTop: 10 },
+  billingDetail: { fontSize: 14, fontWeight: '700', color: C.title, marginVertical: 8 },
+  testPrice: { color: C.orange, fontSize: 12, marginTop: 4, marginBottom: 4, fontWeight: '700' },
+  billingHistory: { flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    borderBottomWidth: 1, borderBottomColor: C.border, paddingVertical: 12 },
+  billingAmount: { alignItems: 'flex-end' },
   sectionOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     borderWidth: 1, borderColor: C.border, borderRadius: 10,
     backgroundColor: C.white, padding: 14, marginBottom: 9 },

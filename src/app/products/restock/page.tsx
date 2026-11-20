@@ -138,7 +138,7 @@ export default function RestockProductPage() {
         </header>
 
         <p className="mb-6 px-4 pt-6 text-sm text-gray-500 sm:px-6 sm:pt-8 sm:text-base lg:px-8 lg:pt-12">
-          Update inventory quantities for products that are running low.
+          Restock any product in your catalogue, whether its stock is low, zero or already available.
         </p>
 
         {/* ================= CONTENT GRID ================= */}

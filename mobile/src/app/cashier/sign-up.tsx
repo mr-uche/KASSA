@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
 import { C } from '@/components/kassa-demo/theme';
 import { KButton, KField, KScreen } from '@/components/kassa-demo/ui';
@@ -57,7 +58,8 @@ export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
-  const [visible, setVisible] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmationVisible, setConfirmationVisible] = useState(false);
 
   const [businessName, setBusinessName] = useState('');
   const [businessType, setBusinessType] = useState('');
@@ -196,7 +198,7 @@ export default function SignUp() {
     subtitle={step === 0
       ? 'Start with your account details. Your business setup comes next.'
       : 'A few details before you start taking sales.'}
-    nav={false} back={false} showPreviewLabel={false}>
+    nav={false} back={false} showPreviewLabel={false} loginSizedBrand>
     {step > 0 && <View style={s.progress} accessibilityLabel={'Business setup step ' + step + ' of 4'}>
       {titles.map((title, index) => {
         const number = index + 1;
@@ -223,13 +225,30 @@ export default function SignUp() {
           keyboardType="phone-pad" placeholder="+234..."/>
         <KField label="Email address" value={email} onChangeText={setEmail}
           keyboardType="email-address" placeholder="you@example.com"/>
-        <KField label="Password" value={password} onChangeText={setPassword}
-          secureTextEntry={!visible} placeholder="Minimum 12 characters"/>
-        <KField label="Confirm password" value={confirmation} onChangeText={setConfirmation}
-          secureTextEntry={!visible} placeholder="Re-enter password"/>
-        <Pressable accessibilityRole="button" onPress={() => setVisible(value => !value)} style={s.toggle}>
-          <Text style={s.link}>{visible ? 'Hide passwords' : 'Show passwords'}</Text>
-        </Pressable>
+        <Text style={s.fieldLabel}>Password</Text>
+        <View style={s.passwordWrap}>
+          <TextInput value={password} onChangeText={setPassword}
+            placeholder="Minimum 12 characters" placeholderTextColor={C.faint}
+            secureTextEntry={!passwordVisible} autoCapitalize="none" autoCorrect={false}
+            style={s.passwordInput}/>
+          <Pressable accessibilityRole="button" accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
+            onPress={() => setPasswordVisible(value => !value)} style={s.eyeButton}>
+            <SymbolView name={passwordVisible ? { ios: 'eye.slash', android: 'visibility_off', web: 'visibility_off' }
+              : { ios: 'eye', android: 'visibility', web: 'visibility' }} size={22} tintColor={C.green}/>
+          </Pressable>
+        </View>
+        <Text style={s.fieldLabel}>Confirm password</Text>
+        <View style={s.passwordWrap}>
+          <TextInput value={confirmation} onChangeText={setConfirmation}
+            placeholder="Re-enter password" placeholderTextColor={C.faint}
+            secureTextEntry={!confirmationVisible} autoCapitalize="none" autoCorrect={false}
+            style={s.passwordInput}/>
+          <Pressable accessibilityRole="button" accessibilityLabel={confirmationVisible ? 'Hide confirm password' : 'Show confirm password'}
+            onPress={() => setConfirmationVisible(value => !value)} style={s.eyeButton}>
+            <SymbolView name={confirmationVisible ? { ios: 'eye.slash', android: 'visibility_off', web: 'visibility_off' }
+              : { ios: 'eye', android: 'visibility', web: 'visibility' }} size={22} tintColor={C.green}/>
+          </Pressable>
+        </View>
       </>}
 
       {step === 1 && <>
@@ -386,7 +405,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 20, justifyContent: 'center', alignItems: 'center', backgroundColor: C.white },
   backText: { color: C.text, fontWeight: '700', fontSize: 14 },
   primary: { flex: 1 },
-  toggle: { alignSelf: 'flex-end', paddingVertical: 7, marginBottom: 13 },
+  passwordWrap: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#D1D5DB',
+    borderRadius: 9, backgroundColor: C.white, height: 51, marginBottom: 19 },
+  passwordInput: { flex: 1, minWidth: 0, height: 51, paddingLeft: 15, paddingRight: 5,
+    fontSize: 14, color: C.title },
+  eyeButton: { width: 50, height: 51, alignItems: 'center', justifyContent: 'center' },
   error: { marginTop: 12, color: C.danger, fontSize: 14, lineHeight: 20 },
   notice: { marginTop: 12, color: C.orange, fontSize: 14, lineHeight: 20 },
   login: { alignSelf: 'center', paddingVertical: 20 },

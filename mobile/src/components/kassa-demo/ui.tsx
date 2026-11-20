@@ -9,14 +9,19 @@ import { KassaBusinessHeader } from './business-header';
 import { KassaBottomNavigation } from './bottom-navigation';
 import { useKassaSession } from './api';
 
-export function KassaLogo({ compact = false }: { compact?: boolean }) {
-  return <View style={s.brand}>
-    <Image source={require('../../../assets/images/logo.png')} style={[s.logo, compact && { width: 31, height: 31 }]} resizeMode="contain" />
-    <Text style={[s.brandText, compact && { fontSize: 18 }]}>{compact ? "Kassa" : "KASSA"}</Text>
+export function KassaLogo({ compact = false, loginSize = false }: { compact?: boolean; loginSize?: boolean }) {
+  return <View style={[s.brand, loginSize && s.loginBrand]}>
+    <Image source={require('../../../assets/images/logo.png')}
+      style={[s.logo, compact && { width: 31, height: 31 }, loginSize && { width: 70, height: 70 }]}
+      resizeMode="contain"/>
+    <Text style={[s.brandText, compact && { fontSize: 18 },
+      loginSize && { fontSize: 30, marginTop: 8, letterSpacing: 0 }]}>
+      {compact && !loginSize ? 'Kassa' : 'KASSA'}
+    </Text>
   </View>;
 }
 
-export function KScreen({ title, subtitle, children, nav = true, back = false, showBrand = true, showPreviewLabel = true }: { title?: string; subtitle?: string; children: React.ReactNode; nav?: boolean; back?: boolean; showBrand?: boolean; showPreviewLabel?: boolean }) {
+export function KScreen({ title, subtitle, children, nav = true, back = false, showBrand = true, showPreviewLabel = true, loginSizedBrand = false }: { title?: string; subtitle?: string; children: React.ReactNode; nav?: boolean; back?: boolean; showBrand?: boolean; showPreviewLabel?: boolean; loginSizedBrand?: boolean }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
@@ -29,7 +34,7 @@ export function KScreen({ title, subtitle, children, nav = true, back = false, s
     <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingTop: headerVisible ? 12 : Math.max(insets.top, 12) + 14, paddingBottom: 36, paddingHorizontal: 24, flexGrow: 1 }}>
       {back ? <Pressable onPress={() => router.back()} style={{ marginBottom: 20, alignSelf: 'flex-start' }}><Text style={{ color: C.green, fontWeight: '700' }}>‹  Back</Text></Pressable> : null}
-      {standaloneBrand ? <KassaLogo compact /> : null}
+      {standaloneBrand ? <KassaLogo compact={!loginSizedBrand} loginSize={loginSizedBrand}/> : null}
       {title ? <Text style={s.title}>{title}</Text> : null}
       {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
       <View style={{ marginTop: title ? 22 : standaloneBrand ? 28 : 0 }}>{children}</View>
@@ -66,6 +71,7 @@ export function KLinkRow({ title, subtitle, onPress, symbol = '›' }: { title: 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' },
+  loginBrand: { flexDirection: 'column', alignSelf: 'center', gap: 0 },
   logo: { width: 55, height: 55 }, brandText: { fontWeight: '800', color: C.green, fontSize: 28, letterSpacing: 0.5 },
   title: { fontSize: 30, fontWeight: '800', color: C.title, marginTop: 24 },
   subtitle: { fontSize: 14, color: C.muted, lineHeight: 22, marginTop: 6 },
