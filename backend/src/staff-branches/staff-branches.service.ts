@@ -7,6 +7,7 @@ import { hash } from 'bcryptjs';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { requireBusinessPermission } from '../business-access';
+import { requireSubscriptionCapacity } from '../subscription/subscription-access';
 import {
   CreateBranchDto, CreateInvitationDto, CreateRoleDto, RegisterInvitationDto,
   UpdateStaffDto, UpdateBranchDto, UpdateRoleDto,
@@ -140,6 +141,7 @@ export class StaffBranchesService {
 
   async createBranch(userId: string, dto: CreateBranchDto) {
     await this.canManageStaff(userId, dto.businessId);
+    await requireSubscriptionCapacity(this.prisma, dto.businessId, 'branches');
     const name = tidy(dto.name);
     if (!name) throw new BadRequestException('Branch name is required');
     try {
@@ -290,6 +292,7 @@ export class StaffBranchesService {
 
   async invite(userId: string, dto: CreateInvitationDto) {
     await this.canManageStaff(userId, dto.businessId);
+    await requireSubscriptionCapacity(this.prisma, dto.businessId, 'staff');
     await this.validAssignment(dto.businessId, dto.roleId, dto.branchId);
     await this.canAssignRole(userId, dto.businessId, dto.roleId);
     const email = dto.email.trim().toLowerCase();

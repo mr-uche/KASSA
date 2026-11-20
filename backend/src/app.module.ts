@@ -12,6 +12,7 @@ import { StaffBranchesModule } from './staff-branches/staff-branches.module';
 import { ReportsModule } from './reports/reports.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PaystackModule } from './paystack/paystack.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 import { SupportModule } from './support/support.module';
 
 @Module({
@@ -24,6 +25,7 @@ import { SupportModule } from './support/support.module';
     BusinessesModule,
     InventoryModule,
     SalesModule,
+    SubscriptionModule,
     PaystackModule,
     CustomersModule,
     StaffBranchesModule,

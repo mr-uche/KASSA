@@ -7,6 +7,7 @@ import Link from "next/link";
 import { CheckCircle2, Loader2, Menu, ShieldAlert } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import { getInventoryContext } from "@/lib/inventory-client";
+import { loadBilling, beginSubscription, verifySubscription, type BillingStatus } from "@/lib/kassa-billing";
 import {
   getBusinessSettings, updateBusinessSettings, getMerchantBankAccounts,
   addMerchantBankAccount, updateMerchantBankAccount, deleteMerchantBankAccount,
@@ -105,6 +106,11 @@ export default function SettingsPage() {
   const [deletePhrase, setDeletePhrase] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [accountClosed, setAccountClosed] = useState(false);
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingBusy, setBillingBusy] = useState(false);
+  const [billingError, setBillingError] = useState("");
+  const [billingMessage, setBillingMessage] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -126,6 +132,12 @@ export default function SettingsPage() {
       setError(cause instanceof Error ? cause.message : "Unable to load settings.");
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("billing") === "return") {
+      setSection("Subscription & Billing");
     }
   }, []);
 
@@ -245,6 +257,48 @@ export default function SettingsPage() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not remove account.");
     } finally { setAccountsSaving(false); }
+  }
+
+  const refreshBilling = useCallback(async () => {
+    if (!context?.businessId || !isOwner) return;
+    setBillingLoading(true);
+    setBillingError("");
+    try {
+      setBilling(await loadBilling(context.businessId));
+    } catch (cause) {
+      setBilling(null);
+      setBillingError(cause instanceof Error ? cause.message : "Cannot load KASSA billing.");
+    } finally { setBillingLoading(false); }
+  }, [context?.businessId, isOwner]);
+
+  useEffect(() => {
+    if (section === "Subscription & Billing") void refreshBilling();
+  }, [section, refreshBilling]);
+
+  async function purchaseSubscription(planCode: string) {
+    if (!context || !isOwner || billingBusy || !billing?.configured) return;
+    setBillingBusy(true); setBillingError(""); setBillingMessage("");
+    try {
+      const result = await beginSubscription(context.businessId, planCode);
+      window.location.assign(result.authorizationUrl);
+    } catch (cause) {
+      setBillingError(cause instanceof Error ? cause.message : "Unable to start checkout.");
+      await refreshBilling();
+    } finally { setBillingBusy(false); }
+  }
+
+  async function confirmSubscription(reference: string) {
+    if (!context || !isOwner || billingBusy) return;
+    setBillingBusy(true); setBillingError(""); setBillingMessage("");
+    try {
+      const result = await verifySubscription(context.businessId, reference);
+      setBillingMessage(result.status === "SUCCEEDED" ?
+        "KASSA subscription payment verified and recorded." :
+        "Paystack reports: " + result.status + ". No subscription has been activated.");
+      await refreshBilling();
+    } catch (cause) {
+      setBillingError(cause instanceof Error ? cause.message : "Could not verify billing payment.");
+    } finally { setBillingBusy(false); }
   }
 
   async function runExport() {
@@ -413,19 +467,111 @@ export default function SettingsPage() {
             )}
 
             {isOwner && section === "Subscription & Billing" && (
-              <section className={cardClass}>
-                <h2 className="text-lg font-semibold text-gray-900">KASSA Subscription & Billing</h2>
-                <p className="mt-3 text-sm leading-6 text-gray-600">
-                  <strong>Paystack is reserved for paying KASSA subscription fees only.</strong>
-                  Customer purchases in your supermarket do not use Paystack: customers pay your own business directly.
-                  Your KASSA subscription fee is a separate payment to the KASSA service.
-                </p>
-                <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                  Subscription billing: <strong>Not activated</strong>. Subscription prices, billing periods,
-                  KASSA's Paystack billing configuration and recurring-payment management still require setup.
-                  No subscription charges can be started from this screen yet.
-                </div>
-              </section>
+              <div className="space-y-5">
+                <section className={cardClass}>
+                  <h2 className="text-lg font-semibold text-gray-900">KASSA Subscription & Billing</h2>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Paystack handles your KASSA service subscription only. Customer purchases
+                    are paid directly to your business, not KASSA.
+                  </p>
+                  {billingLoading && <p className="mt-3 text-sm text-gray-500">Loading billing information…</p>}
+                  {billingError && <p role="alert" className="mt-3 text-sm text-red-700">{billingError}</p>}
+                  {billingMessage && <p role="status" className="mt-3 text-sm text-emerald-800">{billingMessage}</p>}
+                  {billing && <>
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <span className={"rounded-lg px-3 py-1.5 text-sm font-semibold " +
+                        (billing.subscription.status === "ACTIVE"
+                          ? "bg-emerald-100 text-emerald-800" : "bg-amber-50 text-amber-800")}>
+                        {billing.subscription.status === "ACTIVE" ? "Active" :
+                          billing.subscription.status === "EXPIRED" ? "Expired" : "Not active"}
+                      </span>
+                      <span className="text-sm text-gray-700">
+                        {billing.subscription.planName ?? "No subscription purchased"}
+                        {billing.subscription.expiresAt &&
+                          " · Expires " + new Date(billing.subscription.expiresAt).toLocaleDateString("en-NG")}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm text-gray-700">
+                      Current tier: <strong>{billing.entitlement.tier.toUpperCase()}</strong>
+                      {" · "}Up to {billing.entitlement.maxBranches} branch(es) and {billing.entitlement.maxStaff} staff account(s), including the owner.
+                    </p>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Feature limits: {billing.featureRestrictionsEnabled
+                        ? "Enforced on the backend" : "Pilot preview only — feature restrictions have not been enabled by the platform administrator"}.
+                    </p>
+                    <p className="mt-3 text-xs text-gray-500">
+                      {billing.environment === "test" ? "Paystack TEST mode — no real money is charged." :
+                        billing.environment === "live" ? "Paystack live payment mode." : "Gateway not configured."}
+                      {" "}Renewal is manual; automatic charging is not enabled.
+                    </p>
+                    {!billing.configured && <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                      KASSA billing plans or payment credentials have not been configured by the platform administrator.
+                    </p>}
+                    {billing.pending && <div className="mt-4 rounded-lg border border-amber-200 p-4">
+                      <p className="text-sm font-semibold">Payment awaiting verification: {billing.pending.planName}</p>
+                      <p className="mt-1 text-xs text-gray-600">Reference: {billing.pending.reference}</p>
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        {billing.pending.checkoutUrl && <a href={billing.pending.checkoutUrl}
+                          rel="noopener noreferrer" target="_blank"
+                          className="rounded-lg border border-emerald-700 px-3 py-2 text-sm text-emerald-800">
+                          Continue Paystack checkout
+                        </a>}
+                        <button type="button" onClick={() => void confirmSubscription(billing.pending!.reference)}
+                          disabled={billingBusy}
+                          className="rounded-lg bg-emerald-800 px-3 py-2 text-sm text-white disabled:opacity-50">
+                          Verify payment
+                        </button>
+                      </div>
+                    </div>}
+                  </>}
+                  <button type="button" onClick={() => void refreshBilling()} disabled={billingLoading}
+                    className="mt-4 text-sm font-semibold text-emerald-800 disabled:opacity-50">
+                    Refresh subscription status
+                  </button>
+                </section>
+                {billing && <section className={cardClass}>
+                  <h3 className="mb-3 text-base font-semibold">Three subscription plans</h3>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {billing.plans.map(plan => <div key={plan.code} className="rounded-lg border border-gray-200 p-4">
+                      <p className="font-semibold">{plan.name}</p>
+                      <p className="mt-2 text-xl font-bold text-emerald-800">
+                        {"₦" + (plan.amountKobo / 100).toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">{plan.durationDays} days of KASSA access</p>
+                      {plan.testPricing && <p className="mt-1 text-xs font-semibold text-amber-700">Illustrative test price</p>}
+                      <ul className="mt-3 space-y-1 text-xs text-gray-600">
+                        <li>Up to {plan.entitlement.maxBranches} branch(es)</li>
+                        <li>Up to {plan.entitlement.maxStaff} staff accounts (owner included)</li>
+                        <li>{plan.entitlement.features.customers ? "Customer management" : "Customer management locked"}</li>
+                        <li>{plan.entitlement.features.reports ? "Reports & Analytics" : "Reports locked"}</li>
+                        <li>{plan.entitlement.features.grossProfit ? "Gross-profit overview" : "Gross profit locked"}</li>
+                        <li>{plan.entitlement.features.dataExport ? "Data export" : "Data export locked"}</li>
+                      </ul>
+                      <button type="button" disabled={billingBusy || !billing.configured || !!billing.pending}
+                        onClick={() => void purchaseSubscription(plan.code)}
+                        className="mt-3 rounded-lg bg-emerald-800 px-4 py-2 text-sm text-white disabled:opacity-50">
+                        {billing.subscription.status === "ACTIVE" ? "Extend subscription" : "Subscribe"}
+                      </button>
+                    </div>)}
+                  </div>
+                </section>}
+                <section className={cardClass}>
+                  <h3 className="text-base font-semibold text-gray-900">Billing history</h3>
+                  {!billing?.history.length && <p className="mt-3 text-sm text-gray-500">No subscription payments recorded.</p>}
+                  <div className="mt-3 space-y-2">
+                    {billing?.history.map(charge => <div key={charge.id}
+                      className="flex flex-wrap justify-between gap-3 rounded-lg border border-gray-200 p-3 text-sm">
+                      <div><p className="font-semibold">{charge.planName}</p>
+                        <p className="text-xs text-gray-500">{new Date(charge.createdAt).toLocaleDateString("en-NG")} · {charge.environment.toUpperCase()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p>{"₦" + (charge.amountKobo / 100).toLocaleString("en-NG", { minimumFractionDigits: 2 })}</p>
+                        <p className="text-xs text-gray-500">{charge.status}</p>
+                      </div>
+                    </div>)}
+                  </div>
+                </section>
+              </div>
             )}
 
             {isOwner && section === "Merchant Payment Details" && (

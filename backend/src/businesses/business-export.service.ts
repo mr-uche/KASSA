@@ -2,6 +2,7 @@ import {
   ForbiddenException, Injectable, PayloadTooLargeException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { requireSubscriptionFeature } from '../subscription/subscription-access';
 import { ExportBusinessDto } from './dto/export-business.dto';
 
 // Fail rather than silently download incomplete financial records.
@@ -26,6 +27,7 @@ export class BusinessExportService {
     if (membership?.role.name !== 'Owner') {
       throw new ForbiddenException('Only the business owner can export business data');
     }
+    await requireSubscriptionFeature(this.prisma, businessId, 'dataExport');
 
     const now = new Date();
     const dateRange = dto.dateRange ?? 'ALL';

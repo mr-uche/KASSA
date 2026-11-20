@@ -3,6 +3,7 @@ import {
   ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SubscriptionService } from '../subscription/subscription.service';
 import { requireBusinessPermission } from '../business-access';
 import { InitializePaystackDto, ReconcilePaystackDto } from './paystack.dto';
 
@@ -47,7 +48,7 @@ type SaleForPayment = NonNullable<Awaited<ReturnType<PaystackService['getSaleFor
 
 @Injectable()
 export class PaystackService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly subscriptions: SubscriptionService) {}
 
   private testKey(): string {
     const key = process.env.PAYSTACK_SECRET_KEY?.trim() ?? '';
@@ -321,7 +322,17 @@ export class PaystackService {
   async handleSignedWebhook(payload: unknown) {
     if (!payload || typeof payload !== 'object') return { received: true, ignored: true };
     const event = payload as { event?: unknown; data?: { reference?: unknown } };
-    if (event.event !== 'charge.success' || !validPaystackReference(event.data?.reference)) {
+    if (event.event !== 'charge.success') {
+      return { received: true, ignored: true };
+    }
+    if (typeof event.data?.reference === 'string' &&
+        /^KSB-[0-9a-f-]{36}$/i.test(event.data.reference)) {
+      // This webhook has already passed the raw-body Paystack signature check.
+      // Only a verified Paystack transaction can activate a subscription.
+      await this.subscriptions.verifyReference(event.data.reference);
+      return { received: true };
+    }
+    if (!validPaystackReference(event.data?.reference)) {
       return { received: true, ignored: true };
     }
     // Never trust the webhook payload's amount or success status: use server-to-server verification.

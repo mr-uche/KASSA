@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { requireBusinessPermission } from '../business-access';
+import { featureGatesEnabled, SUBSCRIPTION_ENTITLEMENTS } from '../subscription/subscription-access';
 import { OnboardingDto } from './dto/onboarding.dto';
 import { UpdateBusinessSettingsDto } from './dto/update-business-settings.dto';
 import { CreateMerchantBankAccountDto, UpdateMerchantBankAccountDto } from './dto/merchant-bank-account.dto';
@@ -172,6 +173,11 @@ export class BusinessesService {
   }
 
   async onboard(userId: string, dto: OnboardingDto) {
+    // New businesses start on the no-subscription tier; they can add branches
+    // after upgrading. Existing business branches are never removed.
+    if (featureGatesEnabled() && dto.branches.length > SUBSCRIPTION_ENTITLEMENTS.free.maxBranches) {
+      throw new BadRequestException('Start with one branch, then upgrade your KASSA subscription to add more.');
+    }
     const branchNames = dto.branches.map((branch) => branch.name.trim().toLowerCase());
     if (new Set(branchNames).size !== branchNames.length) {
       throw new BadRequestException('Branch names must be unique within a business');

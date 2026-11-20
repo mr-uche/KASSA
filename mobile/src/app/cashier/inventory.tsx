@@ -46,6 +46,7 @@ export default function Inventory() {
   const [newCategory, setNewCategory] = useState('');
   const [categoryForm, setCategoryForm] = useState(false);
   const [restockProduct, setRestockProduct] = useState<Product | null>(null);
+  const [restockOpen, setRestockOpen] = useState(false);
   const [restockQty, setRestockQty] = useState('');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -88,6 +89,9 @@ export default function Inventory() {
   ), [categories, query]);
   const low = products.filter(item => item.stock > 0 && item.stock <= item.lowStockThreshold).length;
   const out = products.filter(item => item.stock <= 0).length;
+  // Always choose from the entire branch catalogue, never just low-stock results.
+  const restockChoices = products.map(item => item.name + ' · SKU: ' + item.sku);
+  const selectedRestockProduct = products.find(item => item.id === restockProduct?.id) ?? null;
 
   async function addCategory() {
     if (!scope || busy) return;
@@ -101,7 +105,7 @@ export default function Inventory() {
     finally { setBusy(false); }
   }
   async function restock() {
-    if (!scope || !restockProduct || busy) return;
+    if (!scope || !selectedRestockProduct || busy) return;
     const qty = Number(restockQty);
     if (!/^\d+$/.test(restockQty) || !Number.isSafeInteger(qty) || qty < 1 || qty > 100000000) {
       setError('Enter a whole restock quantity between 1 and 100,000,000.');
@@ -109,10 +113,10 @@ export default function Inventory() {
     }
     setBusy(true); setError('');
     try {
-      await session.request('inventory/products/' + encodeURIComponent(restockProduct.id) + '/restock', {
+      await session.request('inventory/products/' + encodeURIComponent(selectedRestockProduct.id) + '/restock', {
         businessId: scope.businessId, branchId: scope.branchId, quantity: qty,
       });
-      setRestockProduct(null); setRestockQty('');
+      setRestockProduct(null); setRestockQty(''); setRestockOpen(false);
       await load(); await store.refreshCatalog();
       Alert.alert('Stock updated', 'The branch stock balance was increased.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to restock product.'); }
@@ -151,28 +155,41 @@ export default function Inventory() {
       />
       {tab === 'Catalogue' && <SmallAction label="+ Add product" onPress={() => router.push('/cashier/add-product')}/>}
       {tab === 'Categories' && <SmallAction label="+ Add category" onPress={() => setCategoryForm(value => !value)}/>}
-      {tab === 'Low Stock' && <SmallAction label="Restock products"
-        onPress={() => setRestockProduct(products.find(item => stockState(item) !== 'In stock') ?? null)}
-        disabled={!low && !out}/>}
+}
     </View>
     <View style={s.refreshRow}>
+      {tab !== 'Categories' && <SmallAction label="Restock products"
+        disabled={!products.length || busy}
+        onPress={() => { setRestockProduct(null); setRestockQty(''); setRestockOpen(v => !v); }}/>}
       <SmallAction label="Refresh" secondary disabled={loading} onPress={() => { void load(); }}/>
     </View>
     {categoryForm && tab === 'Categories' && <KCard>
       <KField label="Category name" value={newCategory} onChangeText={setNewCategory} placeholder="Enter category name"/>
       <SmallAction label={busy ? 'Saving…' : 'Save category'} disabled={busy} onPress={() => { void addCategory(); }}/>
     </KCard>}
-    {restockProduct && <KCard>
-      <Text style={s.section}>Restock {restockProduct.name}</Text>
-      <Text style={s.muted}>Current branch stock: {restockProduct.stock}</Text>
+    {restockOpen && tab !== 'Categories' && <KCard>
+      <Text style={s.section}>Restock product</Text>
+      <Text style={s.muted}>Select any product from your catalogue, regardless of its current stock.</Text>
+      <DropdownFilter label="Choose product" value={selectedRestockProduct
+        ? selectedRestockProduct.name + ' · SKU: ' + selectedRestockProduct.sku : 'Select product'}
+        options={restockChoices}
+        onChange={value => {
+          setRestockProduct(products.find(item => item.name + ' · SKU: ' + item.sku === value) ?? null);
+          setRestockQty('');
+        }}/>
+      {!!selectedRestockProduct && <Text style={s.stockInfo}>
+        Current branch stock: {selectedRestockProduct.stock} units
+      </Text>}
       <KField label="Quantity to add" value={restockQty} keyboardType="numeric"
         onChangeText={v => setRestockQty(v.replace(/\D/g, '').slice(0, 9))} placeholder="e.g. 24"/>
       <View style={s.actionRow}>
-        <SmallAction label="Cancel" secondary onPress={() => { setRestockProduct(null); setRestockQty(''); }}/>
-        <SmallAction label={busy ? 'Saving…' : 'Confirm restock'} disabled={busy}
+        <SmallAction label="Cancel" secondary onPress={() => {
+          setRestockProduct(null); setRestockQty(''); setRestockOpen(false);
+        }}/>
+        <SmallAction label={busy ? 'Saving…' : 'Confirm restock'} disabled={busy || !selectedRestockProduct}
           onPress={() => { void restock(); }}/>
       </View>
-    </KCard>}
+    </KCard>
     {!!error && <InlineNotice warning text={error}/>}
     {loading && <Text style={s.muted}>Loading inventory…</Text>}
     {tab === 'Catalogue' && <MetricGrid items={[
@@ -207,7 +224,7 @@ export default function Inventory() {
             tone={status === 'In stock' ? 'green' : status === 'Low stock' ? 'orange' : 'red'}/>
           {tab === 'Low Stock' && <View style={s.restockLink}>
             <SmallAction label={'Restock ' + item.name} secondary
-              onPress={() => { setRestockProduct(item); setRestockQty(''); }} />
+              onPress={() => { setRestockProduct(item); setRestockQty(''); setRestockOpen(true); }} />
           </View>}
         </View>;
       })}
@@ -222,7 +239,8 @@ const s = StyleSheet.create({
   searchActionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   searchInput: { flex: 1, minWidth: 0, minHeight: 44, borderWidth: 1, borderColor: C.border,
     backgroundColor: C.white, borderRadius: 9, color: C.title, fontSize: 13, paddingHorizontal: 12 },
-  refreshRow: { alignSelf: 'flex-end', marginBottom: 14 },
+  refreshRow: { alignSelf: 'flex-end', flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  stockInfo: { color: C.text, fontSize: 13, marginTop: 12, marginBottom: 12 },
   actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginBottom: 16, alignItems: 'center' },
   muted: { color: C.muted, fontSize: 13, marginBottom: 14 },
   section: { color: C.title, fontWeight: '800', fontSize: 17, marginBottom: 8 },
