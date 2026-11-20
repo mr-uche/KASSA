@@ -1,4 +1,6 @@
 import React, { createContext, useCallback, useContext, useState } from 'react';
+import { fetch as expoFetch } from 'expo/fetch';
+import type { File } from 'expo-file-system';
 
 export type KassaScope = {
   businessId: string;
@@ -142,6 +144,8 @@ type Session = {
   selectScope(scope: KassaScope): void;
   signOut(): Promise<void>;
   request<T>(path: string, body?: unknown, method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'): Promise<T>;
+  uploadReceipt(path: string, file: File): Promise<void>;
+  downloadReceipt(path: string): Promise<Uint8Array>;
 };
 const SessionContext = createContext<Session | null>(null);
 
@@ -205,8 +209,46 @@ export function KassaSessionProvider({ children }: { children: React.ReactNode }
     }
   }, [accessToken, refreshToken]);
 
+
+  // Keep expense receipts on the same authenticated backend as merchant data.
+  // The Expo fetch implementation handles the File as a multipart Blob.
+  const authorizedFileFetch = useCallback(async (
+    path: string, makeOptions: (token: string) => RequestInit,
+  ) => {
+    if (!accessToken) throw new Error('Sign in before accessing receipts.');
+    const send = (token: string) => expoFetch(urlFor(path), makeOptions(token));
+    let response = await send(accessToken);
+    if (response.status === 401 && refreshToken) {
+      const refreshed = await http<LoginResponse>('auth/refresh', undefined, { refreshToken });
+      setAccessToken(refreshed.accessToken);
+      response = await send(refreshed.accessToken);
+    }
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null) as { message?: string | string[] } | null;
+      throw new Error(Array.isArray(detail?.message) ? detail.message.join(', ')
+        : detail?.message || 'Receipt request failed (' + response.status + ').');
+    }
+    return response;
+  }, [accessToken, refreshToken]);
+
+  const uploadReceipt = useCallback(async (path: string, file: File): Promise<void> => {
+    const body = new FormData();
+    body.append('file', file);
+    await authorizedFileFetch(path, token => ({
+      method: 'POST', headers: { Authorization: 'Bearer ' + token },
+      body,
+    }));
+  }, [authorizedFileFetch]);
+
+  const downloadReceipt = useCallback(async (path: string): Promise<Uint8Array> => {
+    const response = await authorizedFileFetch(path, token => ({
+      method: 'GET', headers: { Authorization: 'Bearer ' + token },
+    }));
+    return response.bytes();
+  }, [authorizedFileFetch]);
+
   return (
-    <SessionContext.Provider value={{ user, scope, scopes, signIn, selectScope, signOut, request }}>
+    <SessionContext.Provider value={{ user, scope, scopes, signIn, selectScope, signOut, request, uploadReceipt, downloadReceipt }}>
       {children}
     </SessionContext.Provider>
   );
