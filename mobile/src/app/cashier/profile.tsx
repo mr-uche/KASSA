@@ -20,6 +20,9 @@ const businessLinks = [
   { title: 'Transactions', route: '/cashier/transactions',
     permission: 'View transactions',
     icon: { ios: 'list.bullet.rectangle', android: 'receipt_long', web: 'receipt_long' } },
+  { title: 'Expenses', route: '/cashier/expenses',
+    permission: 'Owner',
+    icon: { ios: 'creditcard', android: 'payments', web: 'payments' } },
   { title: 'Reports & Analytics', route: '/cashier/reports',
     permission: 'View reports & analytics',
     icon: { ios: 'chart.bar', android: 'bar_chart', web: 'bar_chart' } },
@@ -70,7 +73,7 @@ export default function Profile() {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const businessTools = businessLinks.filter(link =>
-    canAccess(session.scope, link.permission) &&
+    (link.permission === 'Owner' ? session.scope?.myRole === 'Owner' : canAccess(session.scope, link.permission)) &&
     (link.route !== '/cashier/customers' ||
       canAccess(session.scope, 'View transactions')));
   const userName = session.user?.fullName || 'Cashier';
