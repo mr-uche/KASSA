@@ -29,6 +29,26 @@ export function Tabs<T extends string>({ options, value, onChange }: {
   </ScrollView>;
 }
 
+/** Rounded, horizontally scrollable page tabs. Inactive items stay white. */
+export function SegmentedTabs<T extends string>({ options, value, onChange }: {
+  options: readonly T[]; value: T; onChange(next: T): void;
+}) {
+  return <ScrollView horizontal showsHorizontalScrollIndicator={false}
+    style={styles.segmentedScroll} contentContainerStyle={styles.segmentedContent}>
+    {options.map(item => {
+      const active = item === value;
+      return <Pressable key={item} accessibilityRole="button"
+        accessibilityState={{ selected: active }}
+        onPress={() => onChange(item)}
+        style={[styles.segmentedTab, active && styles.segmentedTabActive]}>
+        <Text numberOfLines={1} style={[styles.segmentedText, active && styles.segmentedTextActive]}>
+          {item}
+        </Text>
+      </Pressable>;
+    })}
+  </ScrollView>;
+}
+
 export function SearchBox({ value, onChangeText, placeholder }: {
   value: string; onChangeText(text: string): void; placeholder: string;
 }) {
@@ -114,6 +134,16 @@ const styles = StyleSheet.create({
   headingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 17 },
   title: { color: C.title, fontSize: 25, fontWeight: '800' },
   subtitle: { color: C.muted, fontSize: 14, marginTop: 5, lineHeight: 20 },
+  segmentedScroll: { alignSelf: 'flex-start', maxWidth: '100%', flexGrow: 0,
+    backgroundColor: C.white, borderWidth: 1, borderColor: C.border,
+    borderRadius: 11, marginBottom: 15 },
+  segmentedContent: { flexDirection: 'row', alignItems: 'center', padding: 3, gap: 2 },
+  segmentedTab: { paddingHorizontal: 12, minHeight: 36,
+    alignItems: 'center', justifyContent: 'center', borderRadius: 8,
+    backgroundColor: C.white },
+  segmentedTabActive: { backgroundColor: C.green },
+  segmentedText: { fontSize: 12, fontWeight: '700', color: C.muted },
+  segmentedTextActive: { color: C.white },
   tabs: { marginBottom: 18 },
   tabContent: { gap: 10, borderBottomWidth: 1, borderBottomColor: C.border, paddingRight: 20 },
   tab: { paddingHorizontal: 10, paddingVertical: 13, minHeight: 42 },

@@ -6,7 +6,7 @@ import { KScreen, KCard, KField } from '@/components/kassa-demo/ui';
 import { C } from '@/components/kassa-demo/theme';
 import { DropdownFilter } from '@/components/kassa-demo/dropdown-filter';
 import {
-  ScreenHeading, Tabs, MetricGrid, ListHeading, RecordRow,
+  ScreenHeading, SegmentedTabs, Tabs, MetricGrid, ListHeading, RecordRow,
   InlineNotice, SmallAction,
 } from '@/components/kassa-demo/business-ui';
 
@@ -213,7 +213,7 @@ export default function StaffAndBranches() {
   return <KScreen showBrand={false} showPreviewLabel={false}>
     <ScreenHeading title="Staff & Branches" subtitle={scope?.businessName ?? 'Your business'}
       right={<SmallAction label="Refresh" secondary onPress={() => { void reload(); }} disabled={loading}/>}/>
-    <Tabs options={tabs} value={tab} onChange={value => {
+    <SegmentedTabs options={tabs} value={tab} onChange={value => {
       setTab(value);
       setGroupFilter('All categories');
       setFilter(value === 'Staff' ? 'All statuses' :

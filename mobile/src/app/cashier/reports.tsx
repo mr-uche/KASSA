@@ -7,7 +7,7 @@ import { KScreen, KCard } from '@/components/kassa-demo/ui';
 import { C } from '@/components/kassa-demo/theme';
 import { DropdownFilter } from '@/components/kassa-demo/dropdown-filter';
 import {
-  ScreenHeading, Tabs, MetricGrid, ListHeading, RecordRow,
+  ScreenHeading, SegmentedTabs, MetricGrid, ListHeading, RecordRow,
   InlineNotice, SmallAction, money,
 } from '@/components/kassa-demo/business-ui';
 
@@ -270,45 +270,51 @@ export default function Reports() {
             if (choice) setReportBranchId(choice.id);
           }}/>
       </View> : <Text style={s.fixedBranch} numberOfLines={2}>{scope?.branchName ?? ''}</Text>} />
-    <Tabs options={periods} value={period} onChange={next => setPeriod(next as Period)}/>
+    <SegmentedTabs options={periods} value={period} onChange={next => setPeriod(next as Period)}/>
     {owner && !!branchError && <Text style={s.branchWarning}>{branchError}</Text>}
-    {period === 'Custom range' && <KCard>
-      <Text style={s.cardSubtitle}>Choose a reporting period</Text>
-      <View style={s.presetControls}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          style={s.presetScroll} contentContainerStyle={s.presetRow}>
-          {quickRanges.map(option => {
-            const active = selectedPreset === option;
-            return <Pressable key={option} accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              onPress={() => {
-                const next = presetRange(option);
-                setCustomFrom(next.from);
-                setCustomTo(next.to);
-                setSelectedPreset(option);
-              }}
-              style={[s.preset, active && s.presetActive]}>
-              <Text style={[s.presetText, active && s.presetTextActive]}>{option}</Text>
-            </Pressable>;
-          })}
-        </ScrollView>
-        <SmallAction label="Apply" onPress={applyCustomRange}/>
-      </View>
-      <Text style={s.cardSubtitle}>Custom dates (YYYY-MM-DD)</Text>
-      <View style={s.dateRow}>
-        <TextInput style={s.dateInput} value={customFrom}
-          onChangeText={value => { setCustomFrom(value); setSelectedPreset(null); }}
-          placeholder="From: YYYY-MM-DD" placeholderTextColor={C.faint}/>
-        <TextInput style={s.dateInput} value={customTo}
-          onChangeText={value => { setCustomTo(value); setSelectedPreset(null); }}
-          placeholder="To: YYYY-MM-DD" placeholderTextColor={C.faint}/>
-      </View>
-    </KCard>}
+    <View style={s.downloadRow}>
+      <SmallAction label="Download Report" secondary disabled={!report || loading}
+        onPress={() => { void downloadReport(); }}/>
+    </View>
+    {period === 'Custom range' && <View style={s.customRangePanel}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled" contentContainerStyle={s.rangeControls}>
+        {quickRanges.map(option => {
+          const active = selectedPreset === option;
+          return <Pressable key={option} accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            onPress={() => {
+              const next = presetRange(option);
+              setCustomFrom(next.from);
+              setCustomTo(next.to);
+              setSelectedPreset(option);
+            }}
+            style={[s.preset, active && s.presetActive]}>
+            <Text numberOfLines={1} style={[s.presetText, active && s.presetTextActive]}>{option}</Text>
+          </Pressable>;
+        })}
+        <View style={s.dateControl}>
+          <Text style={s.dateLabel}>From</Text>
+          <TextInput accessibilityLabel="Report start date" style={s.dateInput}
+            value={customFrom} onChangeText={value => { setCustomFrom(value); setSelectedPreset(null); }}
+            placeholder="YYYY-MM-DD" placeholderTextColor={C.faint}
+            autoCorrect={false} keyboardType="numbers-and-punctuation"/>
+        </View>
+        <View style={s.dateControl}>
+          <Text style={s.dateLabel}>To</Text>
+          <TextInput accessibilityLabel="Report end date" style={s.dateInput}
+            value={customTo} onChangeText={value => { setCustomTo(value); setSelectedPreset(null); }}
+            placeholder="YYYY-MM-DD" placeholderTextColor={C.faint}
+            autoCorrect={false} keyboardType="numbers-and-punctuation"/>
+        </View>
+        <View style={s.applyControl}>
+          <SmallAction label="Apply" onPress={applyCustomRange}/>
+        </View>
+      </ScrollView>
+    </View>
     {loading && <Text style={s.muted}>Loading business analytics…</Text>}
     {!!error && <InlineNotice warning text={error}/>}
     {!!report && <>
-      <View style={s.shareRow}><SmallAction label="Download Report" secondary
-        disabled={loading} onPress={() => { void downloadReport(); }}/></View>
       <Text style={s.period}>{report.scope.from} to {report.scope.to} · {selectedBranchName}</Text>
       <MetricGrid items={[
         { label: 'Total sales', value: money(report.summary.paidSales),
@@ -354,26 +360,29 @@ export default function Reports() {
 }
 
 const s = StyleSheet.create({
-  shareRow: { alignSelf: 'flex-end', marginBottom: 8 },
+  downloadRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 12 },
   branchPicker: { width: 145, minHeight: 39, flexDirection: 'row' },
   fixedBranch: { width: 110, color: C.muted, fontSize: 12, textAlign: 'right' },
   branchWarning: { color: C.orange, fontSize: 11, marginBottom: 10 },
-  presetControls: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-  presetScroll: { flex: 1, minWidth: 0, flexGrow: 1 },
-  presetRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingRight: 8 },
-  preset: { flexShrink: 0, paddingHorizontal: 10, minHeight: 40, borderRadius: 8,
+  customRangePanel: { backgroundColor: C.white, borderColor: C.border,
+    borderWidth: 1, borderRadius: 10, paddingVertical: 10, marginBottom: 14 },
+  rangeControls: { flexDirection: 'row', alignItems: 'flex-end',
+    flexWrap: 'nowrap', gap: 7, paddingHorizontal: 10 },
+  preset: { flexShrink: 0, minHeight: 40, borderRadius: 8, paddingHorizontal: 9,
     backgroundColor: C.white, borderWidth: 1, borderColor: C.border,
     alignItems: 'center', justifyContent: 'center' },
   presetActive: { backgroundColor: C.green, borderColor: C.green },
-  presetText: { color: C.text, fontSize: 12, fontWeight: '600' },
+  presetText: { color: C.text, fontSize: 11, fontWeight: '600' },
   presetTextActive: { color: C.white, fontWeight: '800' },
+  dateControl: { flexShrink: 0, width: 115 },
+  dateLabel: { color: C.muted, fontSize: 10, marginBottom: 3 },
+  applyControl: { minHeight: 40, justifyContent: 'flex-end' },
   muted: { color: C.muted, fontSize: 14, paddingVertical: 14 },
   cardTitle: { color: C.title, fontSize: 17, fontWeight: '800', marginBottom: 5 },
   cardSubtitle: { color: C.muted, fontSize: 12, marginBottom: 15 },
   period: { color: C.muted, fontSize: 12, marginBottom: 13 },
-  dateRow: { flexDirection: 'row', gap: 7, marginBottom: 11 },
-  dateInput: { backgroundColor: C.white, flex: 1, minWidth: 0, borderWidth: 1,
-    borderColor: C.border, borderRadius: 8, padding: 10, color: C.title, fontSize: 13 },
+  dateInput: { backgroundColor: C.white, width: '100%', minHeight: 40, borderWidth: 1,
+    borderColor: C.border, borderRadius: 8, paddingHorizontal: 8, color: C.title, fontSize: 11 },
   chart: { minHeight: 195, flexDirection: 'row', alignItems: 'flex-end', gap: 6, marginVertical: 14 },
   barColumn: { flex: 1, minWidth: 12, alignItems: 'center' },
   barBackground: { width: '80%', height: 165, justifyContent: 'flex-end', backgroundColor: C.background },

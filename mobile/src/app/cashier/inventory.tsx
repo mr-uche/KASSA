@@ -7,7 +7,7 @@ import { KScreen, KCard, KField } from '@/components/kassa-demo/ui';
 import { C } from '@/components/kassa-demo/theme';
 import { DropdownFilter } from '@/components/kassa-demo/dropdown-filter';
 import {
-  ScreenHeading, Tabs, MetricGrid, ListHeading, RecordRow, SmallAction,
+  ScreenHeading, SegmentedTabs, MetricGrid, ListHeading, RecordRow, SmallAction,
   InlineNotice, money,
 } from '@/components/kassa-demo/business-ui';
 
@@ -121,7 +121,7 @@ export default function Inventory() {
 
   return <KScreen showBrand={false} showPreviewLabel={false}>
     <ScreenHeading title="Products & Inventory" subtitle={scope?.branchName ?? 'Select a branch'}/>
-    <Tabs options={tabs} value={tab} onChange={value => {
+    <SegmentedTabs options={tabs} value={tab} onChange={value => {
       setTab(value);
       setQuery('');
       setShowAll(false);
