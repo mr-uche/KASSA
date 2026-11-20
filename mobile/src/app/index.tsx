@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0D705B', overflow: 'hidden' },
   brand: { zIndex: 1, alignItems: 'center' },
   logoGroup: { alignItems: 'center' },
-  logoWrapper: { backgroundColor: '#FFFFFF', paddingHorizontal: 5,
+  logoWrapper: { backgroundColor: '#FFFFFF', width: 84, paddingHorizontal: 2,
     paddingVertical: 10, borderRadius: 8 },
   logo: { width: 80, height: 40 },
   brandName: { color: '#FFFFFF', fontSize: 35, fontWeight: 'bold', marginTop: 18 },
