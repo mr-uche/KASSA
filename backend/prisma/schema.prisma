@@ -61,6 +61,7 @@ model User {
   updatedAt       DateTime             @updatedAt
   memberships     BusinessMembership[]
   salesAsCashier  Sale[]               @relation("CashierSales")
+  expensesCreated Expense[]            @relation("ExpenseAuthor")
   authSessions    AuthSession[]
   supportThreads SupportThread[] @relation("SupportRequester")
   supportMessages SupportMessage[] @relation("SupportAuthor")
@@ -97,6 +98,7 @@ model Business {
   products    Product[]
   customers   Customer[]
   sales       Sale[]
+  expenses    Expense[]
   payments    Payment[]
   merchantBankAccounts MerchantBankAccount[]
   staffDrafts  StaffOnboardingDraft[]
@@ -204,6 +206,7 @@ model Branch {
   stock      StockBalance[]
   movements  StockMovement[]
   sales      Sale[]
+  expenses   Expense[]
   code       String?
   city       String?
   state      String?
@@ -408,4 +411,28 @@ model SupportMessage {
   author     User          @relation("SupportAuthor", fields: [authorId], references: [id])
 
   @@index([threadId, createdAt])
+}
+
+// Ordinary operating expenses only. Stock purchases/restocking are intentionally separate.
+// Receipt bytes are private; list APIs must never select receiptData.
+model Expense {
+  id            String   @id @default(uuid()) @db.Uuid
+  businessId    String   @db.Uuid
+  branchId      String   @db.Uuid
+  createdById   String   @db.Uuid
+  amount        Decimal  @db.Decimal(14, 2)
+  category      String   @db.VarChar(60)
+  description   String   @db.VarChar(500)
+  spentAt       DateTime @db.Date
+  receiptName   String?  @db.VarChar(150)
+  receiptMime   String?  @db.VarChar(50)
+  receiptData   Bytes?   @db.ByteA
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch        Branch   @relation(fields: [branchId], references: [id])
+  createdBy     User     @relation("ExpenseAuthor", fields: [createdById], references: [id])
+
+  @@index([businessId, spentAt])
+  @@index([businessId, branchId, spentAt])
 }
