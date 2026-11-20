@@ -32,7 +32,7 @@ export default function KassaSplash() {
     ]));
     const reveal = Animated.parallel([
       Animated.timing(brandOpacity, {
-        toValue: 1, duration: 1000, easing: Easing.out(Easing.cubic),
+        toValue: 1, duration: 430, easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.sequence([
