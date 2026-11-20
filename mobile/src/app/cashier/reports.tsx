@@ -278,7 +278,8 @@ export default function Reports() {
     </View>
     {period === 'Custom range' && <View style={s.customRangePanel}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled" contentContainerStyle={s.rangeControls}>
+        keyboardShouldPersistTaps="handled" style={s.rangeScroll}
+        contentContainerStyle={s.rangeControls}>
         {quickRanges.map(option => {
           const active = selectedPreset === option;
           return <Pressable key={option} accessibilityRole="button"
@@ -307,10 +308,10 @@ export default function Reports() {
             placeholder="YYYY-MM-DD" placeholderTextColor={C.faint}
             autoCorrect={false} keyboardType="numbers-and-punctuation"/>
         </View>
-        <View style={s.applyControl}>
-          <SmallAction label="Apply" onPress={applyCustomRange}/>
-        </View>
       </ScrollView>
+      <View style={s.applyControl}>
+        <SmallAction label="Apply" onPress={applyCustomRange}/>
+      </View>
     </View>}
     {loading && <Text style={s.muted}>Loading business analytics…</Text>}
     {!!error && <InlineNotice warning text={error}/>}
@@ -364,8 +365,10 @@ const s = StyleSheet.create({
   branchPicker: { width: 145, minHeight: 39, flexDirection: 'row' },
   fixedBranch: { width: 110, color: C.muted, fontSize: 12, textAlign: 'right' },
   branchWarning: { color: C.orange, fontSize: 11, marginBottom: 10 },
-  customRangePanel: { backgroundColor: C.white, borderColor: C.border,
+  customRangePanel: { flexDirection: 'row', alignItems: 'flex-end',
+    backgroundColor: C.white, borderColor: C.border,
     borderWidth: 1, borderRadius: 10, paddingVertical: 10, marginBottom: 14 },
+  rangeScroll: { flex: 1, minWidth: 0 },
   rangeControls: { flexDirection: 'row', alignItems: 'flex-end',
     flexWrap: 'nowrap', gap: 7, paddingHorizontal: 10 },
   preset: { flexShrink: 0, minHeight: 40, borderRadius: 8, paddingHorizontal: 9,
@@ -376,7 +379,9 @@ const s = StyleSheet.create({
   presetTextActive: { color: C.white, fontWeight: '800' },
   dateControl: { flexShrink: 0, width: 115 },
   dateLabel: { color: C.muted, fontSize: 10, marginBottom: 3 },
-  applyControl: { minHeight: 40, justifyContent: 'flex-end' },
+  applyControl: { flexShrink: 0, minHeight: 40, justifyContent: 'flex-end',
+    backgroundColor: C.white, borderLeftWidth: 1, borderLeftColor: C.border,
+    paddingLeft: 8, paddingRight: 10 },
   muted: { color: C.muted, fontSize: 14, paddingVertical: 14 },
   cardTitle: { color: C.title, fontSize: 17, fontWeight: '800', marginBottom: 5 },
   cardSubtitle: { color: C.muted, fontSize: 12, marginBottom: 15 },
