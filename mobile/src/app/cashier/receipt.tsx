@@ -8,7 +8,6 @@ import { useKassaDemo, type CompletedPayment } from '@/components/kassa-demo/sto
 import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
-import { CheckoutProgress } from '@/components/kassa-demo/checkout-progress';
 import { receiptHtml, receiptMethod, receiptText, shareReceiptSms, shareReceiptWhatsApp } from '@/components/kassa-demo/receipt-tools';
 import { receiptQrDataUrl } from '@/components/kassa-demo/receipt-qr';
 
@@ -103,7 +102,6 @@ export default function Receipt() {
   }
 
   return <KScreen showBrand={false} showPreviewLabel={false}>
-    <CheckoutProgress stage={3}/>
     <View style={s.header}>
       <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={s.back}>
         <SymbolView name={{ ios: 'arrow.left', android: 'arrow_back', web: 'arrow_back' }}
