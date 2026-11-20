@@ -321,7 +321,7 @@ export default function StaffAndBranches() {
           onPress={() => { void createRole(); }}/>
       </View>
     </KCard>}
-    {loading && <Text style={s.message}>Loading business records…</Text>
+    {loading && <Text style={s.message}>Loading business records…</Text>}
     {!!error && <InlineNotice text={error} warning/>}
     <MetricGrid items={stats}/>
     <ListHeading title={tab === 'Staff' ? 'Staff members' : tab === 'Branches' ? 'Branches' : 'Roles'}
