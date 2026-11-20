@@ -54,8 +54,8 @@ export default function ChangePassword() {
   const save = async () => {
     if (saving) return;
     if (!session.user) { setError('Sign in to change your password.'); return; }
-    if (!oldPassword || newPassword.length < 12 || newPassword.length > 128) {
-      setError('Enter your current password and a new password of 12–128 characters.'); return;
+    if (!oldPassword || newPassword.length < 8 || newPassword.length > 128) {
+      setError('Enter your current password and a new password of 8–128 characters.'); return;
     }
     if (newPassword === oldPassword) { setError('Choose a different new password.'); return; }
     if (confirm !== newPassword) { setError('New passwords do not match.'); return; }
