@@ -155,7 +155,6 @@ export default function Inventory() {
       />
       {tab === 'Catalogue' && <SmallAction label="+ Add product" onPress={() => router.push('/cashier/add-product')}/>}
       {tab === 'Categories' && <SmallAction label="+ Add category" onPress={() => setCategoryForm(value => !value)}/>}
-}
     </View>
     <View style={s.refreshRow}>
       {tab !== 'Categories' && <SmallAction label="Restock products"
