@@ -7,14 +7,20 @@ import { useKassaSession } from './api';
 import { canAccess } from './access';
 import { C } from './theme';
 
-type NavEntry = {
+type TabItem = {
+  key: 'home' | 'sales' | 'new-sale' | 'products' | 'profile';
   label: string;
   route: Href;
+  allowed: boolean;
   active: boolean;
-  icon: React.ComponentProps<typeof SymbolView>['name'];
+  symbol: React.ComponentProps<typeof SymbolView>['name'];
 };
 
-/** Primary KASSA navigation. Hidden on authentication and active checkout steps. */
+/**
+ * KASSA's five-item mobile navigation.
+ * The large, raised New Sale action stays in the centre on every main screen.
+ * Business/administrative links live in the Profile screen, not a drawer.
+ */
 export function KassaBottomNavigation() {
   const router = useRouter();
   const pathname = usePathname();
@@ -30,66 +36,102 @@ export function KassaBottomNavigation() {
   ];
   if (!mainScreens.includes(pathname)) return null;
 
-  const canSell = canAccess(scope, 'Manage sales');
-  const canSeeTransactions = canAccess(scope, 'View transactions');
-  const moreSelected = [
-    '/cashier/more', '/cashier/reports', '/cashier/inventory',
-    '/cashier/staff-branches', '/cashier/settings', '/cashier/customers',
-    '/cashier/help', '/cashier/offline-sales',
-  ].includes(pathname);
-  const entries: NavEntry[] = [];
-  if (canAccess(scope, 'View dashboard')) entries.push({
-    label: 'Home', route: '/cashier', active: pathname === '/cashier',
-    icon: { ios: 'house', android: 'home', web: 'home' },
-  });
-  if (canSell) entries.push({
-    label: 'New sale', route: '/cashier/new-sale',
-    active: pathname === '/cashier/new-sale',
-    icon: { ios: 'plus.circle', android: 'add_circle', web: 'add_circle' },
-  });
-  if (canSeeTransactions) entries.push({
-    label: 'Transactions', route: '/cashier/transactions',
-    active: pathname === '/cashier/transactions',
-    icon: { ios: 'list.bullet.rectangle', android: 'receipt_long', web: 'receipt_long' },
-  });
-  else if (canSell) entries.push({
-    label: 'My sales', route: '/cashier/sales',
-    active: pathname === '/cashier/sales',
-    icon: { ios: 'list.bullet', android: 'receipt', web: 'receipt' },
-  });
-  entries.push({
-    label: 'More', route: '/cashier/more', active: moreSelected,
-    icon: { ios: 'square.grid.2x2', android: 'grid_view', web: 'grid_view' },
-  }, {
-    label: 'Profile', route: '/cashier/profile', active: pathname === '/cashier/profile',
-    icon: { ios: 'person.crop.circle', android: 'account_circle', web: 'account_circle' },
-  });
+  const maySell = canAccess(scope, 'Manage sales');
+  const mayViewTransactions = canAccess(scope, 'View transactions');
+  const mayManageProducts = canAccess(scope, 'Manage products & inventory');
+
+  const tabs: TabItem[] = [
+    {
+      key: 'home', label: 'Home', route: '/cashier',
+      allowed: canAccess(scope, 'View dashboard'),
+      active: pathname === '/cashier',
+      symbol: { ios: 'house', android: 'home', web: 'home' },
+    },
+    {
+      key: 'sales', label: 'Sales',
+      // Cashiers see their own activity; history-only staff can use Transactions.
+      route: maySell ? '/cashier/sales' : '/cashier/transactions',
+      allowed: maySell || mayViewTransactions,
+      active: pathname === '/cashier/sales' || pathname === '/cashier/transactions',
+      symbol: { ios: 'list.bullet.rectangle', android: 'receipt_long', web: 'receipt_long' },
+    },
+    {
+      key: 'new-sale', label: 'New sale', route: '/cashier/new-sale',
+      allowed: maySell, active: pathname === '/cashier/new-sale',
+      symbol: { ios: 'plus', android: 'add', web: 'add' },
+    },
+    {
+      key: 'products', label: 'Products', route: '/cashier/inventory',
+      allowed: mayManageProducts, active: pathname === '/cashier/inventory',
+      symbol: { ios: 'square.on.square', android: 'inventory_2', web: 'inventory_2' },
+    },
+    {
+      key: 'profile', label: 'Profile', route: '/cashier/profile',
+      allowed: true,
+      active: ![
+        '/cashier', '/cashier/sales', '/cashier/transactions',
+        '/cashier/new-sale', '/cashier/inventory',
+      ].includes(pathname),
+      symbol: { ios: 'person.crop.circle', android: 'account_circle', web: 'account_circle' },
+    },
+  ];
 
   return <View accessibilityRole="tablist"
-    style={[s.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-    {entries.map(item => <Pressable key={item.label} accessibilityRole="tab"
-      accessibilityLabel={item.label} accessibilityState={{ selected: item.active }}
-      onPress={() => { if (!item.active) router.replace(item.route); }}
-      style={s.item}>
-      <View style={[s.iconWrap, item.active && s.activeIcon]}>
-        <SymbolView name={item.icon} size={20}
-          tintColor={item.active ? C.green : C.muted}/>
-      </View>
-      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.76}
-        style={[s.label, item.active && s.activeLabel]}>{item.label}</Text>
-    </Pressable>)}
+    style={[s.bar, { height: 83 + Math.max(insets.bottom, 8),
+      paddingBottom: Math.max(insets.bottom, 8) }]}>
+    {tabs.map(tab => {
+      const central = tab.key === 'new-sale';
+      return <Pressable key={tab.key} accessibilityRole="tab"
+        accessibilityLabel={tab.label + (!tab.allowed ? ', not permitted for this role' : '')}
+        accessibilityState={{ selected: tab.active, disabled: !tab.allowed }}
+        disabled={!tab.allowed}
+        onPress={() => {
+          if (!tab.active) router.replace(tab.route);
+        }}
+        style={[s.item, !central && tab.active && s.selectedItem,
+          !tab.allowed && s.disabledItem]}>
+        {central ? (
+          <View style={s.centerContent}>
+            <View style={s.addCircle}>
+              <SymbolView name={tab.symbol} size={38} tintColor={C.white}/>
+            </View>
+            <Text numberOfLines={1} style={s.centerLabel}>{tab.label}</Text>
+          </View>
+        ) : (
+          <>
+            <SymbolView name={tab.symbol} size={30}
+              tintColor={tab.active ? C.green : C.muted}/>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
+              style={[s.label, tab.active && s.selectedLabel]}>{tab.label}</Text>
+          </>
+        )}
+      </Pressable>;
+    })}
   </View>;
 }
 
 const s = StyleSheet.create({
-  bar: { flexDirection: 'row', alignItems: 'center', minHeight: 63,
-    paddingTop: 7, paddingHorizontal: 9, backgroundColor: C.white,
-    borderTopWidth: 1, borderTopColor: C.border },
-  item: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center',
-    minHeight: 50, gap: 2 },
-  iconWrap: { width: 39, height: 29, alignItems: 'center', justifyContent: 'center',
-    borderRadius: 16 },
-  activeIcon: { backgroundColor: C.mint },
-  label: { fontSize: 10, color: C.muted, fontWeight: '600' },
-  activeLabel: { color: C.green, fontWeight: '800' },
+  bar: {
+    flexDirection: 'row', backgroundColor: C.white,
+    borderTopWidth: 1, borderTopColor: C.border,
+    paddingHorizontal: 11, paddingTop: 5, alignItems: 'center',
+    overflow: 'visible',
+  },
+  item: {
+    flex: 1, minWidth: 0, minHeight: 74, alignItems: 'center',
+    justifyContent: 'center', gap: 7, borderRadius: 17,
+  },
+  selectedItem: { backgroundColor: '#E8F3EF' },
+  disabledItem: { opacity: 0.45 },
+  label: { color: C.muted, fontSize: 12, fontWeight: '500', textAlign: 'center' },
+  selectedLabel: { color: C.green, fontWeight: '800' },
+  centerContent: {
+    alignItems: 'center', justifyContent: 'center',
+    position: 'relative', top: -17, minWidth: 72,
+  },
+  addCircle: {
+    width: 72, height: 72, borderRadius: 36, backgroundColor: C.green,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  centerLabel: { color: C.muted, fontSize: 12, marginTop: 5, textAlign: 'center' },
 });

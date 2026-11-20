@@ -12,7 +12,29 @@ import { KScreen } from '@/components/kassa-demo/ui';
 const accountLinks = [
   { title: 'Switch branch', route: '/cashier/switch-branch', icon: { ios: 'building.2', android: 'store', web: 'store' } },
   { title: 'Change Password', route: '/cashier/change-password', icon: { ios: 'person.crop.circle', android: 'account_circle', web: 'account_circle' } },
-  { title: 'Settings', route: '/cashier/settings', icon: { ios: 'gearshape', android: 'settings', web: 'settings' } },
+] as const;
+
+// Additional business pages belong beneath the Profile tab, not in a
+// hamburger menu or a separate More tab. Each item respects role access.
+const businessLinks = [
+  { title: 'Transactions', route: '/cashier/transactions',
+    permission: 'View transactions',
+    icon: { ios: 'list.bullet.rectangle', android: 'receipt_long', web: 'receipt_long' } },
+  { title: 'Reports & Analytics', route: '/cashier/reports',
+    permission: 'View reports & analytics',
+    icon: { ios: 'chart.bar', android: 'bar_chart', web: 'bar_chart' } },
+  { title: 'Staff & Branches', route: '/cashier/staff-branches',
+    permission: 'Manage staff & branches',
+    icon: { ios: 'person.3', android: 'groups', web: 'groups' } },
+  { title: 'Customers', route: '/cashier/customers',
+    permission: 'Manage customers',
+    icon: { ios: 'person.2', android: 'people', web: 'people' } },
+  { title: 'Business settings', route: '/cashier/settings',
+    permission: 'Manage business settings',
+    icon: { ios: 'gearshape', android: 'settings', web: 'settings' } },
+  { title: 'Offline sales & sync', route: '/cashier/offline-sales',
+    permission: 'Manage sales',
+    icon: { ios: 'arrow.triangle.2.circlepath', android: 'sync', web: 'sync' } },
 ] as const;
 
 export default function Profile() {
@@ -47,6 +69,10 @@ export default function Profile() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  const businessTools = businessLinks.filter(link =>
+    canAccess(session.scope, link.permission) &&
+    (link.route !== '/cashier/customers' ||
+      canAccess(session.scope, 'View transactions')));
   const userName = session.user?.fullName || 'Cashier';
   const initials = userName.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('');
   const logout = async () => {
@@ -98,8 +124,7 @@ export default function Profile() {
 
     <Text style={s.groupLabel}>ACCOUNT</Text>
     <View style={s.group}>
-      {accountLinks.filter(item => item.route !== '/cashier/settings' ||
-        canAccess(session.scope, 'Manage business settings')).map(item => <Pressable
+      {accountLinks.map(item => <Pressable
         accessibilityRole="button" key={item.route} style={s.row}
         onPress={() => router.push(item.route)}
       >
@@ -118,6 +143,22 @@ export default function Profile() {
         }} trackColor={{ false: C.border, true: '#9CCAB8' }} thumbColor={notifications ? C.green : '#FFFFFF'} />
       </View>
     </View>
+
+    {businessTools.length > 0 && <>
+      <Text style={s.groupLabel}>BUSINESS & TOOLS</Text>
+      <View style={s.group}>
+        {businessTools.map(item => <Pressable key={item.route}
+          accessibilityRole="button" accessibilityLabel={item.title}
+          onPress={() => router.push(item.route)} style={s.row}>
+          <View style={s.iconBubble}>
+            <SymbolView name={item.icon} tintColor={C.green} size={18}/>
+          </View>
+          <Text style={s.rowText}>{item.title}</Text>
+          <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+            size={17} tintColor={C.faint}/>
+        </Pressable>)}
+      </View>
+    </>}
 
     <Text style={s.groupLabel}>SUPPORT</Text>
     <Pressable accessibilityRole="button" style={s.row} onPress={() => router.push('/cashier/help')}>
