@@ -311,7 +311,7 @@ export default function Reports() {
           <SmallAction label="Apply" onPress={applyCustomRange}/>
         </View>
       </ScrollView>
-    </View>
+    </View>}
     {loading && <Text style={s.muted}>Loading business analytics…</Text>}
     {!!error && <InlineNotice warning text={error}/>}
     {!!report && <>
