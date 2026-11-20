@@ -29,9 +29,6 @@ const businessLinks = [
   { title: 'Staff & Branches', route: '/cashier/staff-branches',
     permission: 'Manage staff & branches',
     icon: { ios: 'person.3', android: 'groups', web: 'groups' } },
-  { title: 'Customers', route: '/cashier/customers',
-    permission: 'Manage customers',
-    icon: { ios: 'person.2', android: 'people', web: 'people' } },
   { title: 'Business settings', route: '/cashier/settings',
     permission: 'Manage business settings',
     icon: { ios: 'gearshape', android: 'settings', web: 'settings' } },
@@ -73,9 +70,9 @@ export default function Profile() {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const businessTools = businessLinks.filter(link =>
-    (link.permission === 'Owner' ? session.scope?.myRole === 'Owner' : canAccess(session.scope, link.permission)) &&
-    (link.route !== '/cashier/customers' ||
-      canAccess(session.scope, 'View transactions')));
+    link.permission === 'Owner'
+      ? session.scope?.myRole === 'Owner'
+      : canAccess(session.scope, link.permission));
   const userName = session.user?.fullName || 'Cashier';
   const initials = userName.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('');
   const logout = async () => {
