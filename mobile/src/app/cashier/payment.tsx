@@ -8,7 +8,7 @@ import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira, toKobo } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 import { CheckoutProgress } from '@/components/kassa-demo/checkout-progress';
-import { recordOfflineCash } from '@/components/kassa-demo/offline-cash';
+import { recordOfflineSale } from '@/components/kassa-demo/offline-cash';
 
 const methods = [
   { name: 'Cash', channel: 'CASH', detail: 'Count and confirm physical cash received' },
@@ -39,9 +39,6 @@ export default function Payment() {
   const offline = store.offlineMode;
   const cacheFresh = !!store.catalogSavedAt &&
     Date.now() - store.catalogSavedAt <= 48 * 60 * 60 * 1000;
-  useEffect(() => {
-    if (offline && !pending && store.paymentMethod !== 'Cash') store.setPaymentMethod('Cash');
-  }, [offline, pending, store.paymentMethod, store.setPaymentMethod]);
   useEffect(() => {
     let active = true;
     if (offline || !session.scope || method.channel !== 'BANK_TRANSFER') {
@@ -115,6 +112,7 @@ export default function Payment() {
       branchId: session.scope.branchId,
       clientRequestId: requestId.current,
       channel: method.channel,
+      ...(store.customerName.trim() ? { customerName: store.customerName.trim() } : {}),
       items: store.lines.map(line => ({ productId: line.id, quantity: line.quantity })),
     });
     store.setPendingSale(saved);
@@ -155,8 +153,9 @@ export default function Payment() {
             try {
               const scope = { userId: session.user!.id, businessId: session.scope!.businessId,
                 branchId: session.scope!.branchId };
-              const saved = await recordOfflineCash(scope,
-                store.lines.map(line => ({ productId: line.id, quantity: line.quantity })), received);
+              const saved = await recordOfflineSale(scope,
+                store.lines.map(line => ({ productId: line.id, quantity: line.quantity })),
+                'CASH', received, store.customerName);
               store.beginNewSale();
               await store.refreshCatalog();
               router.replace({
@@ -226,9 +225,42 @@ export default function Payment() {
   };
 
   const finishMerchantPayment = async () => {
-    if (working || offline) return;
+    if (working) return;
     if (!merchantChecked) {
       setError('Confirm that you checked the business bank credit or successful POS record.');
+      return;
+    }
+    if (offline) {
+      if (pending) {
+        setError('This pending online payment cannot be recorded again offline. Reconnect to resolve it.');
+        return;
+      }
+      if (!cacheFresh || !session.user || !session.scope || !store.count ||
+          orderItems.length !== store.lines.length) {
+        setError('Offline product prices and stock must be refreshed within 48 hours before recording a payment.');
+        return;
+      }
+      Alert.alert('Confirm offline ' + method.name + ' payment',
+        'Confirm the business received ' + naira(amountDueKobo / 100) + ' via ' + method.name +
+        '. Check the bank account or terminal success record, not a customer screenshot. ' +
+        'This sale will be saved on this phone until reconciliation. Do not collect payment twice.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Payment received — save', onPress: () => { void (async () => {
+            setWorking(true); setError('');
+            try {
+              const localScope = { userId: session.user!.id,
+                businessId: session.scope!.businessId, branchId: session.scope!.branchId };
+              const saved = await recordOfflineSale(localScope,
+                store.lines.map(line => ({ productId: line.id, quantity: line.quantity })),
+                method.channel, amountDueKobo / 100, store.customerName);
+              store.beginNewSale();
+              await store.refreshCatalog();
+              router.replace({ pathname: '/cashier/offline-receipt', params: { id: saved.id } });
+            } catch (cause) {
+              setError(cause instanceof Error ? cause.message : 'Could not save the offline sale. Check the queue before retrying.');
+            } finally { setWorking(false); }
+          })(); } },
+        ]);
       return;
     }
     if (pending?.payments[0]?.provider) {
@@ -286,7 +318,7 @@ export default function Payment() {
 
     <CheckoutProgress stage={2}/>
     {offline && !cacheFresh && <Text style={{ color: C.danger, fontSize: 13, marginBottom: 15 }}>
-      Saved product stock is missing or older than 48 hours. Connect to refresh before accepting cash.
+      Saved product stock is missing or older than 48 hours. Connect to refresh before recording sales.
     </Text>}
     <Text style={s.sectionTitle}>Order summary</Text>
     <View style={s.summary}>
@@ -322,10 +354,10 @@ export default function Payment() {
     {methods.map(item => {
       const selected = method.name === item.name;
       return <Pressable key={item.name} accessibilityRole="button"
-        accessibilityState={{ selected, disabled: (locked && !selected) || (offline && item.channel !== 'CASH') }}
-        disabled={(locked && !selected) || (offline && item.channel !== 'CASH')}
-        onPress={() => store.setPaymentMethod(item.name)}
-        style={[s.method, selected && s.methodSelected, ((locked && !selected) || (offline && item.channel !== 'CASH')) && { opacity: 0.45 }]}>
+        accessibilityState={{ selected, disabled: locked && !selected }}
+        disabled={locked && !selected}
+        onPress={() => { store.setPaymentMethod(item.name); setMerchantChecked(false); }}
+        style={[s.method, selected && s.methodSelected, (locked && !selected) && { opacity: 0.45 }]}>
         <View style={[s.radio, selected && s.radioSelected]}>{selected && <View style={s.dot} />}</View>
         <View><Text style={s.methodName}>{item.name}</Text><Text style={s.methodDesc}>{item.detail}</Text></View>
       </Pressable>;
@@ -351,7 +383,7 @@ export default function Payment() {
         <Text style={s.error}>Remaining cash to collect: {naira((amountDueKobo - enteredCashKobo) / 100)}</Text>}
     </> : <View style={s.note}>
       <Text style={s.noteText}>The customer pays the BUSINESS directly. KASSA never receives or holds the money. Check the business bank credit or terminal success record — never a customer screenshot alone.</Text>
-      {method.channel === 'BANK_TRANSFER' &&
+      {!offline && method.channel === 'BANK_TRANSFER' &&
         <View style={[s.summary, { marginTop: 14, padding: 12 }]}>
           <Text style={s.methodName}>Business receiving account</Text>
           {receivingAccounts.length ? receivingAccounts.map(account =>
@@ -376,7 +408,9 @@ export default function Payment() {
           </Text>
         </View>}
       <Text style={[s.noteText, { marginTop: 12 }]}>
-        {autoVerificationMessage || 'Automatic bank/POS verification requires a connected provider. If unavailable, confirm only after checking business records.'}
+        {offline
+          ? 'KASSA cannot check bank/POS records while offline. Confirm using the business account or terminal directly. The record will be reconciled when online.'
+          : autoVerificationMessage || 'Automatic bank/POS verification requires a connected provider. If unavailable, confirm only after checking business records.'}
       </Text>
       <Pressable accessibilityRole="checkbox"
         accessibilityState={{ checked: merchantChecked }}
@@ -406,9 +440,9 @@ export default function Payment() {
     <Pressable
       accessibilityRole="button"
       disabled={working || !session.scope || !store.count ||
-        (offline && (!cacheFresh || !!pending || method.channel !== 'CASH')) ||
+        (offline && (!cacheFresh || !!pending)) ||
         (method.channel === 'CASH' && !validCash) ||
-        (method.channel !== 'CASH' && (offline || !merchantChecked || !!pending?.payments[0]?.provider))}
+        (method.channel !== 'CASH' && (!merchantChecked || (!offline && !!pending?.payments[0]?.provider)))}
       onPress={method.channel === 'CASH' ? finishCash : () => { void finishMerchantPayment(); }}
       style={[s.primary, (working || !session.scope || !store.count ||
         (offline && (!cacheFresh || !!pending || method.channel !== 'CASH')) ||
@@ -417,7 +451,7 @@ export default function Payment() {
     >
       <Text style={s.primaryText}>{working ? 'Please wait…' :
         method.channel === 'CASH' ? (offline ? 'Save offline cash sale' : 'Confirm cash received') :
-        'Confirm business received payment'}</Text>
+        offline ? 'Save offline ' + method.name + ' sale' : 'Confirm business received payment'}</Text>
     </Pressable>
     {!session.scope && <Pressable onPress={() => router.push('/login')} style={s.verify}><Text style={s.verifyText}>Go to sign in</Text></Pressable>}
   </KScreen>;
