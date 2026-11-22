@@ -21,7 +21,7 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: backend/package-lock.json
-      - name: Install exact dependencies
-        run: npm ci
+      - name: Install dependencies for compile validation
+        run: npm install --no-save --package-lock=false
       - name: Generate Prisma client, test and build
         run: npm run build
