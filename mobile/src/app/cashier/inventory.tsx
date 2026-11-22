@@ -155,7 +155,7 @@ export default function Inventory() {
       />
       {tab === 'Catalogue' && <SmallAction label="+ Add product" onPress={() => router.push('/cashier/add-product')}/>}
       {tab === 'Categories' && <SmallAction label="+ Add category" onPress={() => setCategoryForm(value => !value)}/>}
-}
+
     </View>
     <View style={s.refreshRow}>
       {tab !== 'Categories' && <SmallAction label="Restock products"
@@ -189,8 +189,8 @@ export default function Inventory() {
         <SmallAction label={busy ? 'Saving…' : 'Confirm restock'} disabled={busy || !selectedRestockProduct}
           onPress={() => { void restock(); }}/>
       </View>
-    </KCard>
-    {!!error && <InlineNotice warning text={error}/>}
+    </KCard>}
+   {!!error && <InlineNotice warning text={error}/>}
     {loading && <Text style={s.muted}>Loading inventory…</Text>}
     {tab === 'Catalogue' && <MetricGrid items={[
       { label: 'Total products', value: String(products.length), note: 'In this business' },
