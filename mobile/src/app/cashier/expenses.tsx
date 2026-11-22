@@ -15,7 +15,7 @@ const icon = (name: React.ComponentProps<typeof SymbolView>['name'], size = 17, 
   <SymbolView name={name} tintColor={color} size={size}/>;
 
 function ExpenseRow({ item, onPress }: { item: Expense; onPress: () => void }) {
-  const categoryIcon = item.category === 'Rent'
+  const categoryIcon: React.ComponentProps<typeof SymbolView>['name'] = item.category === 'Rent'
     ? { ios: 'house', android: 'home', web: 'home' }
     : item.category === 'Utilities'
       ? { ios: 'bolt', android: 'bolt', web: 'bolt' }
