@@ -24,6 +24,11 @@ jobs:
       - name: Install exact dependencies
         run: npm ci
       - name: TypeScript validation
+        id: typecheck
+        continue-on-error: true
         run: npx tsc --noEmit
       - name: Bundle Android
         run: npx expo export --platform android --output-dir dist
+      - name: Fail if TypeScript validation failed
+        if: ${{ steps.typecheck.outcome == 'failure' }}
+        run: exit 1
