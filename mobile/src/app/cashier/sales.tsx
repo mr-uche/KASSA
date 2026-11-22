@@ -88,7 +88,7 @@ export default function Sales() {
       if (isCurrent()) {
         setSales([]);
         setSummary(null);
-        setError('The cloud sales history requires internet. Your queued cash sales are still shown above.');
+        setError('The cloud sales history requires internet. Your unsynced sales are still shown above.');
         setLoading(false);
       }
       return;
@@ -205,7 +205,7 @@ export default function Sales() {
     </View>}
     {visibleLocal.length > 0 && <>
       <View style={s.sectionRow}>
-        <Text style={s.sectionTitle}>CASH SAVED ON THIS PHONE</Text>
+        <Text style={s.sectionTitle}>SALES SAVED ON THIS PHONE</Text>
         <Pressable accessibilityRole="button" onPress={() => router.push('/cashier/offline-sales')}>
           <Text style={s.retry}>Review / sync</Text>
         </Pressable>
@@ -218,7 +218,8 @@ export default function Sales() {
         </View>
         <View style={s.saleInfo}>
           <Text style={s.saleTitle}>{sale.items.slice(0, 2).map(item => item.name).join(', ')}</Text>
-          <Text style={s.saleMeta}>Cash · {timeLabel(sale.recordedAt)} · Local #{sale.id.slice(0, 8).toUpperCase()}</Text>
+          <Text style={s.saleMeta}>{channelLabel(sale.channel)} · {timeLabel(sale.recordedAt)} · Local #{sale.id.slice(0, 8).toUpperCase()}</Text>
+          {!!sale.customerName && <Text style={s.saleMeta}>Customer: {sale.customerName}</Text>}
         </View>
         <View style={s.saleRight}>
           <Text style={s.saleAmount}>{naira(Number(sale.total))}</Text>
@@ -263,6 +264,7 @@ export default function Sales() {
           <Text style={s.saleTitle} numberOfLines={2}>{itemTitle(sale)}</Text>
           <Text style={s.saleMeta} numberOfLines={2}>
             {channel}{testMode ? ' · TEST' : ''} · {timeLabel(sale.createdAt)} · {count} {count === 1 ? 'item' : 'items'}
+            {sale.customer ? ' · ' + sale.customer : ''}
           </Text>
         </View>
         <View style={s.saleRight}>
