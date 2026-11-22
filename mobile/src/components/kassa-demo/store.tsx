@@ -12,6 +12,7 @@ type DemoStore = {
   lines: SaleLine[];
   branch: string;
   paymentMethod: string;
+  customerName: string;
   total: number;
   count: number;
   catalog: Product[];
@@ -33,6 +34,7 @@ type DemoStore = {
   refreshOfflineQueue(): Promise<void>;
   setBranch(value: string): void;
   setPaymentMethod(value: string): void;
+  setCustomerName(value: string): void;
   setPendingSale(value: CheckoutSale | null): void;
   setCompletedPayment(value: CompletedPayment | null): void;
 };
@@ -45,6 +47,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
   const [lines, setLines] = useState<SaleLine[]>([]);
   const [branch, setBranch] = useState('Main Branch');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [customerName, setCustomerName] = useState('');
   const [catalog, setCatalog] = useState<Product[]>([]);
   const [catalogSource, setCatalogSource] = useState<'live' | 'cached' | 'none'>('none');
   const [catalogSavedAt, setCatalogSavedAt] = useState<number | null>(null);
@@ -168,6 +171,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
     setCatalogSavedAt(null);
     setOfflineQueue(null);
     setBranch(scope?.branchName ?? 'Main Branch');
+    setCustomerName('');
   }, [scope?.businessId, scope?.branchId]);
 
   useEffect(() => { void refreshCatalog(); }, [refreshCatalog]);
@@ -244,6 +248,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
     setPendingSale(null);
     setCompletedPayment(null);
     setPaymentMethod('Cash');
+    setCustomerName('');
   };
 
   const total = useMemo(() => {
@@ -256,9 +261,9 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
   const count = lines.reduce((sum, line) => sum + line.quantity, 0);
 
   return <DemoContext.Provider value={{
-    lines, branch, paymentMethod, total, count, catalog, catalogSource, catalogSavedAt, offlineMode, offlineQueue, syncingOfflineSales, loadingCatalog, catalogError,
+    lines, branch, paymentMethod, customerName, total, count, catalog, catalogSource, catalogSavedAt, offlineMode, offlineQueue, syncingOfflineSales, loadingCatalog, catalogError,
     pendingSale, completedPayment, add, subtract, remove, clear, beginNewSale, refreshCatalog, refreshOfflineQueue,
-    setBranch, setPaymentMethod, setPendingSale, setCompletedPayment,
+    setBranch, setPaymentMethod, setCustomerName, setPendingSale, setCompletedPayment,
   }}>{children}</DemoContext.Provider>;
 }
 
