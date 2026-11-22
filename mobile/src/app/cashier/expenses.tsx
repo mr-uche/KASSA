@@ -124,7 +124,7 @@ export default function Expenses() {
       {(['Overview', 'All Expenses'] as const).map(value =>
         <Pressable key={value} accessibilityRole="button"
           accessibilityState={{ selected: tab === value }}
-          onPress={() => setTab(value)}
+          onPress={() => { setTab(value); if (value === 'All Expenses') setPeriod('all'); }}
           style={[s.tab, tab === value && s.activeTab]}>
           <Text style={[s.tabText, tab === value && s.activeTabText]}>{value}</Text>
         </Pressable>)}
@@ -166,6 +166,8 @@ export default function Expenses() {
       <View style={s.chartCard}>
         <Text style={s.section}>Expenses by category</Text>
         <Text style={s.hint}>How your spending is distributed</Text>
+        {(data?.items.length ?? 0) >= (data?.historyLimit ?? 500) &&
+          <Text style={s.hint}>Breakdown uses the latest recorded entries.</Text>}
         {breakdown.length ? <>
           <View style={s.stackedBar}>
             {breakdown.map(([name, amount], index) =>
@@ -191,7 +193,7 @@ export default function Expenses() {
 
       <View style={s.sectionRow}>
         <Text style={s.section}>Recent Expenses</Text>
-        <Pressable onPress={() => setTab('All Expenses')} accessibilityRole="button">
+        <Pressable onPress={() => { setTab('All Expenses'); setPeriod('all'); }} accessibilityRole="button">
           <Text style={s.actionText}>See All</Text>
         </Pressable>
       </View>
