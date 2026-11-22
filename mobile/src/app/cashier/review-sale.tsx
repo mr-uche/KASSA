@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useKassaDemo } from '@/components/kassa-demo/store';
@@ -77,6 +77,16 @@ export default function ReviewSale() {
       </View>
     ))}
 
+    <View style={s.customerPanel}>
+      <Text style={s.customerLabel}>Customer name (optional)</Text>
+      <TextInput accessibilityLabel="Customer name optional"
+        placeholder="Who is buying? (optional)" placeholderTextColor={C.faint}
+        value={store.customerName} maxLength={120} autoCapitalize="words"
+        onChangeText={store.setCustomerName}
+        editable={!store.pendingSale} style={s.customerInput}/>
+      <Text style={s.customerHint}>Include a name to identify the buyer in sales history and on the receipt.</Text>
+    </View>
+
     <View style={s.summary}>
       <View style={s.sumRow}><Text style={s.label}>Items</Text><Text style={s.smallBold}>{store.count}</Text></View>
       <View style={s.sumRow}>
@@ -102,6 +112,12 @@ export default function ReviewSale() {
 }
 
 const s = StyleSheet.create({
+  customerPanel: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border,
+    padding: 14, borderRadius: 11, marginTop: 15, marginBottom: 14 },
+  customerLabel: { color: C.title, fontSize: 14, fontWeight: '800', marginBottom: 9 },
+  customerInput: { backgroundColor: C.white, color: C.title, fontSize: 14,
+    borderWidth: 1, borderColor: C.border, borderRadius: 9, paddingHorizontal: 12, height: 46 },
+  customerHint: { color: C.muted, fontSize: 12, marginTop: 8, lineHeight: 18 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 11, marginBottom: 19 },
   back: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.mint, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 26, fontWeight: '800', color: C.title },
