@@ -115,9 +115,10 @@ export default function Transactions() {
       text.toLowerCase().includes(search.trim().toLowerCase());
   }), [scoped, status, channel, search]);
   const localVisible = local.filter(item => matchesDate(item.recordedAt, period) &&
-    (!search.trim() || item.items.some(row => row.name.toLowerCase().includes(search.trim().toLowerCase()))) &&
+    (!search.trim() || [item.customerName ?? '', item.id, ...item.items.map(row => row.name)]
+      .some(value => value.toLowerCase().includes(search.trim().toLowerCase()))) &&
     (status === 'All statuses' || status === 'Pending') &&
-    (channel === 'All payments' || channel === 'Cash'));
+    (channel === 'All payments' || ({ CASH: 'Cash', BANK_TRANSFER: 'Transfer', POS: 'POS', CARD: 'Card' } as Record<string,string>)[item.channel] === channel));
   const paid = scoped.filter(sale => state(sale) === 'Successful');
   const failed = scoped.filter(sale => state(sale) === 'Failed').length;
   const branchCount = session.scopes.filter(item => item.businessId === scope?.businessId).length;
@@ -132,7 +133,8 @@ export default function Transactions() {
       ]),
       ...localVisible.map(item => [
         item.id, new Date(item.recordedAt).toLocaleString('en-NG'),
-        '', '', 'Cash (offline)', item.status === 'REVIEW' ? 'Needs review' : 'Queued',
+        item.customerName ?? '', '', method({ payments: [{ channel: item.channel }] } as CheckoutSale) + ' (offline)',
+        item.status === 'REVIEW' ? 'Needs review' : 'Queued',
         money(item.total),
       ]),
     ];
@@ -148,7 +150,7 @@ export default function Transactions() {
       '<p>Branch: ' + escapeHtml(scope?.branchName ?? '') + '</p>' +
       '<p>Filters: ' + escapeHtml([period, status, channel, search ? 'Search: ' + search : ''].filter(Boolean).join(' · ')) + '</p>' +
       '<p>Exported from the transaction records currently loaded on this device. ' +
-      'Queued or review-required offline cash sales are not confirmed online payments.</p>' +
+      'Queued or review-required offline sales are not confirmed online payments.</p>' +
       '<table><thead><tr>' + headings.map(item => '<th>' + escapeHtml(item) + '</th>').join('') +
       '</tr></thead><tbody>' + rows.map(row =>
         '<tr>' + row.map(value => '<td>' + escapeHtml(String(value)) + '</td>').join('') + '</tr>').join('') +
@@ -192,8 +194,8 @@ export default function Transactions() {
     {!!localVisible.length && <>
       <ListHeading title="Waiting to sync" onPress={() => router.push('/cashier/offline-sales')}
         action="Review"/>
-      {localVisible.map(item => <RecordRow key={item.id} title={item.items[0]?.name || 'Offline cash sale'}
-        subtitle={'Cash · ' + new Date(item.recordedAt).toLocaleString('en-NG')}
+      {localVisible.map(item => <RecordRow key={item.id} title={item.customerName || item.items[0]?.name || 'Offline sale'}
+        subtitle={item.channel.replaceAll('_', ' ') + ' · ' + new Date(item.recordedAt).toLocaleString('en-NG')}
         amount={money(item.total)} status={item.status === 'REVIEW' ? 'Needs review' : 'Queued'}
         tone="orange" onPress={() => router.push({ pathname: '/cashier/offline-receipt', params: { id: item.id } })}/>)}
     </>}
