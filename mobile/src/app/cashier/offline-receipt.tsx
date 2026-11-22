@@ -3,34 +3,54 @@ import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import * as Print from 'expo-print';
-import qrcode from 'qrcode-generator';
-import { useKassaSession } from '@/components/kassa-demo/api';
-import { useKassaDemo } from '@/components/kassa-demo/store';
+import { SymbolView } from 'expo-symbols';
+import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api';
+import { useKassaDemo, type CompletedPayment } from '@/components/kassa-demo/store';
 import { getOfflineSales, type OfflineCashRecord } from '@/components/kassa-demo/offline-cash';
 import { C, naira, toKobo } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
+import { receiptHtml, receiptMethod, receiptText } from '@/components/kassa-demo/receipt-tools';
+import { receiptQrDataUrl } from '@/components/kassa-demo/receipt-qr';
 
 const date = new Intl.DateTimeFormat('en-NG', {
   dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Lagos',
 });
 
-function makeQr(record: OfflineCashRecord): string {
-  const qr = qrcode(0, 'M');
-  qr.addData([
-    'KASSA LOCAL CASH RECORD',
-    'REF:' + record.id,
-    'NGN:' + record.total,
-    'SYNC:' + record.status,
-  ].join('\n'));
-  qr.make();
-  return qr.createDataURL(5, 5);
-}
-
-function escapeHtml(value: string) {
-  const entities: Record<string, string> = {
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+// Reuse the same receipt contract as an online sale; reconciliation state
+// belongs to the merchant's local queue, not customer-facing receipts.
+function localPayment(record: OfflineCashRecord, branchId: string): CompletedPayment {
+  const total = Number(record.total);
+  const received = Number(record.cashReceived);
+  const sale: CheckoutSale = {
+    id: record.id,
+    reference: 'KSO-' + record.id.replace(/-/g, ''),
+    createdAt: record.recordedAt,
+    status: 'PAID',
+    total: record.total,
+    subtotal: record.total,
+    currency: 'NGN',
+    branchId,
+    customer: record.customerName ?? undefined,
+    items: record.items.map((item, index) => ({
+      id: String(index) + '-' + item.productId,
+      productId: item.productId,
+      name: item.name,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      lineTotal: (toKobo(Number(item.unitPrice)) * item.quantity / 100).toFixed(2),
+    })),
+    payments: [{
+      channel: record.channel,
+      status: 'SUCCEEDED',
+      confirmedAt: record.recordedAt,
+      provider: record.channel === 'CASH' ? 'OFFLINE_CASH' : 'OFFLINE_MERCHANT_ATTESTED',
+    }],
   };
-  return value.replace(/[&<>"']/g, char => entities[char] ?? char);
+  return {
+    sale,
+    cashReceived: record.channel === 'CASH' ? received : null,
+    change: record.channel === 'CASH' ? (toKobo(received) - toKobo(total)) / 100 : 0,
+  };
 }
 
 export default function OfflineReceipt() {
@@ -44,7 +64,7 @@ export default function OfflineReceipt() {
 
   const reload = useCallback(async () => {
     if (!id || !session.scope || !session.user) {
-      setError('Sign in with the original cashier account to view this local cash record.');
+      setError('Sign in with the original cashier account to view this receipt.');
       return;
     }
     try {
@@ -54,137 +74,158 @@ export default function OfflineReceipt() {
         branchId: session.scope.branchId,
       });
       const found = rows.find(row => row.id === id);
-      if (!found) throw new Error('Local cash record not found on this phone.');
+      if (!found) throw new Error('This sale was not found on this phone.');
       setRecord(found);
       setError('');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not load local receipt.');
+      setError(cause instanceof Error ? cause.message : 'Could not open the receipt.');
     }
   }, [id, session.user?.id, session.scope?.businessId, session.scope?.branchId]);
 
   useEffect(() => { void reload(); }, [reload]);
-  const qr = useMemo(() => record ? makeQr(record) : null, [record]);
-  const change = record
-    ? (toKobo(Number(record.cashReceived)) - toKobo(Number(record.total))) / 100 : 0;
+  const payment = useMemo(() => record && session.scope
+    ? localPayment(record, session.scope.branchId) : null,
+    [record, session.scope?.branchId]);
+  const qr = useMemo(() => payment ? receiptQrDataUrl(payment.sale) : null, [payment]);
+  const business = session.scope?.businessName || 'KASSA';
+  const initials = business.split(/\s+/).filter(Boolean).slice(0, 2)
+    .map(word => word[0].toUpperCase()).join('') || 'K';
 
-  const receiptText = record ? [
-    'KASSA — LOCAL CASH RECORD (NOT A CLOUD RECEIPT)',
-    'Reference: ' + record.id,
-    'Business: ' + (session.scope?.businessName ?? 'KASSA'),
-    'Branch: ' + (session.scope?.branchName ?? 'Branch'),
-    'Collected: ' + date.format(new Date(record.recordedAt)),
-    ...record.items.map(item => item.name + '  ' + item.quantity + ' x ' +
-      naira(Number(item.unitPrice))),
-    'Total: ' + naira(Number(record.total)),
-    'Cash collected: ' + naira(Number(record.cashReceived)),
-    'Change: ' + naira(change),
-    'Sync status: ' + record.status,
-    'Verify this transaction with the merchant after synchronization.',
-  ].join('\n') : '';
+  async function print() {
+    if (!payment || busy) return;
+    setBusy(true); setError('');
+    try { await Print.printAsync({ html: receiptHtml(payment) }); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not print the receipt.'); }
+    finally { setBusy(false); }
+  }
+  async function share() {
+    if (!payment || busy) return;
+    setBusy(true); setError('');
+    try { await Share.share({ message: receiptText(payment) }); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not share receipt.'); }
+    finally { setBusy(false); }
+  }
 
-  const print = async () => {
-    if (!record || !qr || busy) return;
-    setBusy(true);
-    setError('');
-    try {
-      const rows = record.items.map(item =>
-        '<tr><td>' + escapeHtml(item.name) + ' (' + item.quantity + ' x ' +
-          naira(Number(item.unitPrice)) + ')</td><td>' +
-          naira(toKobo(Number(item.unitPrice)) * item.quantity / 100) + '</td></tr>'
-      ).join('');
-      const html = '<!doctype html><html><head><meta charset="utf-8">' +
-        '<style>body{font-family:Arial,sans-serif;max-width:390px;margin:20px auto;color:#172923}' +
-        'h2,p{text-align:center}table{width:100%;border-collapse:collapse}' +
-        'td{padding:8px 0;border-bottom:1px dashed #ddd}td:last-child{text-align:right}' +
-        '.qr{text-align:center;margin-top:20px}.qr img{width:170px;height:170px}' +
-        '.notice{color:#995918;font-weight:bold;text-align:center;font-size:12px}' +
-        '</style></head><body><h2>' + escapeHtml(session.scope?.businessName ?? 'KASSA') +
-        '</h2><p>' + escapeHtml(session.scope?.branchName ?? '') + '</p>' +
-        '<p class="notice">LOCAL CASH RECORD — ' + escapeHtml(record.status) + '</p>' +
-        '<p>Ref: ' + escapeHtml(record.id) + '</p>' +
-        '<p>' + escapeHtml(date.format(new Date(record.recordedAt))) + '</p>' +
-        '<table>' + rows +
-        '<tr><td><strong>Total</strong></td><td><strong>' + naira(Number(record.total)) + '</strong></td></tr>' +
-        '<tr><td>Cash collected</td><td>' + naira(Number(record.cashReceived)) + '</td></tr>' +
-        '<tr><td>Change</td><td>' + naira(change) + '</td></tr></table>' +
-        '<div class="qr"><img alt="Local receipt QR" src="' + qr + '"/></div>' +
-        '<p class="notice">Stored on device. Not an independently verified payment receipt.</p>' +
-        '</body></html>';
-      await Print.printAsync({ html });
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not print the local record.');
-    } finally { setBusy(false); }
-  };
-
-  return <KScreen title="Local cash receipt" subtitle="Saved on this phone"
-    showBrand={false} showPreviewLabel={false} back>
-    {error ? <View style={s.notice}><Text style={s.error}>{error}</Text>
-      <Pressable onPress={() => { void reload(); }}><Text style={s.link}>Retry</Text></Pressable>
-    </View> : null}
-    {record ? <View style={s.paper}>
-      <Text style={s.merchant}>{session.scope?.businessName ?? 'KASSA'}</Text>
-      <Text style={s.muted}>{session.scope?.branchName ?? 'Branch'}</Text>
-      <View style={s.statusBadge}>
-        <Text style={s.statusText}>{record.status === 'SYNCED' ? 'SYNCED TO KASSA'
-          : record.status === 'REVIEW' ? 'NEEDS OWNER REVIEW' : 'AWAITING SYNC'}</Text>
+  return <KScreen showBrand={false} showPreviewLabel={false}>
+    <View style={s.header}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Back"
+        onPress={() => router.back()} style={s.back}>
+        <SymbolView name={{ ios: 'arrow.left', android: 'arrow_back', web: 'arrow_back' }}
+          tintColor={C.green} size={21}/>
+      </Pressable>
+      <Text style={s.title}>Receipt</Text>
+    </View>
+    {error ? <Text style={s.error}>{error}</Text> : null}
+    {!record && <Pressable accessibilityRole="button" onPress={() => { void reload(); }}>
+      <Text style={s.action}>Retry loading receipt</Text>
+    </Pressable>}
+    {record && payment && <>
+      <View style={s.paper}>
+        <View style={s.businessHeader}>
+          <View style={s.businessLogo}><Text style={s.businessInitials}>{initials}</Text></View>
+          <Text style={s.businessName}>{business}</Text>
+          <Text style={s.address}>{session.scope?.branchName ?? 'Main branch'}
+            {session.scope?.branchAddress ? ' · ' + session.scope.branchAddress : ''}</Text>
+        </View>
+        <View style={s.rule}/>
+        <View style={s.row}><Text style={s.label}>Receipt no.</Text>
+          <Text style={s.smallValue} selectable numberOfLines={2}>{payment.sale.reference}</Text></View>
+        <View style={s.row}><Text style={s.label}>Date & time</Text>
+          <Text style={s.smallValue}>{date.format(new Date(record.recordedAt))}</Text></View>
+        {!!record.customerName && <View style={s.row}><Text style={s.label}>Customer</Text>
+          <Text style={s.smallValue}>{record.customerName}</Text></View>}
+        <View style={s.rule}/>
+        <View style={s.tableHead}><Text style={[s.tableLabel, s.itemName]}>ITEM</Text>
+          <Text style={[s.tableLabel, s.qty]}>QTY</Text>
+          <Text style={[s.tableLabel, s.amount]}>AMOUNT</Text></View>
+        {payment.sale.items.map(item => <View key={item.id} style={s.itemRow}>
+          <Text style={[s.itemText, s.itemName]}>{item.name}</Text>
+          <Text style={[s.itemText, s.qty]}>{item.quantity}</Text>
+          <Text style={[s.itemText, s.amount]}>{naira(Number(item.lineTotal))}</Text>
+        </View>)}
+        <View style={s.rule}/>
+        <View style={s.row}><Text style={s.label}>Subtotal</Text>
+          <Text style={s.value}>{naira(Number(record.total))}</Text></View>
+        <View style={s.row}><Text style={s.label}>Payment method</Text>
+          <Text style={s.value}>{receiptMethod(record.channel)}</Text></View>
+        {payment.cashReceived !== null && <>
+          <View style={s.row}><Text style={s.label}>Cash received</Text>
+            <Text style={s.value}>{naira(payment.cashReceived)}</Text></View>
+          <View style={s.row}><Text style={s.label}>Change given</Text>
+            <Text style={s.value}>{naira(payment.change)}</Text></View>
+        </>}
+        <View style={s.rule}/>
+        <View style={s.row}><Text style={s.totalLabel}>Total paid</Text>
+          <Text style={s.total}>{naira(Number(record.total))}</Text></View>
+        {!!qr && <View style={s.qrBlock}>
+          <Image source={{ uri: qr }} accessibilityLabel="Receipt reference QR code"
+            contentFit="contain" style={s.qrImage}/>
+          <View style={s.qrText}>
+            <Text style={s.qrTitle}>Scan for receipt details</Text>
+            <Text style={s.reference} numberOfLines={2}>{payment.sale.reference}</Text>
+            <Text style={s.qrHint}>Reference only. Confirm payments with the merchant.</Text>
+          </View>
+        </View>}
+        <Text style={s.footer}>Thank you for shopping with us!</Text>
       </View>
-      <Text style={s.muted}>LOCAL REF #{record.id.slice(0, 8).toUpperCase()}</Text>
-      <Text style={s.muted}>{date.format(new Date(record.recordedAt))}</Text>
-      <View style={s.line}/>
-      {record.items.map((item, i) => <View key={item.productId + i} style={s.itemRow}>
-        <Text style={s.itemName}>{item.name} × {item.quantity}</Text>
-        <Text style={s.itemAmount}>{naira(toKobo(Number(item.unitPrice)) * item.quantity / 100)}</Text>
-      </View>)}
-      <View style={s.line}/>
-      <View style={s.row}><Text style={s.label}>Total</Text><Text style={s.amount}>{naira(Number(record.total))}</Text></View>
-      <View style={s.row}><Text style={s.label}>Cash received</Text><Text style={s.value}>{naira(Number(record.cashReceived))}</Text></View>
-      <View style={s.row}><Text style={s.label}>Change</Text><Text style={s.value}>{naira(change)}</Text></View>
-      {qr && <Image source={{ uri: qr }} accessibilityLabel="Local cash transaction QR code" style={s.qr} contentFit="contain"/>}
-      <Text style={s.footer}>Scan for local transaction details. This does not independently verify payment with KASSA.</Text>
-      <Text style={s.footer}>Thank you for shopping with us!</Text>
-    </View> : null}
-    {record && <View style={s.buttons}>
-      <Pressable disabled={busy} onPress={() => { void print(); }} style={s.primary}>
-        <Text style={s.primaryText}>{busy ? 'Working…' : 'Print local receipt'}</Text>
+      <Pressable accessibilityRole="button" disabled={busy} onPress={() => { void print(); }} style={s.primary}>
+        <Text style={s.primaryText}>{busy ? 'Working…' : 'Print receipt'}</Text>
       </Pressable>
-      <Pressable onPress={() => { void Share.share({ message: receiptText }); }} style={s.secondary}>
-        <Text style={s.secondaryText}>Share</Text>
+      <Pressable accessibilityRole="button" disabled={busy} onPress={() => { void share(); }} style={s.secondary}>
+        <Text style={s.secondaryText}>Share receipt</Text>
       </Pressable>
-      <Pressable onPress={() => router.replace('/cashier/offline-sales')} style={s.secondary}>
-        <Text style={s.secondaryText}>View sync queue</Text>
-      </Pressable>
-      <Pressable onPress={() => {
-        store.beginNewSale();
-        router.replace('/cashier/new-sale');
-      }} style={s.secondary}>
-        <Text style={s.secondaryText}>New sale</Text>
-      </Pressable>
-    </View>}
+    </>}
+    <Pressable accessibilityRole="button" onPress={() => {
+      store.beginNewSale();
+      router.replace('/cashier/new-sale');
+    }} style={s.secondary}>
+      <Text style={s.secondaryText}>New sale</Text>
+    </Pressable>
   </KScreen>;
 }
 
 const s = StyleSheet.create({
-  paper: { backgroundColor: C.white, borderColor: C.border, borderWidth: 1, borderRadius: 11, padding: 17, alignItems: 'stretch' },
-  merchant: { color: C.greenDark, fontSize: 22, fontWeight: '800', textAlign: 'center' },
-  muted: { color: C.muted, fontSize: 13, textAlign: 'center', marginTop: 6 },
-  statusBadge: { backgroundColor: '#FFF1D9', borderRadius: 8, alignItems: 'center', padding: 10, marginTop: 17, marginBottom: 10 },
-  statusText: { color: C.orange, fontSize: 13, fontWeight: '800' },
-  line: { borderTopWidth: 1, borderColor: C.border, marginVertical: 17, borderStyle: 'dashed' },
-  itemRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, paddingVertical: 8 },
-  itemName: { flex: 1, color: C.title, fontSize: 14 },
-  itemAmount: { color: C.title, fontWeight: '700', fontSize: 14 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, gap: 15 },
-  label: { color: C.muted, fontSize: 14 },
-  value: { color: C.title, fontWeight: '700', fontSize: 14 },
-  amount: { color: C.green, fontWeight: '800', fontSize: 21 },
-  qr: { width: 176, height: 176, alignSelf: 'center', marginTop: 18 },
-  footer: { color: C.muted, fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 7 },
-  buttons: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 18 },
-  primary: { backgroundColor: C.green, padding: 14, borderRadius: 9, minWidth: '100%', alignItems: 'center' },
-  primaryText: { color: C.white, fontWeight: '800', fontSize: 14 },
-  secondary: { borderColor: C.green, borderWidth: 1, padding: 13, borderRadius: 9, flexGrow: 1, alignItems: 'center' },
-  secondaryText: { color: C.green, fontWeight: '700', fontSize: 14 },
-  notice: { padding: 12, backgroundColor: C.white, borderColor: C.border, borderWidth: 1, borderRadius: 9 },
-  error: { color: C.danger, fontSize: 14, marginBottom: 10 },
-  link: { color: C.green, fontWeight: '800', fontSize: 14 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  back: { width: 27, height: 32, justifyContent: 'center' },
+  title: { color: C.title, fontSize: 26, fontWeight: '800' },
+  paper: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border,
+    borderRadius: 13, padding: 16, marginBottom: 18 },
+  businessHeader: { alignItems: 'center', paddingVertical: 7 },
+  businessLogo: { height: 45, width: 45, borderRadius: 23, backgroundColor: C.mint,
+    alignItems: 'center', justifyContent: 'center' },
+  businessInitials: { color: C.green, fontSize: 18, fontWeight: '800' },
+  businessName: { color: C.title, fontSize: 21, fontWeight: '800', marginTop: 6, textAlign: 'center' },
+  address: { color: C.muted, fontSize: 13, textAlign: 'center', marginTop: 5 },
+  rule: { borderBottomColor: C.border, borderBottomWidth: 1, marginVertical: 12 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    gap: 10, paddingVertical: 6 },
+  label: { color: C.muted, fontSize: 13, flexShrink: 0 },
+  smallValue: { color: C.title, fontSize: 13, fontWeight: '700',
+    textAlign: 'right', flex: 1 },
+  value: { color: C.title, fontSize: 14, fontWeight: '700', textAlign: 'right', flexShrink: 1 },
+  tableHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  tableLabel: { color: C.muted, fontSize: 12, fontWeight: '800' },
+  itemRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 7 },
+  itemName: { flex: 1 },
+  itemText: { color: C.title, fontSize: 14 },
+  qty: { width: 35, textAlign: 'center' },
+  amount: { width: 91, textAlign: 'right' },
+  totalLabel: { color: C.title, fontWeight: '800', fontSize: 16 },
+  total: { color: C.green, fontWeight: '800', fontSize: 21 },
+  qrBlock: { flexDirection: 'row', gap: 12, borderTopWidth: 1, borderTopColor: C.border,
+    marginTop: 18, paddingTop: 14, alignItems: 'center' },
+  qrImage: { width: 102, height: 102 },
+  qrText: { flex: 1 },
+  qrTitle: { color: C.title, fontSize: 14, fontWeight: '800' },
+  reference: { fontSize: 11, color: C.green, marginVertical: 6 },
+  qrHint: { fontSize: 11, color: C.muted, lineHeight: 17 },
+  footer: { textAlign: 'center', marginTop: 18, color: C.muted, fontSize: 13 },
+  error: { color: C.danger, fontSize: 14, marginBottom: 13 },
+  action: { color: C.green, fontWeight: '800', fontSize: 14 },
+  primary: { backgroundColor: C.green, borderRadius: 9,
+    minHeight: 48, alignItems: 'center', justifyContent: 'center', marginBottom: 9 },
+  primaryText: { color: C.white, fontSize: 14, fontWeight: '800' },
+  secondary: { borderRadius: 9, borderWidth: 1, borderColor: C.green,
+    minHeight: 48, alignItems: 'center', justifyContent: 'center', marginBottom: 9 },
+  secondaryText: { color: C.green, fontSize: 14, fontWeight: '800' },
 });
