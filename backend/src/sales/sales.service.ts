@@ -35,7 +35,7 @@ export class SalesService {
     id: string; reference: string; businessId: string; branchId: string; status: string;
     subtotal: { toString(): string }; discount: { toString(): string }; total: { toString(): string };
     currency: string; createdAt: Date; cashier: { fullName: string } | null;
-    customerId: string | null; customer: { fullName: string } | null;
+    customerId: string | null; customerNameSnapshot: string | null; customer: { fullName: string } | null;
     items: { id: string; productId: string; productNameSnapshot: string; quantity: number; unitPrice: { toString(): string }; lineTotal: { toString(): string } }[];
     payments: { id: string; reference: string; channel: string; status: string; confirmedAt: Date | null; provider: string | null; providerReference: string | null }[];
   }) {
@@ -44,7 +44,7 @@ export class SalesService {
       status: sale.status, subtotal: sale.subtotal.toString(), discount: sale.discount.toString(),
       total: sale.total.toString(), currency: sale.currency, createdAt: sale.createdAt.toISOString(),
       cashier: sale.cashier?.fullName ?? 'Business owner',
-      customerId: sale.customerId, customer: sale.customer?.fullName ?? 'Customer details unavailable',
+      customerId: sale.customerId, customer: sale.customerNameSnapshot ?? sale.customer?.fullName ?? null,
       items: sale.items.map((item) => ({
         id: item.id, productId: item.productId, name: item.productNameSnapshot,
         quantity: item.quantity, unitPrice: item.unitPrice.toString(), lineTotal: item.lineTotal.toString(),
@@ -181,6 +181,7 @@ export class SalesService {
       if (existing.businessId !== dto.businessId || existing.branchId !== dto.branchId ||
           existing.payments[0]?.channel !== dto.channel || existing.items.length !== dto.items.length ||
           existing.customerId !== (dto.customerId ?? null) ||
+          (existing.customerNameSnapshot ?? null) !== (dto.customerName?.trim() || null) ||
           dto.items.some((line) => !existing.items.some((item) =>
             line.productId === item.productId && line.quantity === item.quantity))) {
         throw new ConflictException('This request ID belongs to another sale');
@@ -223,6 +224,7 @@ export class SalesService {
         data: {
           reference, businessId: dto.businessId, branchId: dto.branchId,
           cashierId: userId, customerId: dto.customerId ?? null,
+          customerNameSnapshot: dto.customerName?.trim() || null,
           status: 'PENDING_PAYMENT', subtotal: total, discount: '0.00', total,
           items: { create: lines.map((line) => ({
             productId: line.productId, productNameSnapshot: line.productNameSnapshot,
@@ -499,6 +501,15 @@ export class SalesService {
    */
   async syncOfflineCash(userId: string, dto: OfflineCashSaleDto) {
     await this.checkAccess(userId, dto.businessId, dto.branchId, 'Manage sales');
+    const channel = dto.channel ?? 'CASH';
+    if (channel === 'CASH' && dto.cashReceived !== true) {
+      throw new BadRequestException('Cashier must confirm cash was received');
+    }
+    if (channel !== 'CASH' && dto.confirmedReceived !== true) {
+      throw new BadRequestException('Cashier must confirm merchant bank/POS receipt independently');
+    }
+    const customerName = dto.customerName?.trim() || null;
+    const provider = channel === 'CASH' ? 'OFFLINE_CASH' : 'OFFLINE_MERCHANT_ATTESTED';
     const recordedAt = new Date(dto.recordedAt);
     if (!Number.isFinite(recordedAt.getTime()) ||
       recordedAt.getTime() > Date.now() + 5 * 60_000 ||
@@ -513,8 +524,9 @@ export class SalesService {
       if (!saved) return null;
       if (saved.businessId !== dto.businessId || saved.branchId !== dto.branchId ||
         saved.cashierId !== userId || saved.status !== 'PAID' ||
-        saved.payments.length !== 1 || saved.payments[0].channel !== 'CASH' ||
-        saved.payments[0].status !== 'SUCCEEDED' || saved.payments[0].provider !== 'OFFLINE_CASH' ||
+        saved.payments.length !== 1 || saved.payments[0].channel !== channel ||
+        saved.payments[0].status !== 'SUCCEEDED' || saved.payments[0].provider !== provider ||
+        (saved.customerNameSnapshot ?? null) !== customerName ||
         saved.items.length !== dto.items.length ||
         dto.items.some((line) => !saved.items.some((item) =>
           item.productId === line.productId && item.quantity === line.quantity &&
@@ -595,7 +607,7 @@ export class SalesService {
           const sale = await tx.sale.create({
             data: {
               reference, businessId: dto.businessId, branchId: dto.branchId,
-              cashierId: userId, status: 'PAID',
+              cashierId: userId, customerNameSnapshot: customerName, status: 'PAID',
               subtotal: total, discount: '0.00', total,
               items: { create: lines.map((item) => ({
                 productId: item.productId, productNameSnapshot: item.productNameSnapshot,
@@ -603,13 +615,15 @@ export class SalesService {
               })) },
               payments: { create: {
                 reference: 'PAY-' + randomUUID(), businessId: dto.businessId,
-                channel: 'CASH', status: 'SUCCEEDED', amount: total,
-                confirmedAt: new Date(), provider: 'OFFLINE_CASH',
+                channel, status: 'SUCCEEDED', amount: total,
+                confirmedAt: new Date(), provider,
                 providerReference: dto.clientRequestId,
                 events: { create: {
                   providerEventId: 'offline-' + dto.clientRequestId,
-                  eventType: 'offline.cash.synced',
-                  payload: { recordedAt: dto.recordedAt, syncMode: 'offline-cash-v1' },
+                  eventType: channel === 'CASH' ? 'offline.cash.synced' : 'offline.merchant.attestation.synced',
+                  payload: { recordedAt: dto.recordedAt, channel,
+                    confirmedByUserId: userId, independentlyVerifiedByKassa: false,
+                    fundsProcessedByKassa: false, syncMode: 'offline-sale-v2' },
                 } },
               } },
             },
@@ -620,7 +634,7 @@ export class SalesService {
             data: lines.map((line) => ({
               productId: line.productId, branchId: dto.branchId,
               delta: -line.quantity, reason: 'SALE' as const, reference,
-              note: 'Cash collected offline at ' + dto.recordedAt,
+              note: channel + ' collected offline at ' + dto.recordedAt,
             })),
           });
           return this.serialize(sale);
