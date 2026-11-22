@@ -27,10 +27,12 @@ function state(sale: CheckoutSale): 'Successful' | 'Pending' | 'Failed' {
   if (sale.payments.some(payment => payment.status === 'FAILED') || sale.status === 'FAILED') return 'Failed';
   return 'Pending';
 }
-function method(sale: CheckoutSale): string {
-  const raw = sale.payments[0]?.channel;
+function channelLabel(raw?: string): string {
   return ({ BANK_TRANSFER: 'Transfer', CASH: 'Cash', POS: 'POS', CARD: 'Card',
     USSD: 'USSD', WALLET: 'Wallet' } as Record<string, string>)[raw ?? ''] ?? 'Unknown';
+}
+function method(sale: CheckoutSale): string {
+  return channelLabel(sale.payments[0]?.channel);
 }
 /** Show the actual payment channel if this sale has no recorded customer. */
 function transactionLabel(sale: CheckoutSale): string {
@@ -133,7 +135,7 @@ export default function Transactions() {
       ]),
       ...localVisible.map(item => [
         item.id, new Date(item.recordedAt).toLocaleString('en-NG'),
-        item.customerName ?? '', '', method({ payments: [{ channel: item.channel }] } as CheckoutSale) + ' (offline)',
+        item.customerName ?? '', '', channelLabel(item.channel) + ' (offline)',
         item.status === 'REVIEW' ? 'Needs review' : 'Queued',
         money(item.total),
       ]),
