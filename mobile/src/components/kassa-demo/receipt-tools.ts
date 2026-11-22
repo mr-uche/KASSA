@@ -18,6 +18,8 @@ export function receiptText(payment: CompletedPayment): string {
   return [
     'KASSA — ' + (test ? 'TEST RECEIPT' : 'SALE RECEIPT'),
     'Reference: ' + sale.reference,
+    'Date: ' + new Date(sale.createdAt).toLocaleString('en-NG'),
+    ...(sale.customer ? ['Customer: ' + sale.customer] : []),
     '',
     ...sale.items.map(item => item.name + ' — ' + item.quantity + ' × ' +
       naira(Number(item.unitPrice)) + ' = ' + naira(Number(item.lineTotal))),
@@ -58,7 +60,10 @@ export function receiptHtml(payment: CompletedPayment): string {
     '.qr .hint{font-size:10px;color:#667085;line-height:1.5}' +
     'footer{margin-top:25px;font-size:10px;color:#666}</style></head><body>' +
     '<h1>KASSA</h1><p>' + (test ? 'PAYSTACK TEST RECEIPT' : 'SALE RECEIPT') + '</p>' +
-    '<p>Reference: ' + escapeHtml(sale.reference) + '</p><table>' + rows +
+    '<p>Reference: ' + escapeHtml(sale.reference) + '</p>' +
+    '<p>Date: ' + escapeHtml(new Date(sale.createdAt).toLocaleString('en-NG')) + '</p>' +
+    (sale.customer ? '<p>Customer: ' + escapeHtml(sale.customer) + '</p>' : '') +
+    '<table>' + rows +
     '<tr><td class="total">Total</td><td class="total right">' + naira(Number(sale.total)) + '</td></tr>' +
     '<tr><td>Payment method</td><td class="right">' + escapeHtml(receiptMethod(channel)) + '</td></tr>' +
     (cashReceived === null ? '' : '<tr><td>Cash received</td><td class="right">' + naira(cashReceived) +
