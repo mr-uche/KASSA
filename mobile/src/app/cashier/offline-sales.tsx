@@ -279,7 +279,7 @@ export default function OfflineSales() {
       onPress={() => router.push({ pathname: '/cashier/offline-receipt', params: { id: item.id } })}>
       <View style={{ flex: 1 }}><Text style={s.name}>#{item.id.slice(0, 8).toUpperCase()}</Text>
         <Text style={s.info}>{new Date(item.recordedAt).toLocaleString('en-NG')} · {item.channel} · {item.status}</Text>
-        {!!item.customerName && <Text style={s.info}>Customer: {item.customerName}</Text>
+        {!!item.customerName && <Text style={s.info}>Customer: {item.customerName}</Text>}
         {item.error ? <Text style={s.error}>{item.error}</Text> : null}
         <Text style={s.scanEntryText}>View receipt</Text></View>
       <Text style={s.name}>{naira(Number(item.total))}</Text>
