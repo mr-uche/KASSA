@@ -156,7 +156,7 @@ export class SalesService {
     const payment = sale.payments[0];
     if (sale.status === 'PAID' && payment?.status === 'SUCCEEDED') {
       return {
-        status: payment?.provider === 'MERCHANT_ATTESTED' || payment?.channel === 'CASH'
+        status: ['MERCHANT_ATTESTED', 'OFFLINE_MERCHANT_ATTESTED'].includes(payment?.provider ?? '') || payment?.channel === 'CASH'
           ? 'STAFF_CONFIRMED' : payment?.provider === 'PAYSTACK_TEST' ? 'HISTORICAL_TEST' : 'PAID',
         saleStatus: sale.status, paymentStatus: payment.status,
         independentlyVerified: false,
