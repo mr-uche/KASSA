@@ -26,6 +26,8 @@ export default function NewSale() {
   const store = useKassaDemo();
   const { width, fontScale } = useWindowDimensions();
   const compact = width < 420 || fontScale > 1.1;
+  const singleColumn = width < 335 || fontScale > 1.25;
+  const cardWidth = singleColumn ? width - 48 : (width - 60) / 2;
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
   const categories = useMemo(() => ['All', ...Array.from(new Set(store.catalog.map(p => p.category)))], [store.catalog]);
@@ -119,50 +121,48 @@ export default function NewSale() {
           {items.map(item => {
             const quantity = store.lines.find(line => line.id === item.id)?.quantity ?? 0;
             return (
-              <View key={item.id} style={[s.productCard, quantity > 0 && s.productCardSelected]}>
-                {quantity > 0 && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove ${item.name} from current sale`}
-                    accessibilityHint="Removes all selected quantities of this product"
-                    disabled={!!store.pendingSale}
-                    onPress={() => store.remove(item.id)}
-                    style={[s.removeCircle, store.pendingSale && { opacity: 0.4 }]}
-                  >
-                    <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} size={16} tintColor={C.muted} />
-                  </Pressable>
-                )}
-                <View style={s.productImage}>
-                  <ProductIcon category={item.category} />
-                  {quantity > 0 && (
-                    <View style={s.selectedCount}>
-                      <Text style={s.selectedCountText}>{quantity} selected</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={s.productBody}>
+              <View key={item.id} style={[s.productCard, { width: cardWidth },
+                quantity > 0 && s.productCardSelected]}>
+                {quantity > 0 && <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={'Remove ' + item.name + ' from current sale'}
+                  accessibilityHint="Removes all quantities selected for this product"
+                  disabled={!!store.pendingSale}
+                  onPress={() => store.remove(item.id)}
+                  style={[s.removeCircle, !!store.pendingSale && { opacity: 0.4 }]}>
+                  <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }}
+                    size={16} tintColor={C.muted}/>
+                </Pressable>}
+                <Pressable accessibilityRole="button"
+                  accessibilityLabel={'View details for ' + item.name}
+                  onPress={() => router.push({ pathname: '/cashier/product-detail', params: { id: item.id } })}
+                  style={s.productImage}>
+                  <ProductIcon category={item.category}/>
+                  {quantity > 0 && <View style={s.selectedCount}>
+                    <Text style={s.selectedCountText}>{quantity} selected</Text>
+                  </View>}
+                </Pressable>
+                <Pressable accessibilityRole="button"
+                  accessibilityLabel={'View details for ' + item.name}
+                  onPress={() => router.push({ pathname: '/cashier/product-detail', params: { id: item.id } })}
+                  style={s.productNameTouch}>
                   <Text numberOfLines={2} style={s.productName}>{item.name}</Text>
-                  <View style={s.productInfoRow}>
-                    <View style={s.productDetails}>
-                      <Text style={[s.productMeta, { color: C.green, fontWeight: '800' }]}>{naira(item.price)}</Text>
-                      <Text style={s.productMeta}>SKU: {item.sku || '—'} · Stock: {item.stock}</Text>
-                    </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={quantity > 0 ? `Add another ${item.name}; ${quantity} in sale` : `Add ${item.name} to sale`}
-                      onPress={() => store.add(item.id)}
-                      disabled={!!store.pendingSale || item.stock <= quantity}
-                      style={[s.addCircle, quantity > 0 && s.addedCircle, (store.pendingSale || item.stock <= quantity) && { opacity: 0.35 }]}
-                    >
-                      <SymbolView
-                        name={quantity > 0
-                          ? { ios: 'checkmark', android: 'check', web: 'check' }
-                          : { ios: 'plus', android: 'add', web: 'add' }}
-                        size={17}
-                        tintColor={C.white}
-                      />
-                    </Pressable>
+                </Pressable>
+                <View style={s.productBottom}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={s.productPrice} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                      {naira(item.price)}
+                    </Text>
+                    <Text style={s.productMeta} numberOfLines={1}>In stock: {item.stock}</Text>
                   </View>
+                  <Pressable accessibilityRole="button"
+                    accessibilityLabel={'Add ' + item.name + ' to sale'}
+                    onPress={() => store.add(item.id)}
+                    disabled={!!store.pendingSale || item.stock <= quantity}
+                    style={[s.addCircle, (store.pendingSale || item.stock <= quantity) && { opacity: 0.35 }]}>
+                    <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }}
+                      size={17} tintColor={C.white}/>
+                  </Pressable>
                 </View>
               </View>
             );
@@ -278,25 +278,28 @@ const s = StyleSheet.create({
   categorySelected: { backgroundColor: C.green, borderColor: C.green },
   categoryText: { color: C.muted, fontSize: 14, fontWeight: '600' },
   categoryTextSelected: { color: C.white },
-  productsHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 46, marginBottom: 14 },
+  productsHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 27, marginBottom: 14 },
   sectionTitle: { fontSize: 20, fontWeight: '800', color: C.title },
   itemCount: { color: C.faint, fontSize: 14 },
-  productsGrid: { flexDirection: 'column', gap: 10 },
+  productsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'flex-start' },
   productCard: {
-    width: '100%', flexDirection: 'row', alignItems: 'center', gap: 11,
     backgroundColor: C.white, borderWidth: 1, borderColor: C.border,
-    borderRadius: 12, padding: 10, minHeight: 89, position: 'relative',
+    borderRadius: 12, padding: 10, minHeight: 204, position: 'relative',
   },
   productCardSelected: { borderColor: C.green, borderWidth: 1.5 },
-  removeCircle: { position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: 15, backgroundColor: '#F0F1F3', alignItems: 'center', justifyContent: 'center', zIndex: 3 },
-  productImage: { height: 67, width: 63, backgroundColor: C.mint, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  removeCircle: { position: 'absolute', top: 7, right: 7, width: 28, height: 28, borderRadius: 14, backgroundColor: C.white, alignItems: 'center', justifyContent: 'center', zIndex: 3 },
+  productImage: { height: 103, width: '100%', backgroundColor: C.mint, borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center' },
   selectedCount: { position: 'absolute', bottom: 3, left: 5, borderRadius: 10, backgroundColor: C.white, paddingHorizontal: 6, paddingVertical: 1, borderWidth: 1, borderColor: C.mintBorder },
   selectedCountText: { color: C.green, fontSize: 11, fontWeight: '800' },
   productIconCircle: { width: 43, height: 43, backgroundColor: '#D7EBE4', borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  productNameTouch: { minHeight: 41, justifyContent: 'center', paddingTop: 8 },
   productName: { color: C.title, fontWeight: '800', fontSize: 14 },
+  productBottom: { marginTop: 6, flexDirection: 'row', gap: 6, alignItems: 'flex-end' },
+  productPrice: { color: C.green, fontSize: 14, fontWeight: '800' },
   productInfoRow: { flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 3 },
   productDetails: { flex: 1, minWidth: 0 },
-  productMeta: { color: C.muted, fontSize: 14 },
+  productMeta: { color: C.muted, fontSize: 12, marginTop: 4 },
   addCircle: { width: 33, height: 33, borderRadius: 17, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
   addedCircle: { backgroundColor: '#08765B' },
   emptyResults: { borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 20, backgroundColor: C.white },
