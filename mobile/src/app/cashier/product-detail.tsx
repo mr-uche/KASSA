@@ -31,7 +31,7 @@ export default function ProductDetail() {
   </KScreen>;
 
   const unavailable = product.stock <= quantity || !!store.pendingSale;
-  const productIcon = product.category === 'Beverages'
+  const productIcon: React.ComponentProps<typeof SymbolView>['name'] = product.category === 'Beverages'
     ? { ios: 'cup.and.saucer', android: 'local_drink', web: 'local_drink' }
     : { ios: 'bag', android: 'shopping_bag', web: 'shopping_bag' };
 
