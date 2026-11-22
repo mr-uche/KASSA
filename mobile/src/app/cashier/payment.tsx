@@ -445,9 +445,9 @@ export default function Payment() {
         (method.channel !== 'CASH' && (!merchantChecked || (!offline && !!pending?.payments[0]?.provider)))}
       onPress={method.channel === 'CASH' ? finishCash : () => { void finishMerchantPayment(); }}
       style={[s.primary, (working || !session.scope || !store.count ||
-        (offline && (!cacheFresh || !!pending || method.channel !== 'CASH')) ||
+        (offline && (!cacheFresh || !!pending)) ||
         (method.channel === 'CASH' && !validCash) ||
-        (method.channel !== 'CASH' && (offline || !merchantChecked || !!pending?.payments[0]?.provider))) && { opacity: 0.5 }]}
+        (method.channel !== 'CASH' && (!merchantChecked || (!offline && !!pending?.payments[0]?.provider)))) && { opacity: 0.5 }]}
     >
       <Text style={s.primaryText}>{working ? 'Please wait…' :
         method.channel === 'CASH' ? (offline ? 'Save offline cash sale' : 'Confirm cash received') :
