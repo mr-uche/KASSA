@@ -14,6 +14,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { PaystackModule } from './paystack/paystack.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { SupportModule } from './support/support.module';
+import { ExpensesModule } from './expenses/expenses.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { SupportModule } from './support/support.module';
     StaffBranchesModule,
     ReportsModule,
     SupportModule,
+    ExpensesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

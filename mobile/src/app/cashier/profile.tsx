@@ -20,15 +20,15 @@ const businessLinks = [
   { title: 'Transactions', route: '/cashier/transactions',
     permission: 'View transactions',
     icon: { ios: 'list.bullet.rectangle', android: 'receipt_long', web: 'receipt_long' } },
+  { title: 'Expenses', route: '/cashier/expenses',
+    permission: 'Owner',
+    icon: { ios: 'creditcard', android: 'payments', web: 'payments' } },
   { title: 'Reports & Analytics', route: '/cashier/reports',
     permission: 'View reports & analytics',
     icon: { ios: 'chart.bar', android: 'bar_chart', web: 'bar_chart' } },
   { title: 'Staff & Branches', route: '/cashier/staff-branches',
     permission: 'Manage staff & branches',
     icon: { ios: 'person.3', android: 'groups', web: 'groups' } },
-  { title: 'Customers', route: '/cashier/customers',
-    permission: 'Manage customers',
-    icon: { ios: 'person.2', android: 'people', web: 'people' } },
   { title: 'Business settings', route: '/cashier/settings',
     permission: 'Manage business settings',
     icon: { ios: 'gearshape', android: 'settings', web: 'settings' } },
@@ -70,9 +70,9 @@ export default function Profile() {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const businessTools = businessLinks.filter(link =>
-    canAccess(session.scope, link.permission) &&
-    (link.route !== '/cashier/customers' ||
-      canAccess(session.scope, 'View transactions')));
+    link.permission === 'Owner'
+      ? session.scope?.myRole === 'Owner'
+      : canAccess(session.scope, link.permission));
   const userName = session.user?.fullName || 'Cashier';
   const initials = userName.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('');
   const logout = async () => {
