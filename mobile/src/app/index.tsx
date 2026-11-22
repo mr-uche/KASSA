@@ -22,24 +22,25 @@ export default function KassaSplash() {
   useEffect(() => {
     const circles = Animated.loop(Animated.sequence([
       Animated.timing(circleProgress, {
-        toValue: 1, duration: 1800, easing: Easing.out(Easing.bounce),
+        toValue: 1, duration: 2400, easing: Easing.out(Easing.bounce),
         useNativeDriver: true,
       }),
       Animated.timing(circleProgress, {
-        toValue: 0, duration: 1800, easing: Easing.out(Easing.bounce),
+        toValue: 0, duration: 2400, easing: Easing.out(Easing.bounce),
         useNativeDriver: true,
       }),
     ]));
     const reveal = Animated.parallel([
       Animated.timing(brandOpacity, {
-        toValue: 1, duration: 430, easing: Easing.out(Easing.cubic),
+        toValue: 1, duration: 320, easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.sequence([
-        Animated.delay(450),
-        ...taglineOpacity.map(opacity => Animated.timing(opacity, {
-          toValue: 1, duration: 430, useNativeDriver: true,
-        })),
+        Animated.delay(100),
+        Animated.stagger(220, taglineOpacity.map(opacity => Animated.timing(opacity, {
+          toValue: 1, duration: 320, easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }))),
       ]),
     ]);
     circles.start();
