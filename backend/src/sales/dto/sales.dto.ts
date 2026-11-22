@@ -16,6 +16,8 @@ export class CreateSaleDto {
   channel!: 'CASH' | 'BANK_TRANSFER' | 'POS' | 'CARD' | 'USSD' | 'WALLET';
   @ApiPropertyOptional({ format: 'uuid', description: 'Optional existing customer in the same business' })
   @IsOptional() @IsUUID('4') customerId?: string;
+  @ApiPropertyOptional({ description: 'Optional customer name printed on the receipt' })
+  @IsOptional() @IsString() @MaxLength(120) customerName?: string;
 
   @ApiProperty({ type: [SaleLineDto] })
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(50) @ValidateNested({ each: true })
@@ -72,8 +74,15 @@ export class OfflineCashSaleDto {
   @IsUUID('4') clientRequestId!: string;
   @ApiProperty({ example: '2026-11-11T17:00:00.000Z' })
   @IsISO8601({ strict: true }) recordedAt!: string;
-  @ApiProperty({ enum: [true], description: 'Cash physically collected by the cashier' })
-  @IsIn([true]) cashReceived!: true;
+  @ApiPropertyOptional({ enum: ['CASH', 'BANK_TRANSFER', 'POS', 'CARD'], description: 'Merchant-confirmed method, defaults to CASH for legacy offline records' })
+  @IsOptional() @IsIn(['CASH', 'BANK_TRANSFER', 'POS', 'CARD'])
+  channel?: 'CASH' | 'BANK_TRANSFER' | 'POS' | 'CARD';
+  @ApiPropertyOptional({ description: 'Optional customer name captured during the sale' })
+  @IsOptional() @IsString() @MaxLength(120) customerName?: string;
+  @ApiPropertyOptional({ enum: [true], description: 'Cash physically received, for cash sales only' })
+  @IsOptional() @IsIn([true]) cashReceived?: true;
+  @ApiPropertyOptional({ enum: [true], description: 'Cashier checked merchant bank credit / terminal success record, not a customer screenshot' })
+  @IsOptional() @IsIn([true]) confirmedReceived?: true;
   @ApiProperty({ type: [OfflineCashLineDto] })
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(50) @ValidateNested({ each: true })
   @Type(() => OfflineCashLineDto) items!: OfflineCashLineDto[];
