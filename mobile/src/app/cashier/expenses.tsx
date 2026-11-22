@@ -1,68 +1,65 @@
-import React, { useCallback, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { File, Paths } from 'expo-file-system';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useKassaSession } from '@/components/kassa-demo/api';
-import { KScreen } from '@/components/kassa-demo/ui';
 import { C, naira } from '@/components/kassa-demo/theme';
+import { KScreen } from '@/components/kassa-demo/ui';
+import {
+  categoryColors, currentMonthKey, expenseCategories, expenseError, formattedDate,
+  type Expense, type ExpenseList,
+} from '@/components/kassa-demo/expenses-data';
 
-type Expense = {
-  id: string;
-  branchName: string;
-  category: string;
-  description: string;
-  amount: string;
-  spentAt: string;
-  hasReceipt: boolean;
-  receiptName: string | null;
-  receiptMime: string | null;
-};
-type ExpenseList = {
-  items: Expense[];
-  summary: {
-    allTime: string; thisMonth: string; count: number; monthCount: number;
-    byCategory: { category: string; amount: string }[];
-  };
-};
+type Tab = 'Overview' | 'All Expenses';
+const icon = (name: React.ComponentProps<typeof SymbolView>['name'], size = 17, color: string = C.green) =>
+  <SymbolView name={name} tintColor={color} size={size}/>;
 
-const categories = [
-  'Rent', 'Utilities', 'Salaries', 'Transport', 'Marketing',
-  'Maintenance', 'Office supplies', 'Professional fees', 'Other',
-] as const;
-
-function localDate(): string {
-  const today = new Date();
-  return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') +
-    '-' + String(today.getDate()).padStart(2, '0');
-}
-function message(cause: unknown, fallback: string): string {
-  return cause instanceof Error ? cause.message : fallback;
-}
-function detailPath(businessId: string, expenseId: string): string {
-  return 'expenses/' + encodeURIComponent(expenseId) + '/receipt?businessId=' + encodeURIComponent(businessId);
+function ExpenseRow({ item, onPress }: { item: Expense; onPress: () => void }) {
+  const categoryIcon = item.category === 'Rent'
+    ? { ios: 'house', android: 'home', web: 'home' }
+    : item.category === 'Utilities'
+      ? { ios: 'bolt', android: 'bolt', web: 'bolt' }
+      : { ios: 'creditcard', android: 'payments', web: 'payments' };
+  return <Pressable accessibilityRole="button" accessibilityLabel={'View ' + item.description}
+    style={s.expenseRow} onPress={onPress}>
+    <View style={s.rowIcon}>{icon(categoryIcon, 19)}</View>
+    <View style={s.rowBody}>
+      <Text style={s.rowTitle} numberOfLines={1}>{item.description}</Text>
+      <Text style={s.rowCaption} numberOfLines={1}>{item.category} · {formattedDate(item.spentAt)}</Text>
+    </View>
+    <View style={s.rowRight}>
+      <Text style={s.rowAmount}>{naira(Number(item.amount))}</Text>
+      <Text style={s.rowCaption}>{item.branchName}</Text>
+    </View>
+  </Pressable>;
 }
 
 export default function Expenses() {
+  const router = useRouter();
   const session = useKassaSession();
   const scope = session.scope;
   const owner = scope?.myRole === 'Owner';
-
   const [data, setData] = useState<ExpenseList | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [busyId, setBusyId] = useState('');
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [formOpen, setFormOpen] = useState(false);
-  const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState<(typeof categories)[number]>('Utilities');
-  const [description, setDescription] = useState('');
-  const [spentAt, setSpentAt] = useState(localDate());
-  const [receipt, setReceipt] = useState<File | null>(null);
+  const [tab, setTab] = useState<Tab>('Overview');
+  const [period, setPeriod] = useState(currentMonthKey());
+  const [monthMenu, setMonthMenu] = useState(false);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('All categories');
+  const [category, setCategory] = useState('All categories');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const reload = useCallback(async (isActive: () => boolean = () => true) => {
+  const months = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 12 }, (_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - index, 1);
+      return {
+        key: String(date.getFullYear()) + '-' + String(date.getMonth() + 1).padStart(2, '0'),
+        label: date.toLocaleDateString('en-NG', { month: 'long', year: 'numeric' }),
+      };
+    });
+  }, []);
+
+  const load = useCallback(async (isActive: () => boolean = () => true) => {
     if (!scope || scope.myRole !== 'Owner') return;
     if (isActive()) { setLoading(true); setError(''); }
     try {
@@ -72,260 +69,226 @@ export default function Expenses() {
       if (!result || !Array.isArray(result.items)) throw new Error('Invalid expenses response.');
       if (isActive()) setData(result);
     } catch (cause) {
-      if (isActive()) { setData(null); setError(message(cause, 'Unable to load expenses.')); }
+      if (isActive()) { setData(null); setError(expenseError(cause, 'Unable to load expenses.')); }
     } finally { if (isActive()) setLoading(false); }
   }, [scope?.businessId, scope?.myRole, session.request]);
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    void reload(() => active);
+    void load(() => active);
     return () => { active = false; };
-  }, [reload]));
+  }, [load]));
 
-  const chooseReceipt = async (): Promise<File | null> => {
-    try {
-      const selected = await File.pickFileAsync({
-        mimeTypes: ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'],
-      });
-      if (selected.canceled) return null;
-      const chosen = selected.result;
-      if (chosen.size == null || chosen.size > 2 * 1024 * 1024 || chosen.size < 1) {
-        setError('Receipts must be no larger than 2 MB.');
-        return null;
-      }
-      return chosen;
-    } catch (cause) {
-      setError(message(cause, 'Could not select a receipt.'));
-      return null;
+  const periodItems = useMemo(
+    () => (data?.items ?? []).filter(item => period === 'all' || item.spentAt.startsWith(period)),
+    [data?.items, period],
+  );
+  const matching = useMemo(() => periodItems.filter(item =>
+    (category === 'All categories' || item.category === category) &&
+    [item.description, item.category, item.branchName].join(' ')
+      .toLowerCase().includes(search.trim().toLowerCase()),
+  ), [periodItems, search, category]);
+
+  const total = period === 'all'
+    ? Number(data?.summary.allTime ?? 0)
+    : period === currentMonthKey()
+      ? Number(data?.summary.thisMonth ?? 0)
+      : periodItems.reduce((sum, item) => sum + Number(item.amount), 0);
+
+  const breakdown = useMemo(() => {
+    const entries = new Map<string, number>();
+    for (const item of periodItems) {
+      entries.set(item.category, (entries.get(item.category) ?? 0) + Number(item.amount));
     }
-  };
+    return [...entries].sort((a, b) => b[1] - a[1]);
+  }, [periodItems]);
+  const loadedTotal = breakdown.reduce((sum, [, amount]) => sum + amount, 0);
+  const periodLabel = period === 'all' ? 'All time'
+    : months.find(month => month.key === period)?.label ?? period;
 
-  const save = async () => {
-    if (!scope || !owner || saving) return;
-    setError(''); setNotice('');
-    const cleanedAmount = amount.trim();
-    if (!/^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(cleanedAmount) ||
-        Number(cleanedAmount) <= 0) {
-      setError('Enter a valid amount in naira, greater than zero.');
-      return;
-    }
-    if (!description.trim()) { setError('Enter what this money was spent on.'); return; }
-    const date = new Date(spentAt + 'T00:00:00.000Z');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(spentAt) || Number.isNaN(date.valueOf()) ||
-        date.toISOString().slice(0, 10) !== spentAt) {
-      setError('Use a valid date in YYYY-MM-DD format.');
-      return;
-    }
-    setSaving(true);
-    try {
-      const created = await session.request<{ id: string }>('expenses', {
-        businessId: scope.businessId, branchId: scope.branchId,
-        amount: Number(cleanedAmount).toFixed(2), category,
-        description: description.trim(), spentAt,
-      }, 'POST');
-      let attachmentProblem = '';
-      if (receipt) {
-        try {
-          await session.uploadReceipt(detailPath(scope.businessId, created.id), receipt);
-        } catch (cause) {
-          attachmentProblem = message(cause, 'Receipt upload failed.');
-        }
-      }
-      setAmount(''); setDescription(''); setReceipt(null); setSpentAt(localDate());
-      setFormOpen(false);
-      setNotice(attachmentProblem ?
-        'Expense recorded, but its receipt did not upload. Use Attach receipt on the saved record to try again.' :
-        'Expense recorded successfully.');
-      await reload();
-    } catch (cause) {
-      setError(message(cause, 'Could not record expense.'));
-    } finally { setSaving(false); }
-  };
+  const showDetail = (item: Expense) =>
+    router.push({ pathname: '/cashier/expense-detail', params: { id: item.id } });
 
-  const attachReceipt = async (item: Expense) => {
-    if (!scope || !owner || busyId) return;
-    setError(''); setNotice('');
-    const selected = await chooseReceipt();
-    if (!selected) return;
-    setBusyId(item.id);
-    try {
-      await session.uploadReceipt(detailPath(scope.businessId, item.id), selected);
-      setNotice('Receipt attached to ' + item.description + '.');
-      await reload();
-    } catch (cause) {
-      setError(message(cause, 'Could not attach receipt.'));
-    } finally { setBusyId(''); }
-  };
-
-  const openReceipt = async (item: Expense) => {
-    if (!scope || !owner || busyId) return;
-    setError('');
-    setBusyId(item.id);
-    try {
-      const bytes = await session.downloadReceipt(detailPath(scope.businessId, item.id));
-      const ext = item.receiptMime === 'application/pdf' ? 'pdf' :
-        item.receiptMime === 'image/png' ? 'png' :
-        item.receiptMime === 'image/webp' ? 'webp' : 'jpg';
-      const file = new File(Paths.cache, 'kassa-expense-' + item.id + '.' + ext);
-      await file.write(bytes);
-      await file.preview({ title: item.receiptName || 'Expense receipt' });
-    } catch (cause) {
-      setError(message(cause, 'Unable to open receipt on this device.'));
-    } finally { setBusyId(''); }
-  };
-
-  if (!owner) {
-    return <KScreen back showBrand={false} showPreviewLabel={false}>
-      <Text style={s.title}>Expenses</Text>
-      <Text style={s.error}>This feature is available only to the business owner.</Text>
-    </KScreen>;
-  }
-
-  const filtered = (data?.items ?? []).filter(item => {
-    return (filter === 'All categories' || item.category === filter) &&
-      [item.description, item.category, item.branchName].join(' ')
-        .toLowerCase().includes(search.trim().toLowerCase());
-  });
+  if (!owner) return <KScreen back showBrand={false} showPreviewLabel={false}>
+    <Text style={s.title}>Expenses</Text>
+    <Text style={s.error}>Only the business owner can access expenses.</Text>
+  </KScreen>;
 
   return <KScreen back showBrand={false} showPreviewLabel={false}>
-    <View style={s.header}>
-      <View style={{ flex: 1 }}>
-        <Text style={s.title}>Expenses</Text>
-        <Text style={s.subtitle}>Track the running costs of your business.</Text>
-      </View>
-      <Pressable accessibilityRole="button" onPress={() => { setError(''); setFormOpen(v => !v); }}
-        style={s.newButton}><Text style={s.newText}>{formOpen ? 'Cancel' : '+ Add'}</Text></Pressable>
+    <View style={s.heading}>
+      <Text style={s.title}>Expenses</Text>
+      <Text style={s.subtitle}>Keep track of your business running costs.</Text>
     </View>
 
-    <View style={s.metrics}>
-      <View style={s.metric}><Text style={s.muted}>Spent this month</Text>
-        <Text style={s.metricValue}>{naira(Number(data?.summary.thisMonth ?? 0))}</Text>
-        <Text style={s.muted}>{data?.summary.monthCount ?? 0} entries</Text>
-      </View>
-      <View style={s.metric}><Text style={s.muted}>Total recorded</Text>
-        <Text style={s.metricValue}>{naira(Number(data?.summary.allTime ?? 0))}</Text>
-        <Text style={s.muted}>{data?.summary.count ?? 0} expenses</Text>
-      </View>
-    </View>
-
-    {!!error && <Text style={s.error}>{error}</Text>}
-    {!!notice && <Text style={s.notice}>{notice}</Text>}
-
-    {formOpen && <View style={s.panel}>
-      <Text style={s.section}>Record an expense</Text>
-      <Text style={s.hint}>For {scope?.branchName}. Inventory purchases are recorded separately.</Text>
-
-      <Text style={s.label}>Amount (₦) *</Text>
-      <TextInput style={s.input} keyboardType="decimal-pad" value={amount}
-        placeholder="e.g. 2500" placeholderTextColor={C.faint} onChangeText={setAmount}/>
-
-      <Text style={s.label}>Expense category *</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {categories.map(item => <Pressable key={item} onPress={() => setCategory(item)}
-          accessibilityRole="button" accessibilityState={{ selected: item === category }}
-          style={[s.chip, item === category && s.chipSelected]}>
-          <Text style={[s.chipText, item === category && s.chipSelectedText]}>{item}</Text>
+    <View style={s.tabs}>
+      {(['Overview', 'All Expenses'] as const).map(value =>
+        <Pressable key={value} accessibilityRole="button"
+          accessibilityState={{ selected: tab === value }}
+          onPress={() => setTab(value)}
+          style={[s.tab, tab === value && s.activeTab]}>
+          <Text style={[s.tabText, tab === value && s.activeTabText]}>{value}</Text>
         </Pressable>)}
-      </ScrollView>
+    </View>
 
-      <Text style={s.label}>What was this expense for? *</Text>
-      <TextInput style={[s.input, s.multiline]} multiline value={description}
-        maxLength={500} placeholder="e.g. Electricity bill for November"
-        placeholderTextColor={C.faint} onChangeText={setDescription}/>
-
-      <Text style={s.label}>Date (YYYY-MM-DD) *</Text>
-      <TextInput style={s.input} value={spentAt} onChangeText={setSpentAt}
-        placeholder="2026-11-20" autoCapitalize="none" placeholderTextColor={C.faint}/>
-
-      <Text style={s.label}>Receipt (optional)</Text>
-      <Pressable accessibilityRole="button" style={s.attachment}
-        onPress={async () => {
-          setError('');
-          const chosen = await chooseReceipt();
-          if (chosen) setReceipt(chosen);
-        }}>
-        <Text style={s.attachText}>{receipt ? receipt.name : '+ Upload a receipt (PDF or image)'}</Text>
-      </Pressable>
-      {receipt && <Pressable onPress={() => setReceipt(null)}><Text style={s.remove}>Remove selected receipt</Text></Pressable>}
-      <Text style={s.hint}>PDF, PNG, JPEG or WebP, maximum 2 MB. Only the owner can access receipts.</Text>
-
-      <Pressable accessibilityRole="button" disabled={saving} style={[s.save, saving && s.disabled]}
-        onPress={() => { void save(); }}><Text style={s.saveText}>{saving ? 'Saving…' : 'Save expense'}</Text></Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel="Select expense period"
+      onPress={() => setMonthMenu(value => !value)} style={s.monthPicker}>
+      {icon({ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }, 18)}
+      <Text style={s.monthValue}>{periodLabel}</Text>
+      {icon({ ios: 'chevron.down', android: 'keyboard_arrow_down', web: 'keyboard_arrow_down' }, 17, C.muted)}
+    </Pressable>
+    {monthMenu && <View style={s.monthOptions}>
+      {[{ key: 'all', label: 'All time' }, ...months].map(month =>
+        <Pressable key={month.key} accessibilityRole="button"
+          onPress={() => { setPeriod(month.key); setMonthMenu(false); }}
+          style={s.monthOption}>
+          <Text style={[s.monthOptionText, period === month.key && s.monthOptionActive]}>
+            {month.label}
+          </Text>
+          {period === month.key && icon({ ios: 'checkmark', android: 'check', web: 'check' })}
+        </Pressable>)}
     </View>}
 
-    <View style={s.listTitle}>
-      <Text style={s.section}>Expense history</Text>
-      <Pressable accessibilityRole="button" disabled={loading} onPress={() => { void reload(); }}>
-        <Text style={s.refresh}>{loading ? 'Loading…' : 'Refresh'}</Text>
-      </Pressable>
-    </View>
-    <TextInput value={search} onChangeText={setSearch} placeholder="Search expenses"
-      placeholderTextColor={C.faint} style={s.input}/>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10, marginBottom: 12 }}>
-      {['All categories', ...categories].map(item => <Pressable key={item} onPress={() => setFilter(item)}
-        accessibilityRole="button" style={[s.chip, filter === item && s.chipSelected]}>
-        <Text style={[s.chipText, filter === item && s.chipSelectedText]}>{item}</Text>
-      </Pressable>)}
-    </ScrollView>
-    {loading && !data && <Text style={s.hint}>Loading recorded expenses…</Text>}
-    {!loading && !error && filtered.length === 0 && <Text style={s.empty}>No matching expenses yet.</Text>}
-    {filtered.map(item => <View key={item.id} style={s.record}>
-      <View style={s.recordTop}>
-        <Text style={s.recordDescription} numberOfLines={2}>{item.description}</Text>
-        <Text style={s.recordAmount}>{naira(Number(item.amount))}</Text>
+    {!!error && <Text style={s.error}>{error}</Text>}
+
+    <View style={s.totalCard}>
+      <View style={s.totalIcon}>{icon({ ios: 'creditcard', android: 'payments', web: 'payments' }, 22)}</View>
+      <View style={s.totalText}>
+        <Text style={s.hint}>Total expenses · {periodLabel}</Text>
+        <Text style={s.totalValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+          {naira(total)}
+        </Text>
+        <Text style={s.hint}>{period === 'all' ? data?.summary.count ?? 0 : period === currentMonthKey()
+          ? data?.summary.monthCount ?? 0 : periodItems.length} recorded expenses</Text>
       </View>
-      <Text style={s.recordMeta}>{item.category} · {item.branchName} · {item.spentAt}</Text>
-      <Pressable disabled={!!busyId} onPress={() => { void (item.hasReceipt ? openReceipt(item) : attachReceipt(item)); }}
-        accessibilityRole="button" style={s.receiptAction}>
-        <Text style={s.receiptActionText}>{busyId === item.id ? 'Please wait…' :
-          item.hasReceipt ? 'View receipt' : '+ Attach receipt'}</Text>
+    </View>
+
+    {tab === 'Overview' ? <>
+      <View style={s.chartCard}>
+        <Text style={s.section}>Expenses by category</Text>
+        <Text style={s.hint}>How your spending is distributed</Text>
+        {breakdown.length ? <>
+          <View style={s.stackedBar}>
+            {breakdown.map(([name, amount], index) =>
+              <View key={name} style={{ flex: amount, backgroundColor: categoryColors[index % categoryColors.length] }}/>)}
+          </View>
+          {breakdown.slice(0, 6).map(([name, amount], index) =>
+            <View key={name} style={s.breakdownRow}>
+              <View style={[s.legendDot, { backgroundColor: categoryColors[index % categoryColors.length] }]}/>
+              <Text numberOfLines={1} style={s.breakdownName}>{name}</Text>
+              <Text style={s.breakdownAmount}>{naira(amount)}</Text>
+              <Text style={s.breakdownPercent}>
+                {loadedTotal > 0 ? Math.round(amount * 100 / loadedTotal) : 0}%
+              </Text>
+            </View>)}
+        </> : <Text style={s.emptyText}>No expenses for this period yet.</Text>}
+      </View>
+
+      <Pressable accessibilityRole="button" style={s.primary}
+        onPress={() => router.push('/cashier/add-expense')}>
+        {icon({ ios: 'plus', android: 'add', web: 'add' }, 19, C.white)}
+        <Text style={s.primaryText}>Add Expense</Text>
       </Pressable>
-    </View>)}
-    {(data?.items.length ?? 0) >= 500 && <Text style={s.hint}>Showing the latest 500 records.</Text>}
+
+      <View style={s.sectionRow}>
+        <Text style={s.section}>Recent Expenses</Text>
+        <Pressable onPress={() => setTab('All Expenses')} accessibilityRole="button">
+          <Text style={s.actionText}>See All</Text>
+        </Pressable>
+      </View>
+      {loading && !data && <Text style={s.emptyText}>Loading expenses…</Text>}
+      {!loading && !error && !periodItems.length && <Text style={s.emptyText}>No expenses recorded yet.</Text>}
+      {periodItems.slice(0, 4).map(item => <ExpenseRow key={item.id} item={item}
+        onPress={() => showDetail(item)}/>)}
+    </> : <>
+      <View style={s.sectionRow}>
+        <Text style={s.section}>All Expenses</Text>
+        <Pressable onPress={() => { void load(); }} accessibilityRole="button">
+          <Text style={s.actionText}>{loading ? 'Loading…' : 'Refresh'}</Text>
+        </Pressable>
+      </View>
+      <TextInput value={search} onChangeText={setSearch} style={s.search}
+        placeholder="Search expenses" placeholderTextColor={C.faint}/>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        style={s.filterScroll} contentContainerStyle={s.filterContent}>
+        {['All categories', ...expenseCategories].map(value =>
+          <Pressable key={value} accessibilityRole="button"
+            accessibilityState={{ selected: category === value }}
+            onPress={() => setCategory(value)}
+            style={[s.filterChip, category === value && s.selectedChip]}>
+            <Text style={[s.filterText, category === value && s.selectedFilterText]}>{value}</Text>
+          </Pressable>)}
+      </ScrollView>
+      {!loading && !error && !matching.length && <Text style={s.emptyText}>No matching expenses.</Text>}
+      {matching.map(item => <ExpenseRow key={item.id} item={item}
+        onPress={() => showDetail(item)}/>)}
+      <Pressable accessibilityRole="button" style={[s.primary, { marginTop: 16 }]}
+        onPress={() => router.push('/cashier/add-expense')}>
+        {icon({ ios: 'plus', android: 'add', web: 'add' }, 19, C.white)}
+        <Text style={s.primaryText}>Add Expense</Text>
+      </Pressable>
+    </>}
+    {(data?.items.length ?? 0) >= (data?.historyLimit ?? 500) &&
+      <Text style={s.limit}>Showing the latest {data?.historyLimit ?? 500} expenses. Older records may not be listed.</Text>}
   </KScreen>;
 }
 
 const s = StyleSheet.create({
-  title: { color: C.title, fontSize: 26, fontWeight: '800' },
-  subtitle: { color: C.muted, fontSize: 13, lineHeight: 20, marginTop: 4 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  newButton: { backgroundColor: C.green, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 9 },
-  newText: { color: C.white, fontSize: 13, fontWeight: '800' },
-  metrics: { flexDirection: 'row', gap: 10, marginTop: 20, marginBottom: 24 },
-  metric: { flex: 1, backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 13, minHeight: 105 },
-  muted: { color: C.muted, fontSize: 12, marginBottom: 6 },
-  metricValue: { fontSize: 17, fontWeight: '800', color: C.green, marginBottom: 4 },
-  section: { fontSize: 18, fontWeight: '800', color: C.title },
-  panel: { backgroundColor: C.white, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 16, marginBottom: 25 },
-  label: { fontSize: 13, fontWeight: '700', color: C.text, marginTop: 17, marginBottom: 8 },
-  hint: { fontSize: 12, lineHeight: 19, color: C.muted, marginTop: 5 },
-  input: { borderColor: C.border, borderWidth: 1, borderRadius: 8, backgroundColor: C.white,
-    paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.title, minHeight: 46 },
-  multiline: { minHeight: 86, textAlignVertical: 'top' },
-  chip: { borderWidth: 1, borderColor: C.border, backgroundColor: C.white,
-    borderRadius: 20, paddingVertical: 8, paddingHorizontal: 12, marginRight: 7 },
-  chipSelected: { backgroundColor: C.green, borderColor: C.green },
-  chipText: { color: C.text, fontSize: 12, fontWeight: '600' },
-  chipSelectedText: { color: C.white },
-  attachment: { borderWidth: 1, borderStyle: 'dashed', borderColor: C.green, borderRadius: 9,
-    padding: 13, backgroundColor: C.mint },
-  attachText: { color: C.green, fontSize: 13, fontWeight: '700' },
-  remove: { color: C.danger, fontWeight: '700', marginTop: 8 },
-  save: { backgroundColor: C.green, alignItems: 'center', justifyContent: 'center',
-    padding: 15, borderRadius: 9, marginTop: 20 },
-  disabled: { opacity: 0.5 },
-  saveText: { color: C.white, fontSize: 14, fontWeight: '800' },
-  error: { color: C.danger, fontSize: 13, marginVertical: 10 },
-  notice: { color: C.green, fontSize: 13, marginVertical: 10 },
-  listTitle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  refresh: { color: C.green, fontSize: 13, fontWeight: '700' },
-  empty: { backgroundColor: C.white, borderRadius: 10, padding: 23, color: C.muted, textAlign: 'center' },
-  record: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border,
-    borderRadius: 11, padding: 14, marginBottom: 12 },
-  recordTop: { flexDirection: 'row', gap: 10, justifyContent: 'space-between', alignItems: 'flex-start' },
-  recordDescription: { color: C.title, fontSize: 14, fontWeight: '700', flex: 1 },
-  recordAmount: { color: C.title, fontSize: 14, fontWeight: '800' },
-  recordMeta: { color: C.muted, fontSize: 12, marginTop: 8 },
-  receiptAction: { alignSelf: 'flex-start', marginTop: 11, paddingVertical: 4 },
-  receiptActionText: { color: C.green, fontSize: 13, fontWeight: '700' },
+  heading: { marginBottom: 17 },
+  title: { fontSize: 26, fontWeight: '800', color: C.title },
+  subtitle: { fontSize: 14, color: C.muted, marginTop: 4 },
+  tabs: { flexDirection: 'row', backgroundColor: '#EDF2EF', borderRadius: 10, padding: 4, marginBottom: 16 },
+  tab: { flex: 1, minHeight: 39, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
+  activeTab: { backgroundColor: C.green },
+  tabText: { color: C.muted, fontSize: 14, fontWeight: '700' },
+  activeTabText: { color: C.white },
+  monthPicker: { flexDirection: 'row', alignItems: 'center', gap: 10, borderColor: C.border,
+    borderWidth: 1, borderRadius: 10, backgroundColor: C.white, paddingHorizontal: 13, height: 49, marginBottom: 16 },
+  monthValue: { fontSize: 14, color: C.title, flex: 1, fontWeight: '700' },
+  monthOptions: { backgroundColor: C.white, borderRadius: 10, borderWidth: 1, borderColor: C.border,
+    padding: 6, marginTop: -9, marginBottom: 16 },
+  monthOption: { padding: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  monthOptionText: { fontSize: 14, color: C.text },
+  monthOptionActive: { color: C.green, fontWeight: '800' },
+  totalCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.white, borderWidth: 1,
+    borderColor: C.border, borderRadius: 14, padding: 16, gap: 13, marginBottom: 16 },
+  totalIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.mint,
+    alignItems: 'center', justifyContent: 'center' },
+  totalText: { flex: 1, minWidth: 0 },
+  hint: { fontSize: 13, color: C.muted, marginBottom: 4 },
+  totalValue: { fontSize: 26, fontWeight: '800', color: C.title, marginVertical: 4 },
+  chartCard: { padding: 16, borderWidth: 1, borderColor: C.border, backgroundColor: C.white,
+    borderRadius: 13, marginBottom: 15 },
+  section: { color: C.title, fontSize: 20, fontWeight: '800' },
+  stackedBar: { flexDirection: 'row', height: 16, overflow: 'hidden', borderRadius: 8, marginVertical: 17 },
+  breakdownRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 7 },
+  legendDot: { width: 9, height: 9, borderRadius: 3 },
+  breakdownName: { flex: 1, minWidth: 0, color: C.text, fontSize: 13 },
+  breakdownAmount: { color: C.title, fontSize: 13, fontWeight: '700' },
+  breakdownPercent: { width: 36, textAlign: 'right', fontSize: 12, color: C.muted },
+  primary: { backgroundColor: C.green, borderRadius: 9, minHeight: 49, alignItems: 'center',
+    justifyContent: 'center', flexDirection: 'row', gap: 9, marginBottom: 22 },
+  primaryText: { color: C.white, fontSize: 14, fontWeight: '800' },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 },
+  actionText: { color: C.green, fontSize: 14, fontWeight: '800' },
+  expenseRow: { flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomColor: C.border,
+    borderBottomWidth: 1, paddingVertical: 14 },
+  rowIcon: { height: 39, width: 39, borderRadius: 20, backgroundColor: C.mint,
+    alignItems: 'center', justifyContent: 'center' },
+  rowBody: { flex: 1, minWidth: 0 },
+  rowTitle: { fontSize: 14, color: C.title, fontWeight: '800' },
+  rowCaption: { fontSize: 12, color: C.muted, marginTop: 4 },
+  rowRight: { alignItems: 'flex-end', maxWidth: '42%' },
+  rowAmount: { fontSize: 14, fontWeight: '800', color: C.title },
+  emptyText: { color: C.muted, fontSize: 14, paddingVertical: 16 },
+  error: { color: C.danger, fontSize: 14, marginBottom: 12 },
+  filterScroll: { marginBottom: 15, flexGrow: 0 },
+  filterContent: { alignItems: 'center', gap: 7 },
+  filterChip: { borderWidth: 1, borderColor: C.border, borderRadius: 20, paddingHorizontal: 12,
+    paddingVertical: 8, backgroundColor: C.white },
+  selectedChip: { backgroundColor: C.green, borderColor: C.green },
+  filterText: { fontSize: 13, color: C.text },
+  selectedFilterText: { color: C.white, fontWeight: '700' },
+  search: { borderWidth: 1, borderColor: C.border, borderRadius: 9, paddingHorizontal: 13,
+    height: 46, backgroundColor: C.white, fontSize: 14, color: C.title, marginBottom: 12 },
+  limit: { color: C.muted, fontSize: 12, marginTop: 20, lineHeight: 18 },
 });
