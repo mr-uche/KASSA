@@ -608,6 +608,7 @@ export class SalesService {
             data: {
               reference, businessId: dto.businessId, branchId: dto.branchId,
               cashierId: userId, customerNameSnapshot: customerName, status: 'PAID',
+              createdAt: recordedAt, // Preserve the actual sale time on synced receipts.
               subtotal: total, discount: '0.00', total,
               items: { create: lines.map((item) => ({
                 productId: item.productId, productNameSnapshot: item.productNameSnapshot,
