@@ -131,10 +131,12 @@ export default function Receipt() {
         <Text style={s.label}>Served by</Text>
         <Text style={[s.valueSmall, compact && s.compactValue]}>{sale.cashier ?? session.user?.fullName ?? 'Cashier'}</Text>
       </View>
-      <View style={[s.detailRow, compact && s.detailRowCompact]}>
-        <Text style={s.label}>Customer</Text>
-        <Text style={[s.valueSmall, compact && s.compactValue]}>{sale.customer && sale.customer !== 'Walk-in customer' ? sale.customer : 'Customer details unavailable'}</Text>
-      </View>
+      {!!sale.customer && sale.customer !== 'Walk-in customer' &&
+        sale.customer !== 'Customer details unavailable' &&
+        <View style={[s.detailRow, compact && s.detailRowCompact]}>
+          <Text style={s.label}>Customer</Text>
+          <Text style={[s.valueSmall, compact && s.compactValue]}>{sale.customer}</Text>
+        </View>}
       {test && <Text style={s.warning}>PAYSTACK TEST MODE — Not a live payment</Text>}
 
       <View style={s.rule} />
