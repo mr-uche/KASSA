@@ -6,8 +6,8 @@ import { C, naira, toKobo } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 import {
   cacheOfflineCatalog, getOfflineSales, loadOfflineCatalogue,
-  recordOfflineCash, syncOfflineCash,
-  type CachedProduct, type OfflineCashRecord, type OfflineScope,
+  recordOfflineSale, syncOfflineCash,
+  type CachedProduct, type OfflineCashRecord, type OfflineScope, type OfflinePaymentChannel,
 } from '@/components/kassa-demo/offline-cash';
 
 export default function OfflineSales() {
@@ -20,6 +20,9 @@ export default function OfflineSales() {
   const [selected, setSelected] = useState<Record<string, number>>({});
   const [query, setQuery] = useState('');
   const [cash, setCash] = useState('');
+  const [method, setMethod] = useState<OfflinePaymentChannel>('CASH');
+  const [customerName, setCustomerName] = useState('');
+  const [merchantChecked, setMerchantChecked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -49,6 +52,9 @@ export default function OfflineSales() {
     let active = true;
     setSelected({});
     setCash('');
+    setMethod('CASH');
+    setCustomerName('');
+    setMerchantChecked(false);
     void load(() => active);
     const attemptSync = async () => {
       if (!scope || !active) return;
@@ -92,6 +98,7 @@ export default function OfflineSales() {
   const received = validMoney ? Number(cashText) : 0;
   const validCash = count > 0 && validMoney && Number.isSafeInteger(toKobo(received)) &&
     toKobo(received) >= toKobo(total);
+  const validPayment = method === 'CASH' ? validCash : count > 0 && merchantChecked;
   const outdated = !cachedAt || Date.now() - cachedAt > 48 * 60 * 60 * 1000;
   const pending = history.filter(item => item.status === 'QUEUED');
   const reviews = history.filter(item => item.status === 'REVIEW');
@@ -114,21 +121,22 @@ export default function OfflineSales() {
   };
 
   const record = async () => {
-    if (!scope || !validCash || busy) return;
+    if (!scope || !validPayment || busy) return;
     setBusy(true); setError(''); setNotice('');
     try {
       const items = Object.entries(selected)
         .filter(([, quantity]) => quantity > 0)
         .map(([productId, quantity]) => ({ productId, quantity }));
-      const sale = await recordOfflineCash(scope, items, received);
+      const sale = await recordOfflineSale(scope, items, method,
+        method === 'CASH' ? received : total, customerName);
       setSelected({});
-      setCash('');
+      setCash(''); setCustomerName(''); setMerchantChecked(false);
       await load();
-      setNotice('Cash recorded on THIS phone: ' + naira(Number(sale.total)) +
+      setNotice(method + ' recorded on THIS phone: ' + naira(Number(sale.total)) +
         '. Local reference: ' + sale.id.slice(0, 8).toUpperCase() +
         '. Awaiting sync. Do not collect this payment again.');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save offline cash. Do not collect again.');
+      setError(cause instanceof Error ? cause.message : 'Could not save offline sale. Check the queue before retrying.');
     } finally { setBusy(false); }
   };
 
@@ -155,12 +163,14 @@ export default function OfflineSales() {
   };
 
   const confirm = () => {
-    if (!validCash || busy) return;
-    Alert.alert('Confirm cash collected', 'Confirm you received ' + naira(received) +
-      '. This saves a LOCAL record only, not a cloud receipt. It will sync when the server accepts it.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Cash received — save', onPress: () => { void record(); } },
-    ]);
+    if (!validPayment || busy) return;
+    Alert.alert('Confirm merchant payment received',
+      'Confirm ' + naira(method === 'CASH' ? received : total) + ' was received by the business via ' + method +
+      '. For bank transfers and POS, check merchant bank credit or terminal records, not the customer screenshot. ' +
+      'The sale stays on this device until synced. Do not collect payment twice.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Payment received — save', onPress: () => { void record(); } },
+      ]);
   };
 
   const updateQty = (item: CachedProduct, delta: number) => {
@@ -170,16 +180,16 @@ export default function OfflineSales() {
     }));
   };
 
-  if (!scope) return <KScreen title="Offline cash sales" back showBrand={false} showPreviewLabel={false}>
-    <Text style={s.info}>Sign in online and choose a branch before recording offline cash sales.</Text>
+  if (!scope) return <KScreen title="Offline sales" back showBrand={false} showPreviewLabel={false}>
+    <Text style={s.info}>Sign in online and choose a branch before recording offline sales.</Text>
   </KScreen>;
 
   return <KScreen showBrand={false} showPreviewLabel={false} back>
-    <Text style={s.title}>Offline cash sales</Text>
-    <Text style={s.info}>{session.scope?.branchName} · Cash only</Text>
+    <Text style={s.title}>Offline sales</Text>
+    <Text style={s.info}>{session.scope?.branchName} · Cash, bank transfer and POS</Text>
     <View style={s.banner}>
       <Text style={s.bannerTitle}>Saved locally until verified</Text>
-      <Text style={s.info}>Queued cash stays on this phone until synced. Transfers, Card and POS must be verified online. Reconnect and sync within 8 days.</Text>
+      <Text style={s.info}>Payments are recorded on this phone until synced. Cashiers must check bank/POS receipts from the merchant side. Reconnect and sync within 8 days.</Text>
     </View>
     <View style={s.stats}>
       <View style={s.stat}><Text style={s.number}>{pending.length}</Text><Text style={s.info}>Queued</Text></View>
@@ -198,12 +208,12 @@ export default function OfflineSales() {
     </View>
     {reviews.length > 0 && <Pressable accessibilityRole="button" style={s.review}
       onPress={() => Alert.alert('Owner reconciliation needed',
-        'These cash payments were already collected. Review inventory or price conflicts with your manager before retrying.', [
+        'These payments were already collected. Review inventory or price conflicts with your manager before retrying.', [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Retry reviewed sales', onPress: () => { void sync(true); } },
         ])}><Text style={s.reviewText}>{reviews.length} sale(s) need reconciliation</Text></Pressable>}
     {typeof savedRef === 'string' && <View style={s.banner}>
-      <Text style={s.bannerTitle}>Cash saved on this phone</Text>
+      <Text style={s.bannerTitle}>Sale saved on this phone</Text>
       <Text style={s.info}>Local reference #{savedRef.slice(0, 8).toUpperCase()}. This is not yet a cloud-confirmed sale. Your record remains below until synchronized.</Text>
     </View>}
     <Pressable accessibilityRole="button" onPress={() => router.push('/cashier/scan-product')}
@@ -232,13 +242,34 @@ export default function OfflineSales() {
 
     <View style={s.checkout}>
       <View style={s.totalRow}><Text style={s.heading}>{count} items</Text><Text style={s.total}>{naira(total)}</Text></View>
-      <Text style={s.name}>Cash actually received (₦)</Text>
-      <TextInput value={cash} onChangeText={setCash} keyboardType="decimal-pad"
-        placeholder="Enter cash received" placeholderTextColor={C.faint} style={s.input}/>
-      {validCash && <Text style={s.info}>Change: {naira((toKobo(received) - toKobo(total)) / 100)}</Text>}
-      <Pressable accessibilityRole="button" disabled={busy || outdated || !validCash}
-        onPress={confirm} style={[s.primary, { marginTop: 15 }, (busy || outdated || !validCash) && { opacity: 0.5 }]}>
-        <Text style={s.primaryText}>{busy ? 'Saving…' : 'Confirm collected cash and save'}</Text>
+      <Text style={s.name}>Customer name (optional)</Text>
+      <TextInput value={customerName} onChangeText={setCustomerName} maxLength={120}
+        placeholder="Customer name" placeholderTextColor={C.faint} style={s.input}/>
+      <Text style={[s.name, { marginTop: 13 }]}>Payment method</Text>
+      <View style={s.methodRow}>
+        {(['CASH', 'BANK_TRANSFER', 'POS', 'CARD'] as const).map(value =>
+          <Pressable key={value} accessibilityRole="button"
+            accessibilityState={{ selected: method === value }}
+            onPress={() => { setMethod(value); setMerchantChecked(false); }}
+            style={[s.methodChip, method === value && s.methodSelected]}>
+            <Text style={[s.methodText, method === value && s.methodTextSelected]}>
+              {value === 'BANK_TRANSFER' ? 'Transfer' : value}
+            </Text>
+          </Pressable>)}
+      </View>
+      {method === 'CASH' ? <>
+        <Text style={s.name}>Cash actually received (₦)</Text>
+        <TextInput value={cash} onChangeText={setCash} keyboardType="decimal-pad"
+          placeholder="Enter cash received" placeholderTextColor={C.faint} style={s.input}/>
+        {validCash && <Text style={s.info}>Change: {naira((toKobo(received) - toKobo(total)) / 100)}</Text>}
+      </> : <Pressable accessibilityRole="checkbox"
+        accessibilityState={{ checked: merchantChecked }}
+        onPress={() => setMerchantChecked(value => !value)} style={s.checkRow}>
+        <Text style={s.name}>{merchantChecked ? '☑' : '☐'} I checked the merchant bank credit or successful terminal record.</Text>
+      </Pressable>}
+      <Pressable accessibilityRole="button" disabled={busy || outdated || !validPayment}
+        onPress={confirm} style={[s.primary, { marginTop: 15 }, (busy || outdated || !validPayment) && { opacity: 0.5 }]}>
+        <Text style={s.primaryText}>{busy ? 'Saving…' : 'Confirm payment received and save'}</Text>
       </Pressable>
     </View>
     <Text style={s.heading}>Recent offline records</Text>
@@ -247,16 +278,23 @@ export default function OfflineSales() {
       accessibilityRole="button" accessibilityLabel={'View local receipt ' + item.id.slice(0, 8)}
       onPress={() => router.push({ pathname: '/cashier/offline-receipt', params: { id: item.id } })}>
       <View style={{ flex: 1 }}><Text style={s.name}>#{item.id.slice(0, 8).toUpperCase()}</Text>
-        <Text style={s.info}>{new Date(item.recordedAt).toLocaleString('en-NG')} · {item.status}</Text>
+        <Text style={s.info}>{new Date(item.recordedAt).toLocaleString('en-NG')} · {item.channel} · {item.status}</Text>
+        {!!item.customerName && <Text style={s.info}>Customer: {item.customerName}</Text>
         {item.error ? <Text style={s.error}>{item.error}</Text> : null}
-        <Text style={s.scanEntryText}>View local receipt</Text></View>
+        <Text style={s.scanEntryText}>View receipt</Text></View>
       <Text style={s.name}>{naira(Number(item.total))}</Text>
     </Pressable>)}
-    <Text style={s.info}>Offline cash supports a previously signed-in cashier with a recent stock cache. Keep the device and its local data safe until all cash is synchronized.</Text>
+    <Text style={s.info}>Offline sales support a previously signed-in cashier with recent cached stock. Keep this phone and local data safe until all sales are synchronized.</Text>
   </KScreen>;
 }
 
 const s = StyleSheet.create({
+  methodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 9, marginBottom: 13 },
+  methodChip: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 9, borderWidth: 1, borderColor: C.border },
+  methodSelected: { backgroundColor: C.green, borderColor: C.green },
+  methodText: { color: C.text, fontSize: 13, fontWeight: '700' },
+  methodTextSelected: { color: C.white },
+  checkRow: { backgroundColor: C.mint, padding: 12, borderRadius: 9 },
   title: { fontSize: 28, color: C.title, fontWeight: '800', marginBottom: 5 },
   heading: { fontSize: 20, color: C.title, fontWeight: '800', marginTop: 23, marginBottom: 13 },
   info: { color: C.muted, fontSize: 14, lineHeight: 21 },
