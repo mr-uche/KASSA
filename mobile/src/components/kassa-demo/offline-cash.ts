@@ -10,13 +10,16 @@ export type CachedProduct = {
 export type OfflineLine = {
   productId: string; name: string; quantity: number; unitPrice: string;
 };
+export type OfflinePaymentChannel = 'CASH' | 'POS' | 'CARD' | 'BANK_TRANSFER';
 export type OfflineCashRecord = {
   id: string; recordedAt: string; status: 'QUEUED' | 'REVIEW' | 'SYNCED';
-  total: string; cashReceived: string; items: OfflineLine[];
+  total: string; cashReceived: string; channel: OfflinePaymentChannel;
+  customerName: string | null; items: OfflineLine[];
   error: string | null;
 };
 type DbSale = { id: string; recordedAt: string; state: string; total: string;
-  cashReceived: string; itemsJson: string; lastError: string | null };
+  cashReceived: string; channel: string | null; customerName: string | null;
+  itemsJson: string; lastError: string | null };
 type DbCatalog = {
   id: string; name: string; sku: string; barcode: string | null;
   category: string; price: string; stock: number;
@@ -53,6 +56,15 @@ async function database() {
         CREATE INDEX IF NOT EXISTS offline_cash_sales_scope
           ON offline_cash_sales (userId,businessId,branchId,recordedAt);
       `);
+      // Existing installations retain every local sale. Add nullable columns
+      // without dropping the queue, catalogue or unsynced receipts.
+      const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(offline_cash_sales)');
+      if (!columns.some(column => column.name === 'channel')) {
+        await db.execAsync("ALTER TABLE offline_cash_sales ADD COLUMN channel TEXT NOT NULL DEFAULT 'CASH'");
+      }
+      if (!columns.some(column => column.name === 'customerName')) {
+        await db.execAsync('ALTER TABLE offline_cash_sales ADD COLUMN customerName TEXT');
+      }
       return db;
     })().catch(error => {
       databasePromise = null;
@@ -120,6 +132,9 @@ function fromDb(row: DbSale): OfflineCashRecord {
   return {
     id: row.id, recordedAt: row.recordedAt, status: row.state as OfflineCashRecord['status'],
     total: row.total, cashReceived: row.cashReceived,
+    channel: (['CASH', 'POS', 'CARD', 'BANK_TRANSFER'].includes(row.channel ?? '')
+      ? row.channel : 'CASH') as OfflinePaymentChannel,
+    customerName: row.customerName ?? null,
     items: JSON.parse(row.itemsJson) as OfflineLine[], error: row.lastError,
   };
 }
@@ -127,7 +142,7 @@ function fromDb(row: DbSale): OfflineCashRecord {
 export async function getOfflineSales(scope: OfflineScope): Promise<OfflineCashRecord[]> {
   const db = await database();
   const records = await db.getAllAsync<DbSale>(
-    'SELECT id,recordedAt,state,total,cashReceived,itemsJson,lastError FROM offline_cash_sales WHERE userId=? AND businessId=? AND branchId=? ORDER BY recordedAt DESC LIMIT 150',
+    'SELECT id,recordedAt,state,total,cashReceived,channel,customerName,itemsJson,lastError FROM offline_cash_sales WHERE userId=? AND businessId=? AND branchId=? ORDER BY recordedAt DESC LIMIT 150',
     ...params(scope),
   );
   return records.map(fromDb);
@@ -149,12 +164,16 @@ export async function getOfflineSaleQueueStatus(scope: OfflineScope): Promise<Of
   return { waiting: row?.waiting ?? 0, queued: row?.queued ?? 0, review: row?.review ?? 0 };
 }
 
-export async function recordOfflineCash(scope: OfflineScope,
-  selected: { productId: string; quantity: number }[], cashReceived: number,
+export async function recordOfflineSale(scope: OfflineScope,
+  selected: { productId: string; quantity: number }[], channel: OfflinePaymentChannel,
+  cashReceived: number, customerName = '',
 ): Promise<OfflineCashRecord> {
-  if (!selected.length || selected.length > 50 || !Number.isFinite(cashReceived) || cashReceived <= 0 ||
-    new Set(selected.map(item => item.productId)).size !== selected.length) {
-    throw new Error('Choose valid products and a confirmed cash amount.');
+  if (!['CASH', 'POS', 'CARD', 'BANK_TRANSFER'].includes(channel) ||
+      !selected.length || selected.length > 50 ||
+      !Number.isFinite(cashReceived) || cashReceived < 0 ||
+      customerName.trim().length > 120 ||
+      new Set(selected.map(item => item.productId)).size !== selected.length) {
+    throw new Error('Choose valid products and a supported payment method.');
   }
   const db = await database();
   const id = Crypto.randomUUID();
@@ -166,7 +185,7 @@ export async function recordOfflineCash(scope: OfflineScope,
       'SELECT savedAt FROM offline_catalog_meta WHERE userId=? AND businessId=? AND branchId=?',
       ...params(scope));
     if (!age || Date.now() - age.savedAt > 48 * 3600000) {
-      throw new Error('Offline catalogue is older than 48 hours. Reconnect and refresh stock before accepting cash.');
+      throw new Error('Offline catalogue is older than 48 hours. Reconnect and refresh stock before recording another sale.');
     }
     const products = await tx.getAllAsync<DbCatalog>(
       'SELECT id,name,sku,barcode,category,price,stock FROM offline_catalog WHERE userId=? AND businessId=? AND branchId=?',
@@ -188,7 +207,7 @@ export async function recordOfflineCash(scope: OfflineScope,
       const product = productById.get(item.productId);
       if (!product || !Number.isSafeInteger(item.quantity) || item.quantity < 1 ||
           item.quantity > 1000000 || (reserved.get(item.productId) ?? 0) + item.quantity > product.stock) {
-        throw new Error('Cached stock is insufficient. Review the products before accepting cash.');
+        throw new Error('Cached stock is insufficient. Review the products before recording the sale.');
       }
       const priceKobo = Math.round(Number(product.price) * 100);
       if (!Number.isSafeInteger(priceKobo) || priceKobo <= 0) throw new Error('Invalid cached selling price.');
@@ -196,21 +215,30 @@ export async function recordOfflineCash(scope: OfflineScope,
       return { productId: item.productId, name: product.name, quantity: item.quantity, unitPrice: product.price };
     });
     if (!Number.isSafeInteger(totalKobo) || totalKobo <= 0 ||
-      Math.round(cashReceived * 100) < totalKobo) throw new Error('Cash received must cover the sale total.');
+      (channel === 'CASH' && Math.round(cashReceived * 100) < totalKobo))
+      throw new Error('Cash received must cover the sale total.');
     const row: OfflineCashRecord = {
       id, recordedAt, status: 'QUEUED', total: formatMoney(totalKobo / 100),
-      cashReceived: formatMoney(cashReceived), items: lines, error: null,
+      cashReceived: formatMoney(channel === 'CASH' ? cashReceived : totalKobo / 100),
+      channel, customerName: customerName.trim() || null, items: lines, error: null,
     };
     await tx.runAsync(`INSERT INTO offline_cash_sales
-      (id,userId,businessId,branchId,recordedAt,state,total,cashReceived,itemsJson)
-      VALUES (?,?,?,?,?,?,?,?,?)`,
+      (id,userId,businessId,branchId,recordedAt,state,total,cashReceived,channel,customerName,itemsJson)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
       row.id, ...params(scope), row.recordedAt, row.status, row.total, row.cashReceived,
-      JSON.stringify(lines));
+      row.channel, row.customerName, JSON.stringify(lines));
     result.saved = row;
   });
   // Only return the receipt once SQLite has committed the exclusive transaction.
   if (!result.saved) throw new Error('Offline sale could not be recorded.');
   return result.saved;
+}
+
+// Keep the old public function for the separate offline-cash queue screen.
+export function recordOfflineCash(scope: OfflineScope,
+  selected: { productId: string; quantity: number }[], cashReceived: number,
+): Promise<OfflineCashRecord> {
+  return recordOfflineSale(scope, selected, 'CASH', cashReceived);
 }
 
 let syncing = false;
@@ -223,7 +251,7 @@ export async function syncOfflineCash(scope: OfflineScope,
   try {
     const db = await database();
     const rows = await db.getAllAsync<DbSale>(
-      `SELECT id,recordedAt,state,total,cashReceived,itemsJson,lastError
+      `SELECT id,recordedAt,state,total,cashReceived,channel,customerName,itemsJson,lastError
        FROM offline_cash_sales WHERE userId=? AND businessId=? AND branchId=?
          AND (state='QUEUED' ${retryReview ? "OR state='REVIEW'" : ""})
        ORDER BY recordedAt ASC LIMIT 100`,
@@ -236,14 +264,17 @@ export async function syncOfflineCash(scope: OfflineScope,
       try {
         const sale = await request<CheckoutSale>('sales/offline-sync', {
           businessId: scope.businessId, branchId: scope.branchId, clientRequestId: row.id,
-          recordedAt: row.recordedAt, cashReceived: true,
+          recordedAt: row.recordedAt, channel: row.channel || 'CASH',
+          ...(row.channel === 'CASH' || !row.channel ? { cashReceived: true } : { confirmedReceived: true }),
+          ...(row.customerName?.trim() ? { customerName: row.customerName.trim() } : {}),
           items: lines.map(line => ({
             productId: line.productId, quantity: line.quantity, unitPrice: line.unitPrice,
           })),
         });
         if (sale.status !== 'PAID' || !sale.payments.some(payment =>
-          payment.channel === 'CASH' && payment.status === 'SUCCEEDED' && payment.provider === 'OFFLINE_CASH')) {
-          throw new Error('Server did not confirm this cash sale.');
+          payment.channel === (row.channel || 'CASH') && payment.status === 'SUCCEEDED' &&
+          payment.provider === ((row.channel || 'CASH') === 'CASH' ? 'OFFLINE_CASH' : 'OFFLINE_MERCHANT_ATTESTED'))) {
+          throw new Error('Server did not accept this offline sale.');
         }
         await db.runAsync(
           "UPDATE offline_cash_sales SET state='SYNCED',lastError=NULL,syncedAt=? WHERE id=?",
