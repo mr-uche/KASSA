@@ -17,6 +17,24 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
  * Renders locally without internet access or another native module / APK rebuild.
  * The same category data is exposed as a readable legend for accessibility.
  */
+// SVG markup is generated from fixed ASCII tags, hex colours, and numbers.
+// Base64 works with Android Glide data-URI loaders; percent-encoded SVG URIs
+// are not consistently supported by native image loaders.
+function base64Ascii(value: string): string {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  for (let i = 0; i < value.length; i += 3) {
+    const first = value.charCodeAt(i);
+    const second = i + 1 < value.length ? value.charCodeAt(i + 1) : 0;
+    const third = i + 2 < value.length ? value.charCodeAt(i + 2) : 0;
+    const combined = (first << 16) | (second << 8) | third;
+    result += letters[(combined >>> 18) & 63] + letters[(combined >>> 12) & 63] +
+      (i + 1 < value.length ? letters[(combined >>> 6) & 63] : '=') +
+      (i + 2 < value.length ? letters[combined & 63] : '=');
+  }
+  return result;
+}
+
 function chartDataUri(entries: CategoryAmount[]): string {
   const total = entries.reduce((sum, [, amount]) =>
     sum + (Number.isFinite(amount) && amount > 0 ? amount : 0), 0);
@@ -42,7 +60,7 @@ function chartDataUri(entries: CategoryAmount[]): string {
     '<circle cx="' + CENTER + '" cy="' + CENTER + '" r="' + RADIUS +
     '" fill="none" stroke="#EAF4EF" stroke-width="' + WIDTH + '"/>' +
     arcs + '</svg>';
-  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  return 'data:image/svg+xml;base64,' + base64Ascii(svg);
 }
 
 export function ExpenseDonut({ entries }: { entries: CategoryAmount[] }) {
