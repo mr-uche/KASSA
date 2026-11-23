@@ -62,17 +62,18 @@ export default function Expenses() {
 
   const load = useCallback(async (isActive: () => boolean = () => true) => {
     if (!scope || scope.myRole !== 'Owner') return;
-    if (isActive()) { setLoading(true); setError(''); }
+    if (isActive()) { setLoading(true); setError(''); setData(null); }
     try {
       const result = await session.request<ExpenseList>(
-        'expenses?businessId=' + encodeURIComponent(scope.businessId),
+        'expenses?businessId=' + encodeURIComponent(scope.businessId) +
+        '&month=' + encodeURIComponent(period),
       );
       if (!result || !Array.isArray(result.items)) throw new Error('Invalid expenses response.');
       if (isActive()) setData(result);
     } catch (cause) {
       if (isActive()) { setData(null); setError(expenseError(cause, 'Unable to load expenses.')); }
     } finally { if (isActive()) setLoading(false); }
-  }, [scope?.businessId, scope?.myRole, session.request]);
+  }, [scope?.businessId, scope?.myRole, session.request, period]);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -90,19 +91,27 @@ export default function Expenses() {
       .toLowerCase().includes(search.trim().toLowerCase()),
   ), [periodItems, search, category]);
 
-  const total = period === 'all'
-    ? Number(data?.summary.allTime ?? 0)
-    : period === currentMonthKey()
-      ? Number(data?.summary.thisMonth ?? 0)
-      : periodItems.reduce((sum, item) => sum + Number(item.amount), 0);
+  const summary = data?.summary.periodMonth === period ? data.summary : null;
+  const total = summary?.periodTotal !== undefined ? Number(summary.periodTotal)
+    : period === 'all'
+      ? Number(data?.summary.allTime ?? 0)
+      : period === currentMonthKey()
+        ? Number(data?.summary.thisMonth ?? 0)
+        : periodItems.reduce((sum, item) => sum + Number(item.amount), 0);
 
   const breakdown = useMemo(() => {
     const entries = new Map<string, number>();
     for (const item of periodItems) {
       entries.set(item.category, (entries.get(item.category) ?? 0) + Number(item.amount));
     }
+    if (summary?.byCategoryForPeriod) {
+      return summary.byCategoryForPeriod
+        .map(row => [row.category, Number(row.amount)] as [string, number])
+        .filter(([, amount]) => Number.isFinite(amount) && amount > 0)
+        .sort((a, b) => b[1] - a[1]);
+    }
     return [...entries].sort((a, b) => b[1] - a[1]);
-  }, [periodItems]);
+  }, [periodItems, summary]);
   const periodLabel = period === 'all' ? 'All time'
     : months.find(month => month.key === period)?.label ?? period;
 
@@ -157,8 +166,9 @@ export default function Expenses() {
         <Text style={s.totalValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
           {naira(total)}
         </Text>
-        <Text style={s.hint}>{period === 'all' ? data?.summary.count ?? 0 : period === currentMonthKey()
-          ? data?.summary.monthCount ?? 0 : periodItems.length} recorded expenses</Text>
+        <Text style={s.hint}>{summary?.periodCount ?? (period === 'all' ? data?.summary.count ?? 0
+          : period === currentMonthKey() ? data?.summary.monthCount ?? 0
+          : periodItems.length)} recorded expenses</Text>
       </View>
     </View>
 
@@ -166,7 +176,8 @@ export default function Expenses() {
       <View style={s.chartCard}>
         <Text style={s.section}>Expenses by category</Text>
         <Text style={s.hint}>How your spending is distributed</Text>
-        {(data?.items.length ?? 0) >= (data?.historyLimit ?? 500) &&
+        {!summary?.byCategoryForPeriod &&
+          (data?.items.length ?? 0) >= (data?.historyLimit ?? 500) &&
           <Text style={s.hint}>Breakdown uses the latest recorded entries.</Text>}
         <ExpenseDonut entries={breakdown}/>
       </View>
