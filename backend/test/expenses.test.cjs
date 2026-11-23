@@ -102,3 +102,78 @@ test('receipt validation checks signature, size and owner permission', async () 
     buffer: Buffer.from('%PDF-example'),
   }), /up to 2 MB/);
 });
+
+test('Cloudinary receipt upload uses authenticated assets and downloads through owner backend', async () => {
+  const cloud = require('../src/expenses/cloudinary-receipts');
+  const env = {
+    CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+    CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
+    CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+  };
+  const originalFetch = global.fetch;
+  process.env.CLOUDINARY_CLOUD_NAME = 'kassa-test-cloud';
+  process.env.CLOUDINARY_API_KEY = '123456789';
+  process.env.CLOUDINARY_API_SECRET = 'mock-secret-not-a-real-key';
+  const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({ url: String(url), options });
+    if (calls.length === 1) {
+      assert.match(String(url), /\/image\/upload$/);
+      assert.equal(options.method, 'POST');
+      assert.equal(options.body.get('type'), 'authenticated');
+      assert.match(options.body.get('public_id'), /^kassa\/expense-receipts\//);
+      assert.ok(options.body.get('signature'));
+      assert.ok(!String(url).includes('mock-secret'));
+      return new Response(JSON.stringify({
+        asset_id: 'cloudinary_asset_123', type: 'authenticated', resource_type: 'image',
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    const parsed = new URL(String(url));
+    assert.match(parsed.pathname, /\/asset\/download$/);
+    assert.equal(parsed.searchParams.get('asset_id'), 'cloudinary_asset_123');
+    assert.ok(parsed.searchParams.get('signature'));
+    assert.ok(!String(url).includes('mock-secret'));
+    return new Response(Buffer.from('test-image-bytes'), { status: 200 });
+  };
+  try {
+    const asset = await cloud.uploadPrivateExpenseReceipt(
+      Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0]), 'image/png');
+    assert.equal(asset, 'cloudinary_asset_123');
+    const bytes = await cloud.downloadPrivateExpenseReceipt(asset);
+    assert.equal(bytes.toString(), 'test-image-bytes');
+    assert.equal(calls.length, 2);
+  } finally {
+    global.fetch = originalFetch;
+    for (const [key, value] of Object.entries(env)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test('Cloudinary failure does not overwrite an existing expense receipt', async () => {
+  const env = {
+    CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+    CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
+    CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+  };
+  const originalFetch = global.fetch;
+  process.env.CLOUDINARY_CLOUD_NAME = 'kassa-test-cloud';
+  process.env.CLOUDINARY_API_KEY = '123456789';
+  process.env.CLOUDINARY_API_SECRET = 'mock-secret-not-a-real-key';
+  global.fetch = async () => { throw new Error('Network is unavailable'); };
+  try {
+    const { service, calls } = fixture();
+    const pdf = Buffer.from('%PDF-1.6 test');
+    await assert.rejects(service.attachReceipt('user-id', scope.businessId, 'expense-id', {
+      originalname: 'expense.pdf', mimetype: 'application/pdf', size: pdf.length, buffer: pdf,
+    }), /temporarily unavailable/);
+    assert.equal(calls.updated, null);
+  } finally {
+    global.fetch = originalFetch;
+    for (const [key, value] of Object.entries(env)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
