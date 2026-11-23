@@ -17,6 +17,10 @@ export type ExpenseList = {
     thisMonth: string;
     count: number;
     monthCount: number;
+    periodMonth?: string;
+    periodTotal?: string;
+    periodCount?: number;
+    byCategoryForPeriod?: { category: string; amount: string }[];
     byCategory: { category: string; amount: string }[];
   };
   historyLimit?: number;
