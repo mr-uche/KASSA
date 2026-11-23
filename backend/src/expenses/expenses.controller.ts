@@ -18,7 +18,7 @@ export class ExpensesController {
 
   @Get()
   list(@Req() req: AuthenticatedRequest, @Query() query: ExpenseScopeDto) {
-    return this.expenses.list(req.userId, query.businessId, query.branchId);
+    return this.expenses.list(req.userId, query.businessId, query.branchId, query.month);
   }
 
   @Post()
