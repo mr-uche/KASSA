@@ -24,7 +24,7 @@ const scope = {
 };
 
 function fixture(role = 'Owner') {
-  const calls = { created: null, updated: null, listWhere: null, listSelect: null };
+  const calls = { created: null, updated: null, listWhere: null, listSelect: null, aggregateWheres: [] };
   const prisma = {
     businessMembership: {
       findUnique: async () => role === 'Outside'
@@ -46,7 +46,10 @@ function fixture(role = 'Owner') {
         calls.listSelect = select;
         return [];
       },
-      aggregate: async () => ({ _sum: { amount: null }, _count: 0 }),
+      aggregate: async ({ where }) => {
+        calls.aggregateWheres.push(where);
+        return { _sum: { amount: null }, _count: 0 };
+      },
       groupBy: async () => [],
     },
   };
@@ -96,6 +99,21 @@ test('expense list never selects private receipt bytes', async () => {
   assert.equal(calls.listWhere.businessId, scope.businessId);
   assert.equal(calls.listWhere.branchId, scope.branchId);
   assert.equal(Object.prototype.hasOwnProperty.call(calls.listSelect, 'receiptData'), false);
+});
+
+test('selected month compares with preceding calendar month within the same business and branch', async () => {
+  const { service, calls } = fixture();
+  const report = await service.list('user-id', scope.businessId, scope.branchId, '2026-01');
+  assert.equal(report.summary.periodMonth, '2026-01');
+  assert.equal(report.summary.previousPeriodTotal, '0.00');
+  const previousWhere = calls.aggregateWheres.at(-1);
+  assert.equal(previousWhere.businessId, scope.businessId);
+  assert.equal(previousWhere.branchId, scope.branchId);
+  assert.equal(previousWhere.spentAt.gte.toISOString(), '2025-12-01T00:00:00.000Z');
+  assert.equal(previousWhere.spentAt.lt.toISOString(), '2026-01-01T00:00:00.000Z');
+
+  const all = await service.list('user-id', scope.businessId, scope.branchId, 'all');
+  assert.equal(all.summary.previousPeriodTotal, undefined);
 });
 
 test('receipt validation checks signature, size and owner permission', async () => {
