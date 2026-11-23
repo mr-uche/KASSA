@@ -5,8 +5,9 @@ import { SymbolView } from 'expo-symbols';
 import { useKassaSession } from '@/components/kassa-demo/api';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
+import { ExpenseDonut } from '@/components/kassa-demo/expense-donut';
 import {
-  categoryColors, currentMonthKey, expenseCategories, expenseError, formattedDate,
+  currentMonthKey, expenseCategories, expenseError, formattedDate,
   type Expense, type ExpenseList,
 } from '@/components/kassa-demo/expenses-data';
 
@@ -102,7 +103,6 @@ export default function Expenses() {
     }
     return [...entries].sort((a, b) => b[1] - a[1]);
   }, [periodItems]);
-  const loadedTotal = breakdown.reduce((sum, [, amount]) => sum + amount, 0);
   const periodLabel = period === 'all' ? 'All time'
     : months.find(month => month.key === period)?.label ?? period;
 
@@ -168,21 +168,7 @@ export default function Expenses() {
         <Text style={s.hint}>How your spending is distributed</Text>
         {(data?.items.length ?? 0) >= (data?.historyLimit ?? 500) &&
           <Text style={s.hint}>Breakdown uses the latest recorded entries.</Text>}
-        {breakdown.length ? <>
-          <View style={s.stackedBar}>
-            {breakdown.map(([name, amount], index) =>
-              <View key={name} style={{ flex: amount, backgroundColor: categoryColors[index % categoryColors.length] }}/>)}
-          </View>
-          {breakdown.slice(0, 6).map(([name, amount], index) =>
-            <View key={name} style={s.breakdownRow}>
-              <View style={[s.legendDot, { backgroundColor: categoryColors[index % categoryColors.length] }]}/>
-              <Text numberOfLines={1} style={s.breakdownName}>{name}</Text>
-              <Text style={s.breakdownAmount}>{naira(amount)}</Text>
-              <Text style={s.breakdownPercent}>
-                {loadedTotal > 0 ? Math.round(amount * 100 / loadedTotal) : 0}%
-              </Text>
-            </View>)}
-        </> : <Text style={s.emptyText}>No expenses for this period yet.</Text>}
+        <ExpenseDonut entries={breakdown}/>
       </View>
 
       <Pressable accessibilityRole="button" style={s.primary}
@@ -261,12 +247,6 @@ const s = StyleSheet.create({
   chartCard: { padding: 16, borderWidth: 1, borderColor: C.border, backgroundColor: C.white,
     borderRadius: 13, marginBottom: 15 },
   section: { color: C.title, fontSize: 20, fontWeight: '800' },
-  stackedBar: { flexDirection: 'row', height: 16, overflow: 'hidden', borderRadius: 8, marginVertical: 17 },
-  breakdownRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 7 },
-  legendDot: { width: 9, height: 9, borderRadius: 3 },
-  breakdownName: { flex: 1, minWidth: 0, color: C.text, fontSize: 13 },
-  breakdownAmount: { color: C.title, fontSize: 13, fontWeight: '700' },
-  breakdownPercent: { width: 36, textAlign: 'right', fontSize: 12, color: C.muted },
   primary: { backgroundColor: C.green, borderRadius: 9, minHeight: 49, alignItems: 'center',
     justifyContent: 'center', flexDirection: 'row', gap: 9, marginBottom: 22 },
   primaryText: { color: C.white, fontSize: 14, fontWeight: '800' },
