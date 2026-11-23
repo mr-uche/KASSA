@@ -1,6 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateExpenseDto } from './dto/expenses.dto';
+import {
+  downloadPrivateExpenseReceipt, hasCloudinaryReceiptStorage,
+  uploadPrivateExpenseReceipt,
+} from './cloudinary-receipts';
 
 type ReceiptUpload = {
   originalname: string;
@@ -148,16 +152,42 @@ export class ExpensesService {
         bytes.toString('ascii', 8, 12) === 'WEBP' ? 'image/webp' : null;
     if (!mime) throw new BadRequestException('Receipt must be a PDF, PNG, JPEG or WebP file');
     const name = (file.originalname || 'receipt').replace(/[^\w. -]/g, '_').slice(0, 150);
-    await this.prisma.expense.update({
-      where: { id: expenseId },
-      data: { receiptName: name, receiptMime: mime, receiptData: new Uint8Array(bytes) },
-    });
+    if (hasCloudinaryReceiptStorage()) {
+      // Upload first. Never discard a legacy receipt until Cloudinary confirms
+      // the new authenticated asset and Prisma commits its immutable asset ID.
+      const assetId = await uploadPrivateExpenseReceipt(bytes, mime);
+      await this.prisma.expense.update({
+        where: { id: expenseId },
+        data: {
+          receiptName: name, receiptMime: mime,
+          receiptCloudinaryAssetId: assetId, receiptData: null,
+        },
+      });
+    } else {
+      // Backwards-compatible while Cloudinary has not been configured on Render.
+      await this.prisma.expense.update({
+        where: { id: expenseId },
+        data: {
+          receiptName: name, receiptMime: mime,
+          receiptData: new Uint8Array(bytes), receiptCloudinaryAssetId: null,
+        },
+      });
+    }
     return { saved: true, receiptName: name };
   }
 
   async receipt(userId: string, businessId: string, expenseId: string) {
     const row = await this.owned(userId, businessId, expenseId);
-    if (!row.receiptData || !row.receiptName || !row.receiptMime) {
+    if (!row.receiptName || !row.receiptMime) {
+      throw new NotFoundException('No receipt is attached to this expense');
+    }
+    if (row.receiptCloudinaryAssetId) {
+      return {
+        name: row.receiptName, mime: row.receiptMime,
+        bytes: await downloadPrivateExpenseReceipt(row.receiptCloudinaryAssetId),
+      };
+    }
+    if (!row.receiptData) {
       throw new NotFoundException('No receipt is attached to this expense');
     }
     return {
