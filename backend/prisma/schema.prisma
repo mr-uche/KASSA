@@ -427,7 +427,10 @@ model Expense {
   spentAt       DateTime @db.Date
   receiptName   String?  @db.VarChar(150)
   receiptMime   String?  @db.VarChar(50)
+  // Existing receipts remain in receiptData until individually migrated or replaced.
+  // New receipts use Cloudinary authenticated assets when configured.
   receiptData   Bytes?   @db.ByteA
+  receiptCloudinaryAssetId String? @db.VarChar(100)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
