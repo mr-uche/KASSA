@@ -1,0 +1,52 @@
+name: One-time Expo SDK 58 dependency repair
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-time-expo-dependency-repair.yml'
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install current project dependencies
+        run: npm ci
+      - name: Install SDK-compatible missing native dependencies
+        run: npx expo install expo-asset expo-dev-client --npm
+      - name: Align Expo SDK 58 dependencies
+        run: npx expo install --fix --npm
+      - name: Confirm reproducible dependency lockfile
+        run: npm ci
+      - name: Validate with Expo Doctor
+        run: npx -y expo-doctor@latest
+      - name: TypeScript validation
+        run: npx tsc --noEmit
+      - name: Android bundle validation
+        run: npx expo export --platform android --output-dir dist
+      - name: Commit validated dependency fix and remove one-time workflow
+        working-directory: .
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile/package.json mobile/package-lock.json
+          git rm .github/workflows/one-time-expo-dependency-repair.yml
+          git diff --cached --check
+          git commit -m "fix(mobile): align Expo SDK 58 deps and install dev client"
+          git push origin HEAD:main
