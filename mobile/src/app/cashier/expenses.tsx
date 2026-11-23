@@ -99,6 +99,24 @@ export default function Expenses() {
         ? Number(data?.summary.thisMonth ?? 0)
         : periodItems.reduce((sum, item) => sum + Number(item.amount), 0);
 
+  // No comparison for all-time totals, or until the backend provides an
+  // accurate aggregate for the preceding calendar month.
+  const priorMonthTotal = period !== 'all' && summary?.previousPeriodTotal !== undefined
+    ? Number(summary.previousPeriodTotal) : null;
+  const expenseTrend = (() => {
+    if (priorMonthTotal === null || !Number.isFinite(priorMonthTotal) || !Number.isFinite(total)) return null;
+    if (priorMonthTotal === 0) {
+      return total > 0
+        ? { label: '↑ New', direction: 'up' as const }
+        : { label: '— 0%', direction: 'same' as const };
+    }
+    const change = (total - priorMonthTotal) / priorMonthTotal * 100;
+    const direction = change > 0 ? 'up' as const : change < 0 ? 'down' as const : 'same' as const;
+    const percentage = Math.abs(change) < 1 && change !== 0
+      ? Math.abs(change).toFixed(1) : Math.round(Math.abs(change)).toString();
+    return { label: (change > 0 ? '↑ ' : change < 0 ? '↓ ' : '— ') + percentage + '%', direction };
+  })();
+
   const breakdown = useMemo(() => {
     const entries = new Map<string, number>();
     for (const item of periodItems) {
@@ -162,7 +180,7 @@ export default function Expenses() {
     <View style={s.totalCard}>
       <View style={s.totalIcon}>{icon({ ios: 'creditcard', android: 'payments', web: 'payments' }, 22)}</View>
       <View style={s.totalText}>
-        <Text style={s.hint}>Total expenses · {periodLabel}</Text>
+        <Text style={s.hint}>Total Expenses</Text>
         <Text style={s.totalValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
           {naira(total)}
         </Text>
@@ -170,6 +188,19 @@ export default function Expenses() {
           : period === currentMonthKey() ? data?.summary.monthCount ?? 0
           : periodItems.length)} recorded expenses</Text>
       </View>
+      {expenseTrend && <View style={s.compareBlock} accessibilityLabel={
+        expenseTrend.label + ' compared with the previous month'}>
+        <View style={[s.changeBadge,
+          expenseTrend.direction === 'down' && s.changeDown,
+          expenseTrend.direction === 'up' && s.changeUp]}>
+          <Text style={[s.changeText,
+            expenseTrend.direction === 'down' && s.changeTextDown,
+            expenseTrend.direction === 'up' && s.changeTextUp]}>
+            {expenseTrend.label}
+          </Text>
+        </View>
+        <Text style={s.compareCaption}>vs. previous month</Text>
+      </View>}
     </View>
 
     {tab === 'Overview' ? <>
@@ -249,12 +280,21 @@ const s = StyleSheet.create({
   monthOptionText: { fontSize: 14, color: C.text },
   monthOptionActive: { color: C.green, fontWeight: '800' },
   totalCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.white, borderWidth: 1,
-    borderColor: C.border, borderRadius: 14, padding: 16, gap: 13, marginBottom: 16 },
-  totalIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.mint,
+    borderColor: C.border, borderRadius: 14, padding: 13, gap: 9, marginBottom: 16 },
+  totalIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.mint,
     alignItems: 'center', justifyContent: 'center' },
   totalText: { flex: 1, minWidth: 0 },
   hint: { fontSize: 13, color: C.muted, marginBottom: 4 },
-  totalValue: { fontSize: 26, fontWeight: '800', color: C.title, marginVertical: 4 },
+  totalValue: { fontSize: 24, fontWeight: '800', color: C.title, marginVertical: 4 },
+  compareBlock: { alignItems: 'flex-end', justifyContent: 'center', maxWidth: 103, flexShrink: 0 },
+  changeBadge: { backgroundColor: '#F1F3F4', paddingHorizontal: 8, paddingVertical: 5,
+    borderRadius: 7, alignSelf: 'flex-end' },
+  changeDown: { backgroundColor: '#DDF7E7' },
+  changeUp: { backgroundColor: '#FDE9E9' },
+  changeText: { fontSize: 12, fontWeight: '800', color: C.muted },
+  changeTextDown: { color: '#168047' },
+  changeTextUp: { color: '#B4232C' },
+  compareCaption: { fontSize: 10, color: C.muted, textAlign: 'right', marginTop: 5 },
   chartCard: { padding: 16, borderWidth: 1, borderColor: C.border, backgroundColor: C.white,
     borderRadius: 13, marginBottom: 15 },
   section: { color: C.title, fontSize: 20, fontWeight: '800' },
