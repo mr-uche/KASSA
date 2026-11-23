@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload } from "lucide-react";
+import { Menu, Upload } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 
 const transaction = {
@@ -49,8 +49,13 @@ export default function DisputeTransactionPage() {
         onClose={() => setSidebarOpen(false)}
       />
 
-      <main className="ml-[198px] p-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Dispute Transaction</h1>
+      <main className="min-h-screen lg:ml-[198px]">
+        <header className="flex min-h-[80px] items-center gap-3 border-b border-gray-200 bg-white px-4 py-4 sm:px-6 lg:px-8">
+          <button type="button" aria-label="Open menu" onClick={() => setSidebarOpen(true)}
+            className="rounded-md p-1.5 text-gray-600 lg:hidden"><Menu size={22}/></button>
+          <h1 className="text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">Dispute Transaction</h1>
+        </header>
+        <div className="px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-10 lg:pt-12">
         <p className="text-gray-500 mb-6">
           Submit a dispute for this transaction and provide the relevant details.
         </p>
@@ -58,7 +63,7 @@ export default function DisputeTransactionPage() {
         {/* Transaction summary */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
           <p className="text-sm font-semibold text-gray-900 mb-4">Transaction summary</p>
-          <div className="grid grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4 lg:gap-8">
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
                 Transaction ID
@@ -83,9 +88,9 @@ export default function DisputeTransactionPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Dispute form */}
-          <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-6">
+          <div className="min-w-0 rounded-xl border border-gray-200 bg-white p-4 sm:p-6 lg:col-span-2">
             <h2 className="text-lg font-semibold text-gray-900 mb-5">What is the issue?</h2>
 
             <div className="mb-5">
@@ -111,7 +116,7 @@ export default function DisputeTransactionPage() {
 
             <div className="mb-5">
               <p className="text-sm font-medium text-gray-700 mb-2">Reason</p>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={() => handleChipClick("Incorrect amount")}
                   className={`flex-1 px-4 py-2.5 rounded-lg border text-sm font-medium ${
@@ -200,6 +205,7 @@ export default function DisputeTransactionPage() {
               </div>
             </div>
           </div>
+        </div>
         </div>
       </main>
     </div>

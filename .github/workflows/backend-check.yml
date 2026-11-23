@@ -1,0 +1,33 @@
+name: KASSA Backend Check
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-check.yml'
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install dependencies for compile validation
+        run: npm install --no-save --package-lock=false
+      - name: Generate Prisma client, test and build
+        run: npm run build
+      - name: Regression - tests must not contact configured Cloudinary
+        env:
+          CLOUDINARY_CLOUD_NAME: dummy-cloud
+          CLOUDINARY_API_KEY: dummy-api-key
+          CLOUDINARY_API_SECRET: dummy-not-a-real-secret
+        run: npm run test:expenses

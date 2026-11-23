@@ -57,3 +57,53 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+
+/*
+ * Shared dropdown spacing across Kassa.
+ * Native browser select chevrons sit too close to the border on some devices.
+ * Draw the same arrow 16px from the right while reserving room for its label.
+ * Selects that already render their own icon opt out to avoid two chevrons.
+ */
+select:not([multiple]):not([size]):not(.kassa-select-custom-icon) {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 2.75rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1rem 1rem;
+}
+
+
+/* When printing a verified sale, print its actual receipt rather than the
+   payment status, navigation, dashboard, or download buttons around it. */
+@media print {
+  @page {
+    size: auto;
+    margin: 14mm;
+  }
+
+  body:has(#kassa-receipt-document) * {
+    visibility: hidden !important;
+  }
+
+  body:has(#kassa-receipt-document) #kassa-receipt-document,
+  body:has(#kassa-receipt-document) #kassa-receipt-document * {
+    visibility: visible !important;
+  }
+
+  body:has(#kassa-receipt-document) #kassa-receipt-document {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

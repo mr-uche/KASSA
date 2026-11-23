@@ -1,12 +1,28 @@
 "use client";
+
+import KassaHeaderActions from "@/components/KassaHeaderActions";
  
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Keyboard, Info, ScanLine, Menu } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
  
 export default function EnterProductCodePage() {
   const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const router = useRouter();
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const cleaned = code.trim();
+    if (!cleaned || cleaned.length > 100) {
+      setError("Enter a valid barcode or SKU.");
+      return;
+    }
+    setError("");
+    router.push("/scan?code=" + encodeURIComponent(cleaned));
+  }
   const [sidebarOpen, setSidebarOpen] = useState(false);
  
   return (
@@ -15,7 +31,7 @@ export default function EnterProductCodePage() {
  
       <div className="lg:ml-[198px]">
         {/* Header */}
-        <header className="flex h-[80px] items-center justify-between border-b border-[#E5E7EB] bg-white px-4 sm:px-8 lg:px-[32px]">
+        <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -35,25 +51,22 @@ export default function EnterProductCodePage() {
               Main branch
               <span className="text-[#98A1AE]">▾</span>
             </button>
-            <span className="h-2 w-2 rounded-full bg-[#E54848]" />
-            <div className="flex h-[36px] w-[36px] items-center justify-center rounded-full bg-[#0F4C3A] text-[13px] font-semibold text-white">
-              AO
-            </div>
+            <KassaHeaderActions />
           </div>
         </header>
  
         <Link
           href="/scan"
-          className="mt-4 ml-4 sm:ml-8 lg:ml-[32px] flex items-center gap-1 text-[13px] text-[#0F4C3A]"
+          className="ml-4 mt-6 flex items-center gap-1 text-[13px] text-[#0F4C3A] sm:ml-6 sm:mt-8 lg:ml-8 lg:mt-12"
         >
           <ArrowLeft size={14} />
           Back to scanner
         </Link>
  
         {/* Content */}
-        <section className="flex flex-col lg:flex-row items-stretch justify-center gap-6 px-4 sm:px-8 lg:px-[32px] pb-[40px] pt-[24px]">
+        <section className="flex min-w-0 flex-col items-stretch justify-center gap-6 px-4 pb-8 pt-6 sm:px-6 lg:flex-row lg:px-8 lg:pb-10">
           {/* Manual entry card */}
-          <div className="flex-1 max-w-full lg:max-w-[560px] rounded-2xl border border-[#E5E7EB] bg-white p-6 sm:p-10 text-center">
+          <form onSubmit={submit} className="flex-1 max-w-full lg:max-w-[560px] rounded-2xl border border-[#E5E7EB] bg-white p-6 sm:p-10 text-center">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#E3F2EC]">
               <Keyboard className="text-[#0F4C3A]" size={26} />
             </div>
@@ -73,12 +86,13 @@ export default function EnterProductCodePage() {
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="e.g. AMX-250 or 8901234567890"
+                placeholder="e.g. AMX-250 or 8901234567890" maxLength={100} autoComplete="off"
                 className="mt-1.5 w-full rounded-lg border-2 border-[#0e876f] px-4 py-2.5 text-[13px] text-[#182033] outline-none focus:border-[#0F4C3A]"
               />
             </div>
  
-            <button className="mt-4 w-full rounded-lg bg-[#0F4C3A] py-2.5 text-[13px] font-medium text-white hover:bg-[#0C3D2F]">
+            {error && <p role="alert" className="mt-3 text-left text-xs text-red-700">{error}</p>}
+            <button type="submit" className="mt-4 w-full rounded-lg bg-[#0F4C3A] py-2.5 text-[13px] font-medium text-white hover:bg-[#0C3D2F]">
               Find product
             </button>
  
@@ -86,11 +100,13 @@ export default function EnterProductCodePage() {
               You can also scan the barcode instead.
             </p>
  
-            <button className="mx-auto mt-3 flex items-center gap-1.5 rounded-lg border border-[#E5E7EB] px-4 py-2 text-[13px] text-[#182033]">
-              <ScanLine size={14} />
-              Return to scanner
-            </button>
-          </div>
+            <Link href="/scan" passHref>
+              <button className="mx-auto mt-3 flex items-center gap-1.5 rounded-lg border border-[#E5E7EB] px-4 py-2 text-[13px] text-[#182033]">
+                <ScanLine size={14} />
+                Return to scanner
+              </button>
+            </Link>
+          </form>
  
           {/* Quick tip card */}
           <div className="w-full lg:w-[280px] flex-shrink-0 rounded-2xl border border-[#E5E7EB] bg-white p-6">
