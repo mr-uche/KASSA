@@ -43,7 +43,17 @@ export class ExpensesService {
         lt: new Date(Date.UTC(selectedYear, selectedNumber, 1)),
       },
     };
-    const [records, allTime, thisMonth, categories, selectedTotal, selectedCategories] = await Promise.all([
+    // Compare against the calendar month immediately before the selected period.
+    // Keep the same business/branch scope and use database aggregates rather
+    // than the 500-row history window (which may be incomplete).
+    const previousWhere = selectedMonth === 'all' ? null : {
+      ...where,
+      spentAt: {
+        gte: new Date(Date.UTC(selectedYear, selectedNumber - 2, 1)),
+        lt: new Date(Date.UTC(selectedYear, selectedNumber - 1, 1)),
+      },
+    };
+    const [records, allTime, thisMonth, categories, selectedTotal, selectedCategories, previousTotal] = await Promise.all([
       this.prisma.expense.findMany({
         where,
         orderBy: [{ spentAt: 'desc' }, { createdAt: 'desc' }],
@@ -70,6 +80,9 @@ export class ExpensesService {
       this.prisma.expense.groupBy({
         by: ['category'], where: selectedWhere, _sum: { amount: true },
       }),
+      previousWhere
+        ? this.prisma.expense.aggregate({ where: previousWhere, _sum: { amount: true } })
+        : Promise.resolve(null),
     ]);
     return {
       items: records.map(({ branch, ...row }) => ({
@@ -88,6 +101,9 @@ export class ExpensesService {
         periodMonth: selectedMonth,
         periodTotal: selectedTotal._sum.amount?.toString() ?? '0.00',
         periodCount: selectedTotal._count,
+        ...(previousTotal ? {
+          previousPeriodTotal: previousTotal._sum.amount?.toString() ?? '0.00',
+        } : {}),
         byCategoryForPeriod: selectedCategories.map(row => ({
           category: row.category, amount: row._sum.amount?.toString() ?? '0.00',
         })),
