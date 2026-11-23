@@ -8,6 +8,9 @@ export const EXPENSE_CATEGORIES = [
 export class ExpenseScopeDto {
   @IsUUID('4') businessId!: string;
   @IsOptional() @IsUUID('4') branchId?: string;
+  // "all" or YYYY-MM; used for server-aggregated category analysis.
+  @IsOptional() @IsString() @Matches(/^(?:all|\d{4}-(?:0[1-9]|1[0-2]))$/)
+  month?: string;
 }
 
 export class CreateExpenseDto {
