@@ -1,5 +1,17 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+
+// Build environments (including Render) may have real Cloudinary credentials.
+// Tests must NEVER make a live upload or depend on provider configuration.
+// These mutations affect only this test subprocess; runtime env is unchanged.
+for (const key of [
+  'CLOUDINARY_CLOUD_NAME',
+  'CLOUDINARY_API_KEY',
+  'CLOUDINARY_API_SECRET',
+]) {
+  delete process.env[key];
+}
+
 const { ExpensesService } = require('../src/expenses/expenses.service');
 
 const scope = {
