@@ -33,7 +33,7 @@ export default function SwitchBranch() {
     } else apply();
   };
 
-  return <KScreen showBrand={false} showPreviewLabel={false}>
+  return <KScreen back showBrand={false} showPreviewLabel={false}>
     <Text style={s.title}>Profile</Text>
     <Text style={s.subtitle}>Account &amp; Settings</Text>
     <Text style={s.label}>SELECT BRANCH</Text>
