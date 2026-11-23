@@ -2,11 +2,12 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { C, naira } from './theme';
-import { categoryColors } from './expenses-data';
+import { expenseCategoryColor } from './expenses-data';
 
 export type CategoryAmount = readonly [string, number];
 
 const SIZE = 224;
+const DISPLAY_SIZE = 110;
 const CENTER = SIZE / 2;
 const RADIUS = 78;
 const WIDTH = 34;
@@ -40,13 +41,13 @@ function chartDataUri(entries: CategoryAmount[]): string {
     sum + (Number.isFinite(amount) && amount > 0 ? amount : 0), 0);
 
   let offset = 0;
-  const arcs = entries.map(([, amount], index) => {
+  const arcs = entries.map(([name, amount]) => {
     const length = total > 0 ? CIRCUMFERENCE * amount / total : 0;
     const gap = entries.length > 1 ? Math.min(2.5, length * 0.15) : 0;
     const visible = Math.max(0, length - gap);
     const element = visible > 0
       ? '<circle cx="' + CENTER + '" cy="' + CENTER + '" r="' + RADIUS +
-        '" fill="none" stroke="' + categoryColors[index % categoryColors.length] +
+        '" fill="none" stroke="' + expenseCategoryColor(name) +
         '" stroke-width="' + WIDTH + '" stroke-dasharray="' + visible.toFixed(4) +
         ' ' + (CIRCUMFERENCE - visible).toFixed(4) + '" stroke-dashoffset="' +
         (-offset).toFixed(4) + '" transform="rotate(-90 ' + CENTER + ' ' + CENTER + ')"/>'
@@ -78,39 +79,34 @@ export function ExpenseDonut({ entries }: { entries: CategoryAmount[] }) {
         contentFit="contain"
         style={s.image}
       />
-      <View pointerEvents="none" style={s.centerText}>
-        <Text style={s.centerCaption}>{total > 0 ? 'Total expenses' : 'No expenses yet'}</Text>
-        <Text style={s.centerAmount} numberOfLines={2} adjustsFontSizeToFit
-          minimumFontScale={0.65}>{naira(total)}</Text>
-      </View>
     </View>
-    {filtered.map(([name, amount], index) =>
-      <View key={name} style={s.legendRow}>
-        <View style={[s.legendDot,
-          { backgroundColor: categoryColors[index % categoryColors.length] }]}/>
-        <Text numberOfLines={1} style={s.categoryName}>{name}</Text>
-        <Text style={s.categoryAmount}>{naira(amount)}</Text>
-        <Text style={s.percentage}>{(amount / total * 100).toFixed(1)}%</Text>
-      </View>)}
-    {!filtered.length &&
-      <Text style={s.emptyHint}>Add an expense to see your spending by category.</Text>}
+    <View style={s.legend}>
+      {filtered.map(([name, amount]) =>
+        <View key={name} style={s.legendRow}>
+          <View style={[s.legendDot, { backgroundColor: expenseCategoryColor(name) }]}/>
+          <Text numberOfLines={2} style={s.categoryName}>{name}</Text>
+          <View style={s.legendValues}>
+            <Text style={s.categoryAmount} numberOfLines={1} adjustsFontSizeToFit
+              minimumFontScale={0.75}>{naira(amount)}</Text>
+            <Text style={s.percentage}>{Math.round(amount / total * 100)}%</Text>
+          </View>
+        </View>)}
+      {!filtered.length &&
+        <Text style={s.emptyHint}>Add an expense to see your spending by category.</Text>}
+    </View>
   </View>;
 }
 
 const s = StyleSheet.create({
-  wrapper: { alignItems: 'stretch' },
-  chart: { height: SIZE, width: SIZE, alignSelf: 'center', marginVertical: 12 },
-  image: { width: SIZE, height: SIZE },
-  centerText: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 55 },
-  centerCaption: { fontSize: 12, color: C.muted, textAlign: 'center' },
-  centerAmount: { fontSize: 19, fontWeight: '800', color: C.title,
-    textAlign: 'center', marginTop: 5 },
-  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderTopColor: C.border, borderTopWidth: 1, paddingVertical: 10 },
-  legendDot: { width: 11, height: 11, borderRadius: 6 },
-  categoryName: { flex: 1, minWidth: 0, fontSize: 13, color: C.text },
-  categoryAmount: { fontSize: 13, fontWeight: '700', color: C.title },
-  percentage: { width: 46, textAlign: 'right', fontSize: 12, color: C.muted },
-  emptyHint: { textAlign: 'center', fontSize: 13, color: C.muted, marginBottom: 9 },
+  wrapper: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 12 },
+  chart: { height: DISPLAY_SIZE, width: DISPLAY_SIZE, flexShrink: 0 },
+  image: { width: DISPLAY_SIZE, height: DISPLAY_SIZE },
+  legend: { flex: 1, minWidth: 0, gap: 7 },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 5, minWidth: 0 },
+  legendDot: { width: 8, height: 8, borderRadius: 2, flexShrink: 0 },
+  categoryName: { flex: 1, minWidth: 0, fontSize: 11, lineHeight: 14, color: C.text },
+  legendValues: { alignItems: 'flex-end', maxWidth: '48%', minWidth: 0 },
+  categoryAmount: { fontSize: 11, fontWeight: '700', color: C.title, textAlign: 'right' },
+  percentage: { fontSize: 10, color: C.muted, marginTop: 1 },
+  emptyHint: { flex: 1, fontSize: 12, color: C.muted, lineHeight: 17 },
 });
