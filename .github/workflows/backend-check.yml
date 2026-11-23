@@ -25,3 +25,9 @@ jobs:
         run: npm install --no-save --package-lock=false
       - name: Generate Prisma client, test and build
         run: npm run build
+      - name: Regression - tests must not contact configured Cloudinary
+        env:
+          CLOUDINARY_CLOUD_NAME: dummy-cloud
+          CLOUDINARY_API_KEY: dummy-api-key
+          CLOUDINARY_API_SECRET: dummy-not-a-real-secret
+        run: npm run test:expenses
