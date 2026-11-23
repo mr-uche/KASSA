@@ -23,13 +23,23 @@ export class ExpensesService {
     }
   }
 
-  async list(userId: string, businessId: string, branchId?: string) {
+  async list(userId: string, businessId: string, branchId?: string, month?: string) {
     await this.requireOwner(userId, businessId);
     if (branchId) await this.requireBranch(businessId, branchId);
     const where = { businessId, ...(branchId ? { branchId } : {}) };
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const [records, allTime, thisMonth, categories] = await Promise.all([
+    const selectedMonth = month ?? now.toISOString().slice(0, 7);
+    const [selectedYear, selectedNumber] = selectedMonth === 'all'
+      ? [0, 0] : selectedMonth.split('-').map(Number);
+    const selectedWhere = selectedMonth === 'all' ? where : {
+      ...where,
+      spentAt: {
+        gte: new Date(Date.UTC(selectedYear, selectedNumber - 1, 1)),
+        lt: new Date(Date.UTC(selectedYear, selectedNumber, 1)),
+      },
+    };
+    const [records, allTime, thisMonth, categories, selectedTotal, selectedCategories] = await Promise.all([
       this.prisma.expense.findMany({
         where,
         orderBy: [{ spentAt: 'desc' }, { createdAt: 'desc' }],
@@ -50,6 +60,12 @@ export class ExpensesService {
         by: ['category'], where,
         _sum: { amount: true },
       }),
+      this.prisma.expense.aggregate({
+        where: selectedWhere, _sum: { amount: true }, _count: true,
+      }),
+      this.prisma.expense.groupBy({
+        by: ['category'], where: selectedWhere, _sum: { amount: true },
+      }),
     ]);
     return {
       items: records.map(({ branch, ...row }) => ({
@@ -63,6 +79,14 @@ export class ExpensesService {
         thisMonth: thisMonth._sum.amount?.toString() ?? '0.00',
         count: allTime._count,
         monthCount: thisMonth._count,
+        // Exact aggregate for the selected month, including older records
+        // beyond the 500 rows returned in the recent-expenses list.
+        periodMonth: selectedMonth,
+        periodTotal: selectedTotal._sum.amount?.toString() ?? '0.00',
+        periodCount: selectedTotal._count,
+        byCategoryForPeriod: selectedCategories.map(row => ({
+          category: row.category, amount: row._sum.amount?.toString() ?? '0.00',
+        })),
         byCategory: categories.map(row => ({
           category: row.category, amount: row._sum.amount?.toString() ?? '0.00',
         })),
