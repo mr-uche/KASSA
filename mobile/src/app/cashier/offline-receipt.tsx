@@ -9,7 +9,7 @@ import { useKassaDemo, type CompletedPayment } from '@/components/kassa-demo/sto
 import { getOfflineSales, type OfflineCashRecord } from '@/components/kassa-demo/offline-cash';
 import { C, naira, toKobo } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
-import { receiptHtml, receiptMethod, receiptText } from '@/components/kassa-demo/receipt-tools';
+import { exportReceiptPdf, receiptHtml, receiptMethod, receiptText } from '@/components/kassa-demo/receipt-tools';
 import { receiptQrDataUrl } from '@/components/kassa-demo/receipt-qr';
 
 const date = new Intl.DateTimeFormat('en-NG', {
@@ -91,6 +91,13 @@ export default function OfflineReceipt() {
   const initials = business.split(/\s+/).filter(Boolean).slice(0, 2)
     .map(word => word[0].toUpperCase()).join('') || 'K';
 
+  async function downloadPdf() {
+    if (!payment || busy) return;
+    setBusy(true); setError('');
+    try { await exportReceiptPdf(payment); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not create the receipt PDF.'); }
+    finally { setBusy(false); }
+  }
   async function print() {
     if (!payment || busy) return;
     setBusy(true); setError('');
@@ -168,8 +175,11 @@ export default function OfflineReceipt() {
         </View>}
         <Text style={s.footer}>Thank you for shopping with us!</Text>
       </View>
-      <Pressable accessibilityRole="button" disabled={busy} onPress={() => { void print(); }} style={s.primary}>
-        <Text style={s.primaryText}>{busy ? 'Working…' : 'Print receipt'}</Text>
+      <Pressable accessibilityRole="button" disabled={busy} onPress={() => { void downloadPdf(); }} style={s.primary}>
+        <Text style={s.primaryText}>{busy ? 'Working…' : 'Download PDF'}</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" disabled={busy} onPress={() => { void print(); }} style={s.secondary}>
+        <Text style={s.secondaryText}>Print receipt</Text>
       </Pressable>
       <Pressable accessibilityRole="button" disabled={busy} onPress={() => { void share(); }} style={s.secondary}>
         <Text style={s.secondaryText}>Share receipt</Text>
