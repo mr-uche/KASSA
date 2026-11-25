@@ -8,7 +8,7 @@ import { useKassaDemo, type CompletedPayment } from '@/components/kassa-demo/sto
 import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
-import { receiptHtml, receiptMethod, receiptText, shareReceiptSms, shareReceiptWhatsApp } from '@/components/kassa-demo/receipt-tools';
+import { exportReceiptPdf, receiptHtml, receiptMethod, receiptText, shareReceiptSms, shareReceiptWhatsApp } from '@/components/kassa-demo/receipt-tools';
 import { receiptQrDataUrl } from '@/components/kassa-demo/receipt-qr';
 
 const dateFormatter = new Intl.DateTimeFormat('en-NG', {
@@ -225,6 +225,12 @@ export default function Receipt() {
         <Text style={s.buttonText}>New sale</Text>
       </Pressable>
     </View>
+    <Pressable accessibilityRole="button" style={s.pdfButton}
+      onPress={() => { void safeAction(() => exportReceiptPdf(detail)); }}>
+      <SymbolView name={{ ios: 'doc.text', android: 'picture_as_pdf', web: 'picture_as_pdf' }}
+        tintColor={C.white} size={18}/>
+      <Text style={s.pdfText}>Download PDF</Text>
+    </Pressable>
     <Pressable accessibilityRole="button" style={s.printButton}
       onPress={() => { void safeAction(() => Print.printAsync({ html: receiptHtml(detail) })); }}>
       <SymbolView name={{ ios: 'printer', android: 'print', web: 'print' }} tintColor={C.green} size={17}/>
@@ -284,6 +290,8 @@ const s = StyleSheet.create({
   buttonText: { color: C.white, fontSize: 14, fontWeight: '800' },
   outline: { flex: 1, borderWidth: 1, borderColor: C.border, backgroundColor: C.white, minHeight: 49, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 9, flexDirection: 'row', gap: 7 },
   outlineText: { color: C.green, fontSize: 14, fontWeight: '800' },
+  pdfButton: { flexDirection: 'row', gap: 9, justifyContent: 'center', alignItems: 'center', minHeight: 50, marginTop: 16, borderRadius: 9, backgroundColor: C.green },
+  pdfText: { color: C.white, fontWeight: '800', fontSize: 14 },
   printButton: { flexDirection: 'row', gap: 8, justifyContent: 'center', alignItems: 'center', paddingVertical: 16 },
   printText: { color: C.green, fontWeight: '700', fontSize: 14 },
 });
