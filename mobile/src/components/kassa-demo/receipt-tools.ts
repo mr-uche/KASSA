@@ -1,4 +1,6 @@
 import { Platform, Linking } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import type { CompletedPayment } from './store';
 import { naira } from './theme';
 import { receiptQrDataUrl } from './receipt-qr';
@@ -84,4 +86,22 @@ export async function shareReceiptWhatsApp(payment: CompletedPayment): Promise<v
 export async function shareReceiptSms(payment: CompletedPayment): Promise<void> {
   const prefix = Platform.OS === 'ios' ? 'sms:&body=' : 'sms:?body=';
   await Linking.openURL(prefix + encodeURIComponent(receiptText(payment)));
+}
+
+
+/** Generate a real PDF file and open the native share/save sheet. */
+export async function exportReceiptPdf(payment: CompletedPayment): Promise<void> {
+  const file = await Print.printToFileAsync({
+    html: receiptHtml(payment),
+    base64: false,
+  });
+  const available = await Sharing.isAvailableAsync();
+  if (!available) {
+    throw new Error('PDF sharing is not available on this device.');
+  }
+  await Sharing.shareAsync(file.uri, {
+    mimeType: 'application/pdf',
+    dialogTitle: 'Save or share KASSA receipt PDF',
+    UTI: 'com.adobe.pdf',
+  });
 }
