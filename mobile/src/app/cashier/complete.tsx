@@ -7,7 +7,7 @@ import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
 import { CheckoutProgress } from '@/components/kassa-demo/checkout-progress';
-import { receiptHtml, receiptMethod, shareReceiptSms, shareReceiptWhatsApp } from '@/components/kassa-demo/receipt-tools';
+import { exportReceiptPdf, receiptHtml, receiptMethod, shareReceiptSms, shareReceiptWhatsApp } from '@/components/kassa-demo/receipt-tools';
 
 export default function CompletedSale() {
   const router = useRouter();
@@ -40,6 +40,11 @@ export default function CompletedSale() {
       title: 'Send via SMS',
       icon: { ios: 'envelope', android: 'sms', web: 'sms' },
       run: () => shareReceiptSms(complete),
+    },
+    {
+      title: 'Download PDF',
+      icon: { ios: 'doc.text', android: 'picture_as_pdf', web: 'picture_as_pdf' },
+      run: () => exportReceiptPdf(complete),
     },
     {
       title: 'Print receipt',
