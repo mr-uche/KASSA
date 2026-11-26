@@ -70,7 +70,7 @@ export default function ChatSupport() {
   };
 
   return <KassaBackground>
-    <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'web' ? undefined : 'padding'}>
       <View style={[s.header, { paddingTop: Math.max(insets.top, 12) + 10 }]}>
         <Pressable accessibilityRole="button" accessibilityLabel="Back to help"
           onPress={() => router.back()} style={s.back}>

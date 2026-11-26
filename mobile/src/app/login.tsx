@@ -10,6 +10,8 @@ import {
     Pressable,
     Alert,
     ScrollView,
+    KeyboardAvoidingView,
+    Platform,
 } from "react-native";
 import {SymbolView} from "expo-symbols";
 import { supportsRememberedLogin, useKassaSession } from '@/components/kassa-demo/api';
@@ -35,6 +37,7 @@ export default function LoginScreen() {
     };
   return (
  <KassaBackground>
+   <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'web' ? undefined : 'padding'}>
    <ScrollView
   style={styles.container}
   contentContainerStyle={styles.scrollContent}
@@ -197,6 +200,7 @@ export default function LoginScreen() {
 
 
     </ScrollView>
+   </KeyboardAvoidingView>
  </KassaBackground>
   );
 }
