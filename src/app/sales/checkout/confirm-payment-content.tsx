@@ -2,7 +2,8 @@
 
 import KassaHeaderActions from "@/components/KassaHeaderActions";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import { useSelectedBranchName, useStoredString } from "@/lib/browser-state";
 import { useRouter } from "next/navigation";
 import { createSale, type PaymentMethod, type SaleDraft, type SavedSale } from "@/lib/sales-client";
 import { formatNaira } from "@/lib/inventory-client";
@@ -17,65 +18,34 @@ export default function ConfirmPaymentContent() {
 
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedBranch, setSelectedBranch] = useState("Main branch");
-  const [items, setItems] = useState<SaleItem[]>([]);
-  const [draft, setDraft] = useState<DraftWithPreview | null>(null);
+  const selectedBranch = useSelectedBranchName();
+  const rawDraft = useStoredString("session", "kassa_sale_draft");
+  const draft = useMemo(() => {
+    if (!rawDraft) return null;
+    try {
+      const stored = JSON.parse(rawDraft) as DraftWithPreview;
+      if (!stored || !Array.isArray(stored.items) || !Array.isArray(stored.previewItems) ||
+          !stored.items.length || !stored.businessId || !stored.branchId ||
+          !stored.clientRequestId) return null;
+      return stored;
+    } catch { return null; }
+  }, [rawDraft]);
+  const [updatedItems, setItems] = useState<SaleItem[] | null>(null);
+  const items = updatedItems ?? draft?.previewItems ?? [];
   const [submitting, setSubmitting] = useState(false);
   const [pendingReview, setPendingReview] = useState<SavedSale | null>(null);
-  const [error, setError] = useState("");
+  const [actionError, setError] = useState("");
+  const error = actionError || (!draft ? "No valid order to review. Return to New Sale." : "");
 
   const subtotal = items.reduce((kobo, item) => kobo + Math.round(item.price * 100) * item.qty, 0) / 100;
   const total = subtotal;
   const discount = 0;
   const method = draft?.channel ?? "CASH";
 
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem("kassa_sale_draft");
-      if (!raw) return setError("No order to review. Return to New Sale.");
-      const data: unknown = JSON.parse(raw);
-      if (!data || typeof data !== "object") throw new Error("Invalid order");
-      const stored = data as DraftWithPreview;
-      if (!Array.isArray(stored.items) || !Array.isArray(stored.previewItems) ||
-          !stored.items.length || !stored.businessId || !stored.branchId ||
-          !stored.clientRequestId) throw new Error("Invalid order");
-      setDraft(stored);
-      setItems(stored.previewItems);
-    } catch {
-      setError("The order could not be loaded. Return to New Sale.");
-    }
-  }, []);
-
   const methodLabel: Record<PaymentMethod, string> = {
     BANK_TRANSFER: "Bank Transfer", POS: "POS", CASH: "Cash",
     CARD: "Card", USSD: "USSD", WALLET: "Wallet",
   };
-
-  // Get the selected branch
-  useEffect(() => {
-    const savedBranch = localStorage.getItem("selectedBranch");
-
-    if (savedBranch) {
-      setSelectedBranch(savedBranch);
-    }
-  }, []);
-
-  // Listen for branch changes
-  useEffect(() => {
-    const handleBranchChange = () => {
-      const savedBranch = localStorage.getItem("selectedBranch");
-
-      if (savedBranch) {
-        setSelectedBranch(savedBranch);
-      }
-    };
-
-    window.addEventListener("branchChanged", handleBranchChange);
-
-    return () => {
-      window.removeEventListener("branchChanged", handleBranchChange);
-    };
-  }, []);
 
   const handleConfirm = async () => {
     if (!draft || submitting) return;

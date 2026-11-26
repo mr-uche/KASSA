@@ -87,11 +87,17 @@ export default function DashboardPage() {
         if (!current) return;
         const activeBranches = (current.branches ?? []).filter((branch) => branch.isActive);
         if (cancelled) return;
-        setCanViewSales(hasBusinessAccess(current, "View transactions"));
-        setCanManageSales(hasBusinessAccess(current, "Manage sales"));
+        const viewSales = hasBusinessAccess(current, "View transactions");
+        const manageSales = hasBusinessAccess(current, "Manage sales");
+        const viewProfit = hasBusinessAccess(current, "View financial overview");
+        if (!viewSales) { setSales([]); setSalesError(""); }
+        if (!manageSales || viewSales) setMyActivity(null);
+        if (!viewProfit) { setProfit(null); setProfitError(""); }
+        setCanViewSales(viewSales);
+        setCanManageSales(manageSales);
         setCanManageCustomers(hasBusinessAccess(current, "Manage customers"));
         setCanManageInventory(hasBusinessAccess(current, "Manage products & inventory"));
-        setCanViewProfit(hasBusinessAccess(current, "View financial overview"));
+        setCanViewProfit(viewProfit);
         if (cancelled) return;
         setBranches(activeBranches);
         if (!activeBranches.length) {
@@ -119,11 +125,7 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (canViewSales !== true) {
-      setSales([]);
-      setSalesError("");
-      return;
-    }
+    if (canViewSales !== true) return;
     let requestNumber = 0;
     let live = true;
     async function loadSales() {
@@ -151,7 +153,7 @@ export default function DashboardPage() {
   // A sale-only cashier sees their own activity; never fetch branch-wide
   // transaction data unless View transactions was granted separately.
   useEffect(() => {
-    if (!canManageSales || canViewSales === true) { setMyActivity(null); return; }
+    if (!canManageSales || canViewSales !== false) return;
     let live = true;
     const load = async () => {
       try {
@@ -173,11 +175,10 @@ export default function DashboardPage() {
   }, [canManageSales, canViewSales]);
 
   useEffect(() => {
-    if (!canViewProfit) { setProfit(null); setProfitError(""); return; }
+    if (!canViewProfit) return;
     let live = true;
     const loadProfit = async () => {
       if (!live) return;
-      setProfit(null); setProfitError("");
       try {
         const context = await getInventoryContext();
         const query = new URLSearchParams({ businessId: context.businessId, branchId: context.branchId });
@@ -185,9 +186,9 @@ export default function DashboardPage() {
         const data: unknown = await response.json().catch(() => null);
         if (!response.ok) throw new Error(response.status === 403 ? "Access denied" : "Profit estimate unavailable");
         if (!data || typeof data !== "object" || !("estimatedGrossProfit" in data)) throw new Error("Invalid profit response");
-        if (live) setProfit(data as { estimatedGrossProfit: string | null; missingCostUnits: number });
+        if (live) { setProfit(data as { estimatedGrossProfit: string | null; missingCostUnits: number }); setProfitError(""); }
       } catch (cause) {
-        if (live) setProfitError(cause instanceof Error ? cause.message : "Profit unavailable");
+        if (live) { setProfit(null); setProfitError(cause instanceof Error ? cause.message : "Profit unavailable"); }
       }
     };
     void loadProfit();
@@ -330,7 +331,7 @@ export default function DashboardPage() {
             <StatCard
               title="Total sales today"
               value={canViewSales ? formatNaira(salesToday)
-                : myActivity ? formatNaira(myActivity.today.amountReceived) : "—"}
+                : canManageSales && canViewSales === false && myActivity ? formatNaira(myActivity.today.amountReceived) : "—"}
               subtitle={canViewSales ? "Confirmed paid sales today" : "My confirmed sales today"}
               subtitleClass="text-[#4D7C27]"
             />
@@ -338,7 +339,7 @@ export default function DashboardPage() {
             <StatCard
               title="Recent transactions"
               value={canViewSales ? String(sales.length)
-                : myActivity ? String(myActivity.today.paidSales) : "—"}
+                : canManageSales && canViewSales === false && myActivity ? String(myActivity.today.paidSales) : "—"}
               subtitle={canViewSales ? "Latest 100 branch sales" : "My paid sales today"}
               subtitleClass="text-[#4D7C27]"
             />
@@ -427,7 +428,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {salesError && <p role="alert" className="mt-5 text-sm text-red-700">{salesError}</p>}
+          {canViewSales && salesError && <p role="alert" className="mt-5 text-sm text-red-700">{salesError}</p>}
           {/* Recent Transactions */}
           <div className="mt-8">
             <div className="mb-3 flex items-center justify-between gap-4">
