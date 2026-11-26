@@ -493,7 +493,7 @@ export default function SettingsPage() {
                     </div>
                     <p className="mt-3 text-sm text-gray-700">
                       Current tier: <strong>{billing.entitlement.tier.toUpperCase()}</strong>
-                      {" · "}Up to {billing.entitlement.maxBranches} branch(es) and {billing.entitlement.maxStaff} staff account(s), including the owner.
+                      {" · "}Up to {billing.entitlement.maxBranches} branch(es) and {billing.entitlement.maxStaff} staff account(s){billing.entitlement.ownerIncluded === false ? ", excluding the owner." : ", including the owner."}
                     </p>
                     <p className="mt-2 text-xs text-gray-500">
                       Feature limits: {billing.featureRestrictionsEnabled
@@ -541,7 +541,7 @@ export default function SettingsPage() {
                       {plan.testPricing && <p className="mt-1 text-xs font-semibold text-amber-700">Illustrative test price</p>}
                       <ul className="mt-3 space-y-1 text-xs text-gray-600">
                         <li>Up to {plan.entitlement.maxBranches} branch(es)</li>
-                        <li>Up to {plan.entitlement.maxStaff} staff accounts (owner included)</li>
+                        <li>Up to {plan.entitlement.maxStaff} staff accounts ({plan.entitlement.ownerIncluded === false ? "owner excluded" : "owner included"})</li>
                         <li>{plan.entitlement.features.customers ? "Customer management" : "Customer management locked"}</li>
                         <li>{plan.entitlement.features.reports ? "Reports & Analytics" : "Reports locked"}</li>
                         <li>{plan.entitlement.features.grossProfit ? "Gross-profit overview" : "Gross profit locked"}</li>
@@ -550,7 +550,7 @@ export default function SettingsPage() {
                       <button type="button" disabled={billingBusy || !billing.configured || !!billing.pending}
                         onClick={() => void purchaseSubscription(plan.code)}
                         className="mt-3 rounded-lg bg-emerald-800 px-4 py-2 text-sm text-white disabled:opacity-50">
-                        {billing.subscription.status === "ACTIVE" ? "Extend subscription" : "Subscribe"}
+                        {billing.subscription.status === "ACTIVE" ? "Renew with this plan" : "Subscribe"}
                       </button>
                     </div>)}
                   </div>

@@ -1,5 +1,6 @@
 export type BillingEntitlement = {
-  tier: "free" | "monthly" | "quarterly" | "annual";
+  tier: "free" | "monthly" | "quarterly" | "annual" | "starter" | "growth" | "business" | "enterprise";
+  ownerIncluded?: boolean;
   maxBranches: number; maxStaff: number;
   features: { customers: boolean; reports: boolean; grossProfit: boolean; dataExport: boolean };
 };

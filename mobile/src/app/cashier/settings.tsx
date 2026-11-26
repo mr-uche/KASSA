@@ -23,8 +23,19 @@ type BusinessSettings = {
   branchId: string | null; branchName: string; branchAddress: string; branchPhone: string;
 };
 type Bank = { id: string; bankName: string; accountNumber: string; accountName: string; isDefault: boolean };
+type BillingCycle = 'monthly' | 'quarterly' | 'annual';
+const billingCycles: { code: BillingCycle; label: string; period: string }[] = [
+  { code: 'monthly', label: 'Monthly', period: 'month' },
+  { code: 'quarterly', label: 'Quarterly', period: 'quarter' },
+  { code: 'annual', label: 'Annually', period: 'year' },
+];
+const planDescriptions: Record<string, string> = {
+  starter: 'For small businesses', growth: 'For growing businesses',
+  business: 'For established businesses', enterprise: 'For larger retail operations',
+};
 type SubscriptionEntitlement = {
-  tier: 'free' | 'monthly' | 'quarterly' | 'annual';
+  tier: 'free' | 'monthly' | 'quarterly' | 'annual' | 'starter' | 'growth' | 'business' | 'enterprise';
+  ownerIncluded?: boolean;
   maxBranches: number; maxStaff: number;
   features: { customers: boolean; reports: boolean; grossProfit: boolean; dataExport: boolean };
 };
@@ -32,10 +43,13 @@ type BillingState = {
   configured: boolean; environment: 'test' | 'live' | null;
   currency: 'NGN';
   plans: { code: string; name: string; amountKobo: number; durationDays: number;
-    testPricing: boolean; entitlement: SubscriptionEntitlement }[];
+    testPricing: boolean; entitlement: SubscriptionEntitlement;
+    tier?: string; tierName?: string; billingCycle?: BillingCycle; discountPercent?: number;
+    savingsKobo?: number; monthlyEquivalentKobo?: number }[];
   entitlement: SubscriptionEntitlement & { expiresAt: string | null };
   featureRestrictionsEnabled: boolean;
   subscription: { status: 'ACTIVE' | 'EXPIRED' | 'NOT_ACTIVE'; planName: string | null; expiresAt: string | null };
+  scheduled?: { planName: string; startsAt: string | null } | null;
   pending: { reference: string; planName: string; checkoutUrl: string | null } | null;
   history: { id: string; reference: string; planName: string; amountKobo: number;
     status: string; environment: 'test' | 'live'; createdAt: string }[];
@@ -179,6 +193,7 @@ export default function Settings() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [billing, setBilling] = useState<BillingState | null>(null);
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingBusy, setBillingBusy] = useState(false);
   const [billingError, setBillingError] = useState('');
@@ -493,8 +508,10 @@ export default function Settings() {
           </Text>}
           <Text style={s.billingDetail}>Current tier: {billing.entitlement.tier.toUpperCase()}</Text>
           <Text style={s.cardNote}>
-            Includes {billing.entitlement.maxBranches} branch(es) and {billing.entitlement.maxStaff} staff account(s), including the owner.
+            Includes {billing.entitlement.maxBranches} branch(es) and {billing.entitlement.maxStaff} staff account(s){billing.entitlement.ownerIncluded === false ? ', excluding the owner.' : ', including the owner.'}
           </Text>
+          {!!billing.scheduled && <InlineNotice text={'Next paid plan: ' + billing.scheduled.planName +
+            (billing.scheduled.startsAt ? ' · Starts ' + new Date(billing.scheduled.startsAt).toLocaleDateString('en-NG') : '')}/>}
           <Text style={s.cardNote}>{billing.featureRestrictionsEnabled
             ? 'Subscription feature limits are enforced.'
             : 'Feature limits are in preview until the platform administrator enables enforcement.'}</Text>
@@ -521,23 +538,44 @@ export default function Settings() {
           onPress={() => { void refreshBilling(); }}/>
       </KCard>
       {billing && <KCard>
-        <Text style={s.cardTitle}>Monthly, Quarterly & Annual plans</Text>
-        {billing.plans.map(plan => <View key={plan.code} style={s.billingPlan}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.bankTitle}>{plan.name}</Text>
-            <Text style={s.billingDetail}>{naira(plan.amountKobo / 100)}</Text>
-            <Text style={s.cardNote}>{plan.durationDays} days</Text>
-            {plan.testPricing && <Text style={s.testPrice}>Test price only — not final pricing</Text>}
-            <Text style={s.cardNote}>Up to {plan.entitlement.maxBranches} branch(es) · {plan.entitlement.maxStaff} staff accounts</Text>
-            <Text style={s.cardNote}>{plan.entitlement.features.customers ? '✓' : '×'} Customers
-              {' · '}{plan.entitlement.features.reports ? '✓' : '×'} Reports</Text>
-            <Text style={s.cardNote}>{plan.entitlement.features.grossProfit ? '✓' : '×'} Gross profit
-              {' · '}{plan.entitlement.features.dataExport ? '✓' : '×'} Data export</Text>
+        <Text style={s.cardTitle}>Choose your subscription</Text>
+        <Text style={s.cardNote}>Flexible plans for every business size.</Text>
+        {billing.plans.some(plan => !!plan.billingCycle) ? <>
+          <View style={s.cycleRow}>
+            {billingCycles.map(cycle => <Pressable key={cycle.code} accessibilityRole="button"
+              accessibilityState={{ selected: billingCycle === cycle.code }}
+              onPress={() => setBillingCycle(cycle.code)}
+              style={[s.cycleButton, billingCycle === cycle.code && s.cycleSelected]}>
+              <Text style={[s.cycleLabel, billingCycle === cycle.code && s.cycleLabelSelected]}>{cycle.label}</Text>
+            </Pressable>)}
           </View>
-          <SmallAction label={billing.subscription.status === 'ACTIVE' ? 'Extend' : 'Subscribe'}
-            disabled={billingBusy || !billing.configured || !!billing.pending}
-            onPress={() => { void subscribe(plan.code); }}/>
-        </View>)}
+          {billingCycle !== 'monthly' && <Text style={s.savingsBanner}>
+            Save {billing.plans.find(plan => plan.billingCycle === billingCycle)?.discountPercent ?? 0}% with {billingCycle === 'annual' ? 'annual' : 'quarterly'} billing
+          </Text>}
+          {billing.subscription.status === 'ACTIVE' && <Text style={s.cardNote}>
+            New paid periods begin after your existing paid period ends. No automatic renewal.
+          </Text>}
+          {billing.plans.filter(plan => plan.billingCycle === billingCycle).map(plan => <View key={plan.code}
+            style={[s.billingPlan, plan.tier === 'growth' && s.recommendedPlan]}>
+            {plan.tier === 'growth' && <Text style={s.recommendedLabel}>RECOMMENDED</Text>}
+            <Text style={s.planTitle}>{plan.tierName || plan.name}</Text>
+            <Text style={s.planDescription}>{planDescriptions[plan.tier || ''] || ''}</Text>
+            <Text style={s.planPrice}>{naira(plan.amountKobo / 100)}</Text>
+            <Text style={s.planPeriod}>per {billingCycles.find(cycle => cycle.code === billingCycle)?.period} · {plan.durationDays} days</Text>
+            {!!plan.savingsKobo && <Text style={s.planSaving}>Save {naira(plan.savingsKobo / 100)} · {naira((plan.monthlyEquivalentKobo ?? 0) / 100)}/month equivalent</Text>}
+            <View style={s.planLimits}>
+              <Text style={s.planLimit}>{plan.entitlement.maxBranches} {plan.entitlement.maxBranches === 1 ? 'branch' : 'branches'}</Text>
+              <Text style={s.planLimit}>{plan.entitlement.maxStaff} staff members</Text>
+            </View>
+            <Text style={s.planDescription}>{plan.entitlement.ownerIncluded === false ? 'Owner account included at no extra cost' : 'Staff limit includes owner'}</Text>
+            {['Sales & inventory', 'Customer management', 'Reports & analytics', 'Offline sales', 'Digital receipts', 'Gross profit & data export'].map(feature =>
+              <Text key={feature} style={s.planFeature}>✓  {feature}</Text>)}
+            <SmallAction label={(billing.subscription.status === 'ACTIVE' ? 'Renew with ' : 'Choose ') + (plan.tierName || plan.name)}
+              disabled={billingBusy || !billing.configured || !!billing.pending}
+              onPress={() => { void subscribe(plan.code); }}/>
+          </View>)}
+          <Text style={s.cardNote}>All paid plans include the same business management features. Staff permissions still apply.</Text>
+        </> : <InlineNotice warning text="The new subscription catalog is not available yet. Refresh billing after the API update."/>}
       </KCard>}
       <KCard>
         <Text style={s.cardTitle}>Billing history</Text>
@@ -683,10 +721,24 @@ const s = StyleSheet.create({
   cardTitle: { color: C.title, fontSize: 19, fontWeight: '800', marginBottom: 6 },
   cardNote: { color: C.muted, fontSize: 12, lineHeight: 19, marginBottom: 16 },
   businessName: { fontSize: 17, fontWeight: '800', color: C.title, marginTop: 11, marginBottom: 9 },
-  billingPlan: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1,
-    borderColor: C.border, borderRadius: 9, padding: 12, marginTop: 10 },
+  billingPlan: { gap: 6, borderWidth: 1, borderColor: C.border, borderRadius: 14, padding: 16, marginTop: 12 },
+  cycleRow: { flexDirection: 'row', borderRadius: 12, backgroundColor: C.mint, padding: 4, gap: 3, marginBottom: 8 },
+  cycleButton: { flex: 1, paddingVertical: 12, borderRadius: 9, alignItems: 'center' },
+  cycleSelected: { backgroundColor: C.green },
+  cycleLabel: { fontSize: 12, fontWeight: '700', color: C.greenDark },
+  cycleLabelSelected: { color: C.white },
+  savingsBanner: { color: C.greenDark, fontWeight: '700', fontSize: 13, marginVertical: 8, textAlign: 'center' },
+  recommendedPlan: { borderColor: C.green, borderWidth: 2 },
+  recommendedLabel: { color: C.greenDark, fontSize: 11, fontWeight: '800', letterSpacing: 0.7 },
+  planTitle: { color: C.title, fontSize: 21, fontWeight: '800' },
+  planDescription: { color: C.muted, fontSize: 12, lineHeight: 18 },
+  planPrice: { color: C.greenDark, fontSize: 30, fontWeight: '800', marginTop: 5 },
+  planPeriod: { color: C.muted, fontSize: 12 },
+  planSaving: { color: C.greenDark, fontSize: 12, fontWeight: '700' },
+  planLimits: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 12, marginTop: 5 },
+  planLimit: { backgroundColor: C.mint, color: C.greenDark, padding: 8, borderRadius: 8, fontSize: 12, fontWeight: '800' },
+  planFeature: { color: C.text, fontSize: 13, lineHeight: 20 },
   billingDetail: { fontSize: 14, fontWeight: '700', color: C.title, marginVertical: 8 },
-  testPrice: { color: C.orange, fontSize: 12, marginTop: 4, marginBottom: 4, fontWeight: '700' },
   billingHistory: { flexDirection: 'row', alignItems: 'flex-start', gap: 10,
     borderBottomWidth: 1, borderBottomColor: C.border, paddingVertical: 12 },
   billingAmount: { alignItems: 'flex-end' },

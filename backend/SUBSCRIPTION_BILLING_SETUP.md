@@ -5,26 +5,18 @@ It does **not** handle merchant customer checkout, POS settlement, or business r
 
 ## Release gate
 
-The code is deliberately disabled until the platform operator sets an approved plan
-catalog and Paystack credentials. Do **not** announce billing as live or collect real
+Payment initialization requires configured Paystack credentials and the approved server catalog. Do **not** announce billing as live or collect real
 money until deployment, migrations, webhook setup and end-to-end tests are complete.
 
 1. Back up the production PostgreSQL database. Inspect the additive migration
    `20261120110000_subscription_billing`; it only adds `SubscriptionCharge`
    and indexes. Deploy it **before** the new backend:
    `cd backend && npx prisma migrate deploy`.
-2. On the backend only, set `KASSA_BILLING_PLANS_JSON` to a valid JSON array.
-   Each plan contains:
-   - `code`: unique lower-case letters, digits, `_` or `-` (2–48 characters)
-   - `name`: the approved plan name (1–80 characters)
-   - `amountKobo`: the approved amount in **kobo**, integer from 100 to 2,000,000,000
-   - `durationDays`: the approved subscription duration in days (1–366)
-
-   Example *shape* (replace all placeholders with approved real values):
-   `[{"code":"your-plan","name":"Your Plan","amountKobo":12345,"durationDays":30}]`
-   **The numeric example is illustrative, not an approved KASSA price or plan.**
-3. Set `PAYSTACK_SECRET_KEY=sk_test_...` to start in test mode. When no custom
-   catalog is set, the built-in three TEST plans appear automatically.
+2. The approved catalog is defined in `backend/src/subscription/subscription-access.ts`.
+   The twelve plan codes and prices are server-authoritative. Remove the old
+   `KASSA_BILLING_PLANS_JSON` setting from deployment configuration; it is no
+   longer read, so stale pilot pricing cannot override the approved prices.
+3. Set `PAYSTACK_SECRET_KEY=sk_test_...` to start in test mode.
    Set `FRONTEND_URL` to the public HTTPS KASSA Web origin.
 4. Configure the signed webhook URL in Paystack:
    `https://YOUR_BACKEND_HOST/api/v1/payments/paystack/webhook`.
@@ -81,33 +73,26 @@ All endpoints require an authenticated **business owner**. Existing signed
 Paystack webhook `/api/v1/payments/paystack/webhook` also verifies `KSB-`
 subscription references, without touching merchant sale payments.
 
-## Three pilot subscription plans (TEST PRICES, not approved)
+## Approved subscription catalog (NGN)
 
-| Tier | Test price | Period | Max branches | Staff incl. owner | Customers | Reports | Gross profit | Exports |
-| --- | ---: | --- | ---: | ---: | --- | --- | --- | --- |
-| No active plan | ₦0 | — | 1 | 1 | Locked | Locked | Locked | Locked |
-| Monthly | ₦2,000 | 30 days | 1 | 3 | Yes | No | No | No |
-| Quarterly | ₦5,000 | 90 days | 3 | 15 | Yes | Yes | No | No |
-| Annual | ₦18,000 | 365 days | 10 | 50 | Yes | Yes | Yes | Yes |
+| Tier | Branches | Staff (owner excluded) | Monthly | Quarterly | Annual |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Starter | 1 | 3 | 2,000 | 5,400 | 19,200 |
+| Growth | 2 | 10 | 5,000 | 13,500 | 48,000 |
+| Business | 5 | 25 | 10,000 | 27,000 | 96,000 |
+| Enterprise | 10 | 50 | 18,000 | 48,600 | 172,800 |
 
-Core cashier sale capture, transaction history subject to staff-role
-permissions, product/inventory functions, and the owner's ability to subscribe
-are *not* disabled by these subscription tiers. The staff-role permission
-system remains a second, independent authorization layer.
-
-The backend enforces these four premium features and the branch/invitation
-capacity limits when
-`KASSA_SUBSCRIPTION_FEATURE_GATES_ENABLED=true`. An expired or missing
-subscription falls back to the no-active-plan tier.
-**Do not enable the switch in production without auditing existing businesses:
-new invites, branches and premium endpoints may become unavailable.**
-Existing data is never deleted, the checkout and offline queues remain intact,
-and users retain billing/settings access.
-
-A missing `KASSA_BILLING_PLANS_JSON` shows exactly the three TEST prices in
-the billing UI and allows **test-mode** checkout when `sk_test_...` is configured.
-The fallback never authorizes a live-money charge. Live subscriptions require
-explicit operator-approved prices, a live key, webhook secret, and opt-in.
+Monthly/quarterly/annual terms remain 30/90/365 days. Quarterly saves 10%;
+annual saves 20% against the monthly price multiplied by 3 or 12.
+Plan codes use `starter_monthly`, `growth_quarterly`, etc.
+Every new paid tier includes all four premium features, subject to role permissions.
+Staff invitations reserve capacity; owners do not count for the new paid tiers.
+Free and legacy monthly/quarterly/annual purchases keep their prior limits and
+feature access through their purchased expiry. No historical charge amounts change.
+New purchases start at the end of any existing paid period; there is no proration.
+Feature gates remain opt-in with `KASSA_SUBSCRIPTION_FEATURE_GATES_ENABLED=true`.
+Audit existing businesses before enabling; existing records are never deleted.
+Live payments remain subject to the existing gateway and live opt-in safeguards.
 
 ## Login/sign-up visual polishing
 
