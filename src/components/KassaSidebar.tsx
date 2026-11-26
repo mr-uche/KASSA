@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useBrowserOnline } from "@/lib/browser-state";
 import { usePathname,useRouter } from "next/navigation";
 import { X, LogOut } from "lucide-react";
 
@@ -57,43 +58,28 @@ export default function KassaSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [business, setBusiness] = useState<BusinessAccess | undefined>(undefined);
-  const [isOffline, setIsOffline] = useState(offlineMode);
-  const offlineNavigation = offlineMode || isOffline;
-
-  useEffect(() => {
-    if (offlineMode) {
-      setIsOffline(true);
-      return;
-    }
-    const update = () => setIsOffline(!navigator.onLine);
-    update();
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
-    };
-  }, [offlineMode]);
+  const [menu, setMenu] = useState<{ pathname: string; business: BusinessAccess | undefined } | null>(null);
+  const online = useBrowserOnline();
+  const offlineNavigation = offlineMode || !online;
+  const business = menu?.pathname === pathname && !offlineNavigation ? menu.business : undefined;
 
   useEffect(() => {
     let active = true;
     async function updateMenu() {
       if (offlineMode || !navigator.onLine) {
-        if (active) setBusiness(undefined);
+        if (active) setMenu({ pathname, business: undefined });
         return;
       }
       try {
         const memberships = await loadAccess();
         if (!active) return;
         const selectedId = localStorage.getItem("selectedBranchId") ?? "";
-        setBusiness(selectedBusiness(memberships, selectedId));
+        setMenu({ pathname, business: selectedBusiness(memberships, selectedId) });
       } catch {
-        if (active) setBusiness(undefined);
+        if (active) setMenu({ pathname, business: undefined });
       }
     }
-    setBusiness(undefined);
-    void updateMenu();
+    if (!offlineMode && navigator.onLine) void updateMenu();
     window.addEventListener("branchChanged", updateMenu);
     window.addEventListener("storage", updateMenu);
     window.addEventListener("focus", updateMenu);

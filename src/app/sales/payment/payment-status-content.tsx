@@ -24,25 +24,25 @@ export default function PaymentStatusContent() {
   const params = useSearchParams();
   const saleId = params.get("saleId") ?? "";
   const [sale, setSale] = useState<SavedSale | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setLoading] = useState(true);
+  const loading = !!saleId && isLoading;
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [receiptChecked, setReceiptChecked] = useState(false);
   const [receivingAccounts, setReceivingAccounts] = useState<CheckoutReceivingAccount[]>([]);
   const [selectedBankId, setSelectedBankId] = useState("");
-  const [verification, setVerification] = useState<PaymentVerificationStatus | null>(null);
-  const [checkingStatus, setCheckingStatus] = useState(false);
-  const [error, setError] = useState("");
+  const [verificationResult, setVerificationResult] = useState<{ saleId: string; value: PaymentVerificationStatus | null } | null>(null);
+  const verificationSaleId = sale?.status === "PENDING_PAYMENT" && sale.payments[0]?.channel !== "CASH" ? sale.id : null;
+  const verification = verificationResult?.saleId === verificationSaleId ? verificationResult?.value ?? null : null;
+  const checkingStatus = !!verificationSaleId && verificationResult?.saleId !== verificationSaleId;
+  const [loadError, setError] = useState("");
+  const error = saleId ? loadError : "No saved sale selected. Start from New Sale or Transaction History.";
   const [notice, setNotice] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
-    if (!saleId) {
-      setError("No saved sale selected. Start from New Sale or Transaction History.");
-      setLoading(false);
-      return;
-    }
+    if (!saleId) return;
     getSale(saleId).then(result => {
       if (active) { setSale(result); setError(""); }
     }).catch(cause => {
@@ -51,10 +51,13 @@ export default function PaymentStatusContent() {
     return () => { active = false; };
   }, [saleId]);
 
+  const receivingBusinessId = sale?.businessId;
+  const receivingBranchId = sale?.branchId;
+  const receivingChannel = sale?.payments[0]?.channel;
   useEffect(() => {
-    if (!sale || sale.payments[0]?.channel !== "BANK_TRANSFER") return;
+    if (!receivingBusinessId || !receivingBranchId || receivingChannel !== "BANK_TRANSFER") return;
     let active = true;
-    listReceivingAccounts({ businessId: sale.businessId, branchId: sale.branchId })
+    listReceivingAccounts({ businessId: receivingBusinessId, branchId: receivingBranchId })
       .then(accounts => {
         if (!active) return;
         setReceivingAccounts(accounts);
@@ -62,18 +65,16 @@ export default function PaymentStatusContent() {
           ? current : (accounts.find(account => account.isDefault) ?? accounts[0])?.id ?? "");
       }).catch(() => { if (active) setReceivingAccounts([]); });
     return () => { active = false; };
-  }, [sale?.businessId, sale?.branchId, sale?.payments[0]?.channel]);
+  }, [receivingBusinessId, receivingBranchId, receivingChannel]);
 
   useEffect(() => {
-    if (!sale || sale.status !== "PENDING_PAYMENT" || sale.payments[0]?.channel === "CASH") return;
+    if (!verificationSaleId) return;
     let active = true;
-    setCheckingStatus(true);
-    getPaymentVerificationStatus(sale.id)
-      .then(status => { if (active) setVerification(status); })
-      .catch(() => { if (active) setVerification(null); })
-      .finally(() => { if (active) setCheckingStatus(false); });
+    getPaymentVerificationStatus(verificationSaleId)
+      .then(value => { if (active) setVerificationResult({ saleId: verificationSaleId, value }); })
+      .catch(() => { if (active) setVerificationResult({ saleId: verificationSaleId, value: null }); });
     return () => { active = false; };
-  }, [sale?.id, sale?.status, sale?.payments[0]?.channel]);
+  }, [verificationSaleId]);
 
   async function refreshStatus() {
     if (!saleId || refreshing) return;

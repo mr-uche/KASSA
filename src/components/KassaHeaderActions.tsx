@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useBrowserOnline } from "@/lib/browser-state";
 import { Bell, CheckCircle2, CircleAlert, Clock3, Wifi, WifiOff } from "lucide-react";
 import {
   getOfflineWorkspace, listOfflineSales, offlineSectionAllowed,
@@ -40,7 +41,7 @@ export default function KassaHeaderActions({
   offlineMode = false, workspace: suppliedWorkspace,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [online, setOnline] = useState(true);
+  const online = useBrowserOnline();
   const [fullName, setFullName] = useState("");
   const [localWorkspace, setLocalWorkspace] = useState<OfflineWorkspace | null>(null);
   const [sales, setSales] = useState<OfflineSale[]>([]);
@@ -66,10 +67,9 @@ export default function KassaHeaderActions({
   }, []);
 
   useEffect(() => {
-    setOnline(navigator.onLine);
     void refreshLocal();
     const onUpdate = () => void refreshLocal();
-    const onConnection = () => { setOnline(navigator.onLine); void refreshLocal(); };
+    const onConnection = () => { void refreshLocal(); };
     const onStorage = (event: StorageEvent) => {
       if (event.key === "kassa-offline-identity-change") void refreshLocal();
     };

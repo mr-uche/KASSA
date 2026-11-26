@@ -11,17 +11,15 @@ import { getSale, type SavedSale } from "@/lib/sales-client";
 export default function ReceiptContent() {
   const id = useSearchParams().get("saleId") ?? "";
   const [sale, setSale] = useState<SavedSale | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loadError, setError] = useState("");
+  const error = id ? loadError : "A completed sale is required to view its receipt.";
+  const [isLoading, setLoading] = useState(true);
+  const loading = !!id && isLoading;
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
-    if (!id) {
-      setError("A completed sale is required to view its receipt.");
-      setLoading(false);
-      return;
-    }
+    if (!id) return;
     getSale(id).then((record) => {
       if (active) { setSale(record); setError(""); }
     }).catch((cause) => {

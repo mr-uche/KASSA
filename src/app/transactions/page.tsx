@@ -1,6 +1,7 @@
 "use client";
 
 import KassaHeaderActions from "@/components/KassaHeaderActions";
+import { useSelectedBranchName } from "@/lib/browser-state";
 
 import { useState ,useEffect} from "react";
 import Link from "next/link";
@@ -150,33 +151,9 @@ export default function TransactionsPage() {
   const [error, setError] = useState("");
 
   // Branch selected from the dashboard
-const [selectedBranch, setSelectedBranch] = useState("Main branch");
-  
-    // Get the selected branch from the dashboard
-    useEffect(() => {
-      const savedBranch = localStorage.getItem("selectedBranch");
-  
-      if (savedBranch) {
-        setSelectedBranch(savedBranch);
-      }
-    }, []);
-  
-    // Listen for branch changes
-    useEffect(() => {
-  const handleBranchChange = () => {
-    const savedBranch = localStorage.getItem("selectedBranch");
-
-    if (savedBranch) {
-      setSelectedBranch(savedBranch);
-    }
-  };
-
-  window.addEventListener("branchChanged", handleBranchChange);
-
-  return () => {
-    window.removeEventListener("branchChanged", handleBranchChange);
-  };
-}, []);
+  const branchName = useSelectedBranchName();
+  const [loadedBranch, setLoadedBranch] = useState<{ selected: string; name: string } | null>(null);
+  const selectedBranch = loadedBranch?.selected === branchName ? loadedBranch.name : branchName;
 
   useEffect(() => {
     let active = true;
@@ -186,7 +163,7 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
         const context = await getInventoryContext();
         const sales = await listSales(context);
         if (!active) return;
-        setSelectedBranch(context.branchName);
+        setLoadedBranch({ selected: branchName, name: context.branchName });
         setTransactions(sales.map(toTransactionRow));
         setError("");
       } catch (cause) {
@@ -198,7 +175,7 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
     }
     void loadSales();
     return () => { active = false; };
-  }, []);
+  }, [branchName]);
 
   const now = new Date();
   const filteredTransactions = transactions.filter((row) => {

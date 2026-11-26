@@ -188,7 +188,8 @@ function pdfContent(data: BusinessExport): Uint8Array {
       "/Resources << /Font << /F1 3 0 R >> >> /Contents " + streamNum + " 0 R >>");
     objects.push("<< /Length " + bytes(stream).length + " >>\nstream\n" + stream + "endstream");
   }
-  let content = "%PDF-1.4\n", offsets = [0];
+  let content = "%PDF-1.4\n";
+  const offsets = [0];
   for (let i = 0; i < objects.length; i++) {
     offsets.push(bytes(content).length);
     content += (i + 1) + " 0 obj\n" + objects[i] + "\nendobj\n";

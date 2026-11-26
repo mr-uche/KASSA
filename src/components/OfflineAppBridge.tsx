@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
+import { useBrowserOnline } from "@/lib/browser-state";
 import { getOfflineWorkspace, offlineSectionAllowed, setOfflineActiveUser, workspaceFresh } from "@/lib/offline-sales";
 import { prepareCurrentStaffOffline } from "@/lib/offline-preparation";
 
@@ -19,12 +20,11 @@ function offlineSection(pathname: string): string | null {
 /** Prepare the offline entry point from *any* Kassa screen, not only from the
  * offline-sales page. Offline routing does not grant server permissions. */
 export default function OfflineAppBridge() {
-  const [offline, setOffline] = useState(false);
+  const offline = !useBrowserOnline();
   const [prepared, setPrepared] = useState(false);
   const [offlineIssue, setOfflineIssue] = useState("");
 
   useEffect(() => {
-    setOffline(!navigator.onLine);
     let active = true;
     let preparing = false;
     let switching = false;
@@ -144,7 +144,6 @@ export default function OfflineAppBridge() {
 
     function connectivity() {
       if (!active) return;
-      setOffline(!navigator.onLine);
       if (navigator.onLine) {
         setOfflineIssue("");
         void prepareShell();

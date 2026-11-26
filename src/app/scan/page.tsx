@@ -112,7 +112,9 @@ export default function ScanProductPage() {
       setBusy(false);
     }
   }, [context, refreshCheckout, stopCamera]);
-  lookupRef.current = (value) => { void lookUp(value); };
+  useEffect(() => {
+    lookupRef.current = (value) => { void lookUp(value); };
+  }, [lookUp]);
 
   useEffect(() => {
     let live = true;
@@ -210,6 +212,7 @@ export default function ScanProductPage() {
   }, []);
 
   useEffect(() => {
+    const video = videoRef.current;
     function onVisibilityChange() {
       if (document.visibilityState === "hidden") stopCamera();
     }
@@ -220,7 +223,6 @@ export default function ScanProductPage() {
       cameraEpoch.current += 1;
       controlsRef.current?.stop();
       controlsRef.current = null;
-      const video = videoRef.current;
       if (typeof MediaStream !== "undefined" && video?.srcObject instanceof MediaStream) {
         video.srcObject.getTracks().forEach((track) => track.stop());
         video.srcObject = null;
