@@ -50,9 +50,13 @@ const DemoContext = createContext<DemoStore | null>(null);
 export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
   const session = useKassaSession();
   const scope = session.scope;
+  const user = session.user;
+  const request = session.request;
+  const scopeKey = JSON.stringify([user?.id, scope?.businessId, scope?.branchId]);
+  const [previousScopeKey, setPreviousScopeKey] = useState(scopeKey);
   const { disconnected } = useKassaConnectivity();
   const [lines, setLines] = useState<SaleLine[]>([]);
-  const [branch, setBranch] = useState('Main Branch');
+  const [branch, setBranch] = useState(scope?.branchName ?? 'Main Branch');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [customerName, setCustomerName] = useState('');
   const [discountType, setDiscountTypeState] = useState<'fixed' | 'percent'>('fixed');
@@ -60,55 +64,76 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
   const [catalog, setCatalog] = useState<Product[]>([]);
   const [catalogSource, setCatalogSource] = useState<'live' | 'cached' | 'none'>('none');
   const [catalogSavedAt, setCatalogSavedAt] = useState<number | null>(null);
-  const [loadingCatalog, setLoadingCatalog] = useState(false);
+  const [loadingCatalog, setLoadingCatalog] = useState(!!scope && !!user);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [pendingSale, setPendingSale] = useState<CheckoutSale | null>(null);
   const [completedPayment, setCompletedPayment] = useState<CompletedPayment | null>(null);
   const [offlineQueue, setOfflineQueue] = useState<OfflineSaleQueueStatus | null>(null);
-  const [syncingOfflineSales, setSyncingOfflineSales] = useState(false);
+  const [syncingState, setSyncingOfflineSales] = useState(false);
+  const syncingOfflineSales = !disconnected && syncingState;
   const catalogSourceRef = useRef(catalogSource);
-  catalogSourceRef.current = catalogSource;
+  const activeScopeRef = useRef<string | null>(scopeKey);
+  const catalogVersion = useRef(0);
+  const queueVersion = useRef(0);
+  useEffect(() => {
+    catalogSourceRef.current = catalogSource;
+  }, [catalogSource]);
+  useEffect(() => {
+    activeScopeRef.current = scopeKey;
+    return () => { activeScopeRef.current = null; };
+  }, [scopeKey]);
 
-  const refreshOfflineQueue = useCallback(async () => {
-    if (!scope || !session.user) {
-      setOfflineQueue(null);
-      return;
-    }
+  // Reset only the volatile checkout state when the cashier or branch changes.
+  // Do not remount navigation or delete the durable offline queue.
+  if (previousScopeKey !== scopeKey) {
+    setPreviousScopeKey(scopeKey);
+    setLines([]);
+    setPendingSale(null);
+    setCompletedPayment(null);
+    setCatalog([]);
+    setCatalogSource('none');
+    setCatalogSavedAt(null);
+    setCatalogError(null);
+    setLoadingCatalog(!!scope && !!user);
+    setOfflineQueue(null);
+    setSyncingOfflineSales(false);
+    setBranch(scope?.branchName ?? 'Main Branch');
+    setCustomerName('');
+    setDiscountInputState('');
+    setDiscountTypeState('fixed');
+  }
+
+  const refreshOfflineQueue = useCallback(async (isCurrent: () => boolean = () => true) => {
+    if (!scope || !user) return;
+    const version = ++queueVersion.current;
+    const current = () => isCurrent() && activeScopeRef.current === scopeKey && queueVersion.current === version;
     const offlineScope: OfflineScope = {
-      userId: session.user.id, businessId: scope.businessId, branchId: scope.branchId,
+      userId: user.id, businessId: scope.businessId, branchId: scope.branchId,
     };
     try {
-      setOfflineQueue(await getOfflineSaleQueueStatus(offlineScope));
+      const result = await getOfflineSaleQueueStatus(offlineScope);
+      if (current()) setOfflineQueue(result);
     } catch {
       // A failed read is unknown, not proof that all sales are synced.
-      setOfflineQueue(null);
+      if (current()) setOfflineQueue(null);
     }
-  }, [scope?.businessId, scope?.branchId, session.user?.id]);
+  }, [scope, user, scopeKey]);
 
-  const refreshCatalog = useCallback(async () => {
-    const selected = scope;
-    const account = session.user;
-    if (!selected || !account) {
-      setCatalog([]);
-      setCatalogSource('none');
-      setCatalogSavedAt(null);
-      setCatalogError(null);
-      setLoadingCatalog(false);
-      return;
-    }
+  const loadCatalog = useCallback(async (isCurrent: () => boolean = () => true) => {
+    if (!scope || !user) return;
+    const version = ++catalogVersion.current;
+    const current = () => isCurrent() && activeScopeRef.current === scopeKey && catalogVersion.current === version;
     const offlineScope: OfflineScope = {
-      userId: account.id, businessId: selected.businessId, branchId: selected.branchId,
+      userId: user.id, businessId: scope.businessId, branchId: scope.branchId,
     };
-    setLoadingCatalog(true);
-    setCatalogError(null);
-
     const loadCached = async () => {
       const cached = await loadOfflineCatalogue(offlineScope);
+      if (!current()) return;
       if (cached.savedAt === null) {
         setCatalog([]);
         setCatalogSource('none');
         setCatalogSavedAt(null);
-        setCatalogError('No saved products for this branch. Connect once to download stock before selling offline.');
+        setCatalogError('No saved stock. Connect to download products.');
         return;
       }
       setCatalog(cached.products.map(item => ({
@@ -124,102 +149,100 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
         await loadCached();
         return;
       }
-      const raw = await session.request<CatalogItem[]>(
-        'sales/catalog?businessId=' + encodeURIComponent(selected.businessId) +
-        '&branchId=' + encodeURIComponent(selected.branchId)
+      const raw = await request<CatalogItem[]>(
+        'sales/catalog?businessId=' + encodeURIComponent(scope.businessId) +
+        '&branchId=' + encodeURIComponent(scope.branchId)
       );
+      if (!current()) return;
       if (!Array.isArray(raw)) throw new Error('The product catalogue response was invalid.');
-      // Persist the authoritative product catalogue whenever internet is available.
-      // A cache failure must not turn an online checkout into an offline sale.
+      // Keep the authoritative catalogue and reserve stock already sold offline.
       let reservedStock: Map<string, number> | null = null;
       try {
         await cacheOfflineCatalog(offlineScope, raw);
         const cached = await loadOfflineCatalogue(offlineScope);
+        if (!current()) return;
         setCatalogSavedAt(cached.savedAt);
-        // Cash already received offline must reserve local inventory until
-        // accepted or reconciled by the backend; do not oversell it online.
         reservedStock = new Map(cached.products.map(item => [item.id, item.stock]));
       } catch {
+        if (!current()) return;
         setCatalogSavedAt(null);
       }
       setCatalog(raw.map(item => ({
-        id: item.id,
-        name: item.name,
-        price: Number(item.price),
+        id: item.id, name: item.name, price: Number(item.price),
         stock: reservedStock?.get(item.id) ?? item.stock,
-        category: item.category,
-        icon: '▣',
-        sku: item.sku,
-        barcode: item.barcode,
-        lowStockThreshold: item.lowStockThreshold,
+        category: item.category, icon: '▣', sku: item.sku,
+        barcode: item.barcode, lowStockThreshold: item.lowStockThreshold,
       })).filter(item => Number.isFinite(item.price) && item.price >= 0));
       setCatalogSource('live');
+      setCatalogError(null);
     } catch (error) {
+      if (!current()) return;
       try {
         await loadCached();
       } catch {
+        if (!current()) return;
         setCatalog([]);
         setCatalogSource('none');
         setCatalogSavedAt(null);
         setCatalogError(error instanceof Error ? error.message : 'Could not download or open saved products.');
       }
     } finally {
-      setLoadingCatalog(false);
-      await refreshOfflineQueue();
+      if (current()) {
+        setLoadingCatalog(false);
+        await refreshOfflineQueue(current);
+      }
     }
-  }, [scope?.businessId, scope?.branchId, session.user?.id, session.request, disconnected, refreshOfflineQueue]);
+  }, [scope, user, scopeKey, request, disconnected, refreshOfflineQueue]);
+
+  const refreshCatalog = useCallback(async () => {
+    if (!scope || !user || activeScopeRef.current !== scopeKey) return;
+    setLoadingCatalog(true);
+    setCatalogError(null);
+    await loadCatalog();
+  }, [scope, user, scopeKey, loadCatalog]);
 
   const offlineMode = disconnected || catalogSource === 'cached';
 
   useEffect(() => {
-    setLines([]);
-    setPendingSale(null);
-    setCompletedPayment(null);
-    setCatalog([]);
-    setCatalogSource('none');
-    setCatalogSavedAt(null);
-    setOfflineQueue(null);
-    setBranch(scope?.branchName ?? 'Main Branch');
-    setCustomerName('');
-    setDiscountInputState('');
-    setDiscountTypeState('fixed');
-  }, [scope?.businessId, scope?.branchId]);
-
-  useEffect(() => { void refreshCatalog(); }, [refreshCatalog]);
-  useEffect(() => { void refreshOfflineQueue(); }, [refreshOfflineQueue]);
-
-  // Retry cash sales on reconnect, when the app resumes and while in the
-  // foreground. Keep server-rejected records for owner reconciliation.
+    let active = true;
+    void loadCatalog(() => active);
+    return () => { active = false; };
+  }, [loadCatalog]);
   useEffect(() => {
-    if (!scope || !session.user || disconnected) {
-      setSyncingOfflineSales(false);
-      return;
-    }
+    let active = true;
+    void refreshOfflineQueue(() => active);
+    return () => { active = false; };
+  }, [refreshOfflineQueue]);
+
+  // Retry on reconnect, resume and while foregrounded. Never discard rejected records.
+  useEffect(() => {
+    if (!scope || !user || disconnected) return;
     let active = true;
     let syncing = false;
     const offlineScope: OfflineScope = {
-      userId: session.user.id, businessId: scope.businessId, branchId: scope.branchId,
+      userId: user.id, businessId: scope.businessId, branchId: scope.branchId,
     };
+    const current = () => active && activeScopeRef.current === scopeKey;
     const attemptSync = async () => {
-      if (!active || syncing) return;
+      if (!current() || syncing) return;
       syncing = true;
-      if (active) setSyncingOfflineSales(true);
       try {
-        const result = await syncOfflineCash(offlineScope, session.request);
-        if (active) {
-          await refreshOfflineQueue();
-          // Network signal alone does not prove the KASSA API is reachable.
-          // Retry catalogue loading while cached so checkout automatically
-          // returns to live mode after the backend is restored.
-          if (result.synced > 0 || catalogSourceRef.current === 'cached') {
-            await refreshCatalog();
+        // Read the durable queue before initiating the network synchronization.
+        await refreshOfflineQueue(current);
+        if (!current()) return;
+        setSyncingOfflineSales(true);
+        const result = await syncOfflineCash(offlineScope, request);
+        if (current()) {
+          await refreshOfflineQueue(current);
+          if (current() && (result.synced > 0 || catalogSourceRef.current === 'cached')) {
+            await loadCatalog(current);
           }
         }
       } catch {
         // Connectivity interruptions never discard locally recorded sales.
       } finally {
         syncing = false;
-        if (active) setSyncingOfflineSales(false);
+        if (current()) setSyncingOfflineSales(false);
       }
     };
     void attemptSync();
@@ -228,7 +251,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
       if (state === 'active') void attemptSync();
     });
     return () => { active = false; clearInterval(timer); listener.remove(); };
-  }, [scope?.businessId, scope?.branchId, session.user?.id, disconnected, session.request, refreshCatalog, refreshOfflineQueue]);
+  }, [scope, user, scopeKey, disconnected, request, loadCatalog, refreshOfflineQueue]);
 
   const add = (id: string) => {
     const product = catalog.find(p => p.id === id);
