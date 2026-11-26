@@ -50,7 +50,7 @@ export default function ExpenseDetail() {
     } catch (cause) {
       if (isActive()) setError(expenseError(cause, 'Unable to load the expense.'));
     } finally { if (isActive()) setLoading(false); }
-  }, [scope?.businessId, owner, id, session.request, session.downloadReceipt]);
+  }, [scope, owner, id, session]);
 
   useFocusEffect(useCallback(() => {
     let active = true;

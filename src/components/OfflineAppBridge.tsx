@@ -178,7 +178,7 @@ export default function OfflineAppBridge() {
       // the Next.js Router would otherwise try an online RSC request.
       event.preventDefault();
       event.stopPropagation();
-      window.location.assign("/offline-sales?section=" + encodeURIComponent(section));
+      window.location.assign(new URL("/offline-sales?section=" + encodeURIComponent(section), window.location.origin).href);
     }
 
     window.addEventListener("online", connectivity);

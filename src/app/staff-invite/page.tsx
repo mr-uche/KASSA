@@ -84,7 +84,7 @@ function InvitationContent() {
         headers: { "Content-Type": "application/json" }, body: "{}",
       });
     } finally {
-      window.location.assign(signInUrl);
+      window.location.assign(new URL(signInUrl, window.location.origin).href);
     }
   }
 

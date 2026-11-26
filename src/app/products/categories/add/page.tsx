@@ -1,8 +1,10 @@
 "use client";
 
+import { useSelectedBranchName } from "@/lib/browser-state";
+
 import KassaHeaderActions from "@/components/KassaHeaderActions";
  
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { CheckCircle2, X, Menu } from "lucide-react";
 import Link from "next/link";
 import KassaSidebar from "@/components/KassaSidebar";
@@ -51,33 +53,7 @@ export default function AddCategoryPage() {
   };
 
 // Branch selected from the dashboard
-      const [selectedBranch, setSelectedBranch] = useState("Main branch");
-    
-      // Get the selected branch from the dashboard
-      useEffect(() => {
-        const savedBranch = localStorage.getItem("selectedBranch");
-    
-        if (savedBranch) {
-          setSelectedBranch(savedBranch);
-        }
-      }, []);
-    
-      // Listen for branch changes
-      useEffect(() => {
-        const handleBranchChange = () => {
-          const savedBranch = localStorage.getItem("selectedBranch");
-    
-          if (savedBranch) {
-            setSelectedBranch(savedBranch);
-          }
-        };
-    
-        window.addEventListener("storage", handleBranchChange);
-    
-        return () => {
-          window.removeEventListener("storage", handleBranchChange);
-        };
-      }, []);
+      const selectedBranch = useSelectedBranchName();
         
  
   return (

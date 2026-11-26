@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
@@ -38,6 +38,11 @@ const businessLinks = [
 ] as const;
 
 export default function Profile() {
+  const { user, scope } = useKassaSession();
+  return <ProfileContent key={JSON.stringify([user?.id, scope?.businessId, scope?.branchId, scope?.myRole, scope?.myPermissions])}/>;
+}
+
+function ProfileContent() {
   const router = useRouter();
   const session = useKassaSession();
   const store = useKassaDemo();
@@ -45,29 +50,24 @@ export default function Profile() {
   const [today, setToday] = useState<{ amount: number; count: number } | null>(null);
   const [salesError, setSalesError] = useState('');
 
-  const refresh = useCallback(async () => {
-    if (!session.scope || !canAccess(session.scope, 'Manage sales')) {
-      setToday(null);
-      setSalesError('');
-      return;
-    }
-    setSalesError('');
-    try {
-      const sales = await session.request<CheckoutSale[]>(
-        'sales/mine?businessId=' + encodeURIComponent(session.scope.businessId) +
-        '&branchId=' + encodeURIComponent(session.scope.branchId)
-      );
+  useEffect(() => {
+    const scope = session.scope;
+    if (!scope || !canAccess(scope, 'Manage sales')) return;
+    let active = true;
+    void session.request<CheckoutSale[]>('sales/mine?businessId=' + encodeURIComponent(scope.businessId) +
+      '&branchId=' + encodeURIComponent(scope.branchId)).then(sales => {
+      if (!active) return;
       const date = new Date().toDateString();
       const todaysPaid = sales.filter(s => s.status === 'PAID' && s.createdAt &&
-        new Date(s.createdAt).toDateString() === date);
+        new Date(s.createdAt).toDateString() === date &&
+        !s.payments.some(p => p.provider === 'PAYSTACK_TEST'));
       setToday({ count: todaysPaid.length, amount: todaysPaid.reduce((sum, s) => sum + Number(s.total), 0) });
-    } catch {
-      setToday(null);
-      setSalesError('Sales summary unavailable');
-    }
-  }, [session.scope?.businessId, session.scope?.branchId, session.request]);
-
-  useEffect(() => { void refresh(); }, [refresh]);
+      setSalesError('');
+    }).catch(() => {
+      if (active) { setToday(null); setSalesError('Sales summary unavailable'); }
+    });
+    return () => { active = false; };
+  }, [session]);
 
   const businessTools = businessLinks.filter(link =>
     link.permission === 'Owner'

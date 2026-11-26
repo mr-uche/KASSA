@@ -29,3 +29,21 @@ function selectedBranch() {
 export function useSelectedBranchName() {
   return useSyncExternalStore(subscribeBranch, selectedBranch, () => "Main branch");
 }
+
+function subscribeStorage(notify: () => void) {
+  window.addEventListener("storage", notify);
+  return () => window.removeEventListener("storage", notify);
+}
+export function useStoredString(storage: "local" | "session", key: string) {
+  return useSyncExternalStore(subscribeStorage, () => {
+    try { return (storage === "local" ? localStorage : sessionStorage).getItem(key); }
+    catch { return null; }
+  }, () => null);
+}
+function subscribeLocation(notify: () => void) {
+  window.addEventListener("popstate", notify);
+  return () => window.removeEventListener("popstate", notify);
+}
+export function useBrowserSearch() {
+  return useSyncExternalStore(subscribeLocation, () => window.location.search, () => "");
+}

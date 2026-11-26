@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
@@ -406,8 +406,9 @@ export function KassaSessionProvider({ children }: { children: React.ReactNode }
     return response.bytes();
   }, [authorizedFileFetch]);
 
+  const value = useMemo(() => ({ user, scope, scopes, restoring, restoreError, restoreSession, signIn, selectScope, signOut, request, uploadReceipt, downloadReceipt }), [user, scope, scopes, restoring, restoreError, restoreSession, signIn, selectScope, signOut, request, uploadReceipt, downloadReceipt]);
   return (
-    <SessionContext.Provider value={{ user, scope, scopes, restoring, restoreError, restoreSession, signIn, selectScope, signOut, request, uploadReceipt, downloadReceipt }}>
+    <SessionContext.Provider value={value}>
       {children}
     </SessionContext.Provider>
   );

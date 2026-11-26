@@ -1,4 +1,4 @@
-import qrcode from 'qrcode-generator';
+import createQrCode from 'qrcode-generator';
 import type { CheckoutSale } from './api';
 
 // A QR code that can be scanned by any standard phone camera.
@@ -12,12 +12,12 @@ export function receiptQrContent(sale: CheckoutSale): string {
     'REF:' + sale.reference,
     'AMOUNT:NGN ' + sale.total,
     'METHOD:' + (payment?.channel ?? 'UNKNOWN'),
-    testMode ? 'TEST PAYMENT - NOT LIVE' : 'RECORDED PAID SALE',
+    testMode ? 'NON-LIVE PAYMENT' : 'RECORDED PAID SALE',
   ].join('\n');
 }
 
 export function receiptQrDataUrl(sale: CheckoutSale): string {
-  const qr = qrcode(0, 'M');
+  const qr = createQrCode(0, 'M');
   qr.addData(receiptQrContent(sale));
   qr.make();
   return qr.createDataURL(5, 5);

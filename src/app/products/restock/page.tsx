@@ -1,5 +1,7 @@
 "use client";
 
+import { useSelectedBranchName } from "@/lib/browser-state";
+
 import KassaHeaderActions from "@/components/KassaHeaderActions";
 
 import { useState, useEffect } from "react";
@@ -38,7 +40,6 @@ export default function RestockProductPage() {
         if (cancelled) return;
         setInventoryContext(context);
         setProductOptions(data);
-        setSelectedBranch(context.branchName);
         const requestedId = new URLSearchParams(window.location.search).get("productId");
         setSelectedProduct(data.find((product) => product.id === requestedId)?.id ?? data[0]?.id ?? "");
       } catch (cause) {
@@ -78,33 +79,8 @@ export default function RestockProductPage() {
   };
 
    // Branch selected from the dashboard
-    const [selectedBranch, setSelectedBranch] = useState("Main branch");
-  
-    // Get the selected branch from the dashboard
-    useEffect(() => {
-      const savedBranch = localStorage.getItem("selectedBranch");
-  
-      if (savedBranch) {
-        setSelectedBranch(savedBranch);
-      }
-    }, []);
-  
-    // Listen for branch changes
-    useEffect(() => {
-      const handleBranchChange = () => {
-        const savedBranch = localStorage.getItem("selectedBranch");
-  
-        if (savedBranch) {
-          setSelectedBranch(savedBranch);
-        }
-      };
-  
-      window.addEventListener("storage", handleBranchChange);
-  
-      return () => {
-        window.removeEventListener("storage", handleBranchChange);
-      };
-    }, []);
+    const storedBranch = useSelectedBranchName();
+  const selectedBranch = inventoryContext?.branchName ?? storedBranch;
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -23,7 +23,7 @@ export default function TransactionDetail() {
     } catch (cause) {
       if (isCurrent()) { setSale(null); setError(cause instanceof Error ? cause.message : 'Cannot load transaction.'); }
     } finally { if (isCurrent()) setLoading(false); }
-  }, [saleId, session.request]);
+  }, [saleId, session]);
   useFocusEffect(useCallback(() => {
     let alive = true;
     void reload(() => alive);

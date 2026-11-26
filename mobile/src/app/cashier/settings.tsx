@@ -164,6 +164,11 @@ async function settingsDb() {
 }
 
 export default function Settings() {
+  const { user, scope } = useKassaSession();
+  return <SettingsContent key={JSON.stringify([user?.id, scope?.businessId, scope?.branchId, scope?.myRole, scope?.myPermissions])}/>;
+}
+
+function SettingsContent() {
   const router = useRouter();
   const session = useKassaSession();
   const store = useKassaDemo();
@@ -212,7 +217,7 @@ export default function Settings() {
       }
     } catch (cause) { if (alive()) setError(cause instanceof Error ? cause.message : 'Cannot load business settings.'); }
     finally { if (alive()) setLoading(false); }
-  }, [businessId, branchId, canManageBusiness, session.request]);
+  }, [businessId, branchId, canManageBusiness, session]);
 
   const loadBanks = useCallback(async (alive: () => boolean = () => true) => {
     if (!businessId || session.scope?.myRole !== 'Owner') return;
@@ -220,7 +225,7 @@ export default function Settings() {
       const result = await session.request<Bank[]>('businesses/' + encodeURIComponent(businessId) + '/receiving-accounts');
       if (alive()) setBanks(Array.isArray(result) ? result : []);
     } catch (cause) { if (alive()) setError(cause instanceof Error ? cause.message : 'Cannot load receiving accounts.'); }
-  }, [businessId, session.scope?.myRole, session.request]);
+  }, [businessId, session]);
 
   const refreshBilling = useCallback(async (alive: () => boolean = () => true) => {
     if (!businessId || !isOwner) return;
@@ -233,11 +238,14 @@ export default function Settings() {
       if (alive()) { setBilling(null);
         setBillingError(cause instanceof Error ? cause.message : 'Unable to load subscription billing.'); }
     } finally { if (alive()) setBillingLoading(false); }
-  }, [businessId, isOwner, session.request]);
+  }, [businessId, isOwner, session]);
 
-  useEffect(() => {
-    if (section === 'Subscription & Billing' && isOwner) void refreshBilling();
-  }, [section, isOwner, refreshBilling]);
+  useFocusEffect(useCallback(() => {
+    if (section !== 'Subscription & Billing' || !isOwner) return;
+    let active = true;
+    void refreshBilling(() => active);
+    return () => { active = false; };
+  }, [section, isOwner, refreshBilling]));
 
   const subscribe = async (planCode: string) => {
     if (!businessId || !isOwner || billingBusy || !billing?.configured) return;
@@ -278,10 +286,14 @@ export default function Settings() {
     void loadProfile(() => active);
     return () => { active = false; };
   }, [loadProfile]));
-  useEffect(() => { if (section === 'Business receiving accounts') void loadBanks(); }, [section, loadBanks]);
+  useFocusEffect(useCallback(() => {
+    if (section !== 'Business receiving accounts') return;
+    let active = true;
+    void loadBanks(() => active);
+    return () => { active = false; };
+  }, [section, loadBanks]));
   useEffect(() => {
     let active = true;
-    setPreferences(defaultNotifications);
     if (userId) void settingsDb().then(db =>
       db.getFirstAsync<{ preferencesJson: string }>('SELECT preferencesJson FROM notification_prefs WHERE userId=?', userId)
     ).then(row => {

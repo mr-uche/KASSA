@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useBrowserOnline, useBrowserSearch } from "@/lib/browser-state";
 import KassaSidebar from "@/components/KassaSidebar";
 import KassaHeaderActions from "@/components/KassaHeaderActions";
 import { Download, Menu, Printer, RefreshCw, ShoppingCart, Upload, Wifi, WifiOff } from "lucide-react";
@@ -34,34 +35,30 @@ export default function OfflineSalesPage() {
   const [workspace, setWorkspace] = useState<OfflineWorkspace | null>(null);
   const activeScope = useRef("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [section, setSection] = useState<OfflineSection>("new-sale");
+  const query = new URLSearchParams(useBrowserSearch());
+  const [sectionChoice, setSection] = useState<OfflineSection | null>(null);
+  const requestedSection = sectionChoice ?? parseSection(query.get("section"));
   const [savedSales, setSavedSales] = useState<OfflineSale[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [search, setSearch] = useState("");
-  const [online, setOnline] = useState(true);
+  const online = useBrowserOnline();
   const [ready, setReady] = useState(false);
   const [working, setWorking] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState("");
   const [receiptId, setReceiptId] = useState("");
   const [, setShellReady] = useState(false);
-  const [interruptedPayment, setInterruptedPayment] = useState(false);
+  const interruptedPayment = query.get("interruptedPayment") === "1";
   const [backupPassphrase, setBackupPassphrase] = useState("");
   const [backupFile, setBackupFile] = useState<File | null>(null);
   const [backupWorking, setBackupWorking] = useState(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setSection(parseSection(params.get("section")));
-    setInterruptedPayment(params.get("interruptedPayment") === "1");
-  }, []);
 
   const navigate = (choice: string) => {
     const next = parseSection(choice);
     if (!workspace || !workspaceFresh(workspace) || !offlineSectionAllowed(next, workspace)) return;
     setSection(next);
     setSidebarOpen(false);
-    window.history.replaceState(window.history.state, "", "/offline-sales?section=" + next);
+    window.history.replaceState(window.history.state, "", "/offline-sales?section=" + next + (interruptedPayment ? "&interruptedPayment=1" : ""));
   };
 
   const refreshDevice = useCallback(async () => {
@@ -78,6 +75,7 @@ export default function OfflineSalesPage() {
     setWorkspace(active);
     setSavedSales(list);
     setReady(true);
+    return active;
   }, []);
 
   const provision = useCallback(async () => {
@@ -119,8 +117,8 @@ export default function OfflineSalesPage() {
   }, [refreshDevice]);
 
   useEffect(() => {
-    setOnline(navigator.onLine);
-    void refreshDevice().catch((cause) => {
+    let mounted = true;
+    void refreshDevice().then(active => { if (mounted && active && navigator.onLine) void syncNow(); }).catch((cause) => {
       setMessage(cause instanceof Error ? cause.message : "Offline storage is unavailable.");
       setReady(true);
     });
@@ -146,12 +144,11 @@ export default function OfflineSalesPage() {
       if (!event.data.prepared) setMessage("Offline setup incomplete. Reopen this page online.");
     }
     const onDeviceUpdate = () => void refreshDevice();
-    const onIdentityChanged = () => void refreshDevice();
+    const onIdentityChanged = () => { void refreshDevice().then(active => { if (mounted && active && navigator.onLine) void syncNow(); }); };
     const onStorage = (event: StorageEvent) => {
-      if (event.key === "kassa-offline-identity-change") void refreshDevice();
+      if (event.key === "kassa-offline-identity-change") onIdentityChanged();
     };
-    const onOnline = () => { setOnline(true); void refreshDevice(); void syncNow(); };
-    const onOffline = () => setOnline(false);
+    const onOnline = () => { void refreshDevice(); void syncNow(); };
     const onFocus = () => {
       void refreshDevice();
       if (navigator.onLine) void syncNow();
@@ -161,12 +158,12 @@ export default function OfflineSalesPage() {
     window.addEventListener("storage", onStorage);
     window.addEventListener("kassa-offline-sync-update", onDeviceUpdate);
     window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
     window.addEventListener("focus", onFocus);
     const interval = window.setInterval(() => {
       if (navigator.onLine) void syncNow();
     }, 30_000);
     return () => {
+      mounted = false;
       window.clearInterval(interval);
       if ("serviceWorker" in navigator) navigator.serviceWorker.removeEventListener("message", onShellMessage);
       window.removeEventListener("kassa-offline-account-changed", onIdentityChanged);
@@ -174,27 +171,22 @@ export default function OfflineSalesPage() {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("kassa-offline-sync-update", onDeviceUpdate);
       window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
       window.removeEventListener("focus", onFocus);
     };
   }, [refreshDevice, syncNow]);
 
-  useEffect(() => {
-    if (ready && online && workspace) void syncNow();
-  }, [ready, online, workspace?.businessId, workspace?.branchId, syncNow]);
-
   const fresh = workspace !== null && workspaceFresh(workspace);
   const accessReady = fresh && offlineSectionAllowed("new-sale", workspace);
+  const section = fresh && workspace && !offlineSectionAllowed(requestedSection, workspace)
+    ? (["new-sale", "home", "products", "reports", "transactions", "scan", "backup"] as OfflineSection[])
+      .find(candidate => offlineSectionAllowed(candidate, workspace)) ?? requestedSection
+    : requestedSection;
   const screenAllowed = fresh && offlineSectionAllowed(section, workspace);
   useEffect(() => {
-    if (!workspace || !fresh || offlineSectionAllowed(section, workspace)) return;
-    const first = (["new-sale", "home", "products", "reports", "transactions", "scan", "backup"] as OfflineSection[])
-      .find((candidate) => offlineSectionAllowed(candidate, workspace));
-    if (first) {
-      setSection(first);
-      window.history.replaceState(window.history.state, "", "/offline-sales?section=" + first);
-    }
-  }, [workspace, fresh, section]);
+    if (section === requestedSection) return;
+    window.history.replaceState(window.history.state, "", "/offline-sales?section=" + section +
+      (interruptedPayment ? "&interruptedPayment=1" : ""));
+  }, [section, requestedSection, interruptedPayment]);
   const products = workspace?.products ?? [];
   const visible = products.filter((product) =>
     (product.name + " " + product.sku + " " + (product.barcode ?? "")).toLowerCase()
@@ -416,7 +408,7 @@ export default function OfflineSalesPage() {
         )}
         {ready && fresh && !screenAllowed && (
           <p role="alert" className="rounded-lg bg-white p-4 text-sm text-gray-700">
-            This section isn't available to the signed-in staff member.
+            This section is not available to your role.
           </p>
         )}
 
@@ -424,8 +416,7 @@ export default function OfflineSalesPage() {
           <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
             <h2 className="text-lg font-semibold">Offline business overview</h2>
             <p className="text-sm text-gray-600">
-              This is your local device view. It does not include today's sales from other devices
-              or changes that haven't been synchronized from the cloud.
+              Only sales on this device are shown.
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="rounded-lg bg-emerald-50 p-4">
@@ -701,7 +692,7 @@ export default function OfflineSalesPage() {
           </div>
           <p className="text-xs leading-5 text-amber-800">
             Keep the password and file safe. KASSA cannot recover a lost backup password.
-            Don't clear browser data until your sales have synced.
+            Do not clear browser data until sales have synced.
           </p>
         </section>
         )}

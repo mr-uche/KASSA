@@ -1,5 +1,7 @@
 "use client";
 
+import { useSelectedBranchName } from "@/lib/browser-state";
+
 import KassaHeaderActions from "@/components/KassaHeaderActions";
 
 import { useState, useEffect } from "react";
@@ -36,33 +38,8 @@ export default function NewSalePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Branch selected from the dashboard
-  const [selectedBranch, setSelectedBranch] = useState("Main branch");
-
-  // Get the selected branch from the dashboard
-  useEffect(() => {
-    const savedBranch = localStorage.getItem("selectedBranch");
-
-    if (savedBranch) {
-      setSelectedBranch(savedBranch);
-    }
-  }, []);
-
-  // Listen for branch changes
-  useEffect(() => {
-    const handleBranchChange = () => {
-      const savedBranch = localStorage.getItem("selectedBranch");
-
-      if (savedBranch) {
-        setSelectedBranch(savedBranch);
-      }
-    };
-
-    window.addEventListener("storage", handleBranchChange);
-
-    return () => {
-      window.removeEventListener("storage", handleBranchChange);
-    };
-  }, []);
+  const storedBranch = useSelectedBranchName();
+  const selectedBranch = inventoryContext?.branchName ?? storedBranch;
 
   useEffect(() => {
     let cancelled = false;
@@ -98,7 +75,6 @@ export default function NewSalePage() {
         setCartReady(true);
         setCanManageInventory(permittedInventory);
         setInventoryContext(context);
-        setSelectedBranch(context.branchName);
         setError("");
       } catch (cause) {
         if (!cancelled) setError(cause instanceof Error ? cause.message : "Unable to load products.");

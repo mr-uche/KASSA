@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Linking, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import * as Print from 'expo-print';
 import { Image } from 'expo-image';
@@ -24,6 +24,12 @@ function money(value: string | number): string {
 }
 
 export default function Receipt() {
+  const { user, scope } = useKassaSession();
+  const { saleId } = useLocalSearchParams<{ saleId?: string }>();
+  return <ReceiptContent key={JSON.stringify([user?.id, scope?.businessId, scope?.branchId, saleId])}/>;
+}
+
+function ReceiptContent() {
   const router = useRouter();
   const { width, fontScale } = useWindowDimensions();
   const compact = width < 345 || fontScale > 1.2;
@@ -58,13 +64,13 @@ export default function Receipt() {
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [activeId, scope?.branchId, session.request]);
+  }, [activeId, scope, session]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let active = true;
     void fetchSale(() => active);
     return () => { active = false; };
-  }, [fetchSale]);
+  }, [fetchSale]));
 
   const sale = activeId ? savedSale : current?.sale ?? null;
   const confirmed = !!sale && isConfirmed(sale);

@@ -55,16 +55,15 @@ export default function KassaHeaderActions({
   const visibleSales = permittedSales ? sales : [];
   const alerts = visibleSales.filter((sale) => sale.status !== "synced").length;
 
-  const refreshLocal = useCallback(async () => {
-    try {
-      const workspace = await getOfflineWorkspace();
+  const refreshLocal = useCallback(() => getOfflineWorkspace()
+    .then(async workspace => {
+      const records = workspace ? await listOfflineSales(workspace) : [];
       setLocalWorkspace(workspace);
-      setSales(workspace ? await listOfflineSales(workspace) : []);
-    } catch {
+      setSales(records);
+    }).catch(() => {
       setLocalWorkspace(null);
       setSales([]);
-    }
-  }, []);
+    }), []);
 
   useEffect(() => {
     void refreshLocal();

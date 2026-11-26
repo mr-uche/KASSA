@@ -11,12 +11,6 @@ import Button from "@/components/ui/Button";
 import { kassaPost } from "@/lib/kassa-client";
 
 
-const bullets = [
-  "One reconciled view of every sale, every channel",
-  "Catch failed or missing payments the same day",
-  "Know exactly which staff member handled each sale",
-];
-
 export default function SignUpPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);

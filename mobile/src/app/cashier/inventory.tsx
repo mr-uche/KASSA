@@ -67,7 +67,7 @@ export default function Inventory() {
     } catch (cause) {
       if (alive()) { setProducts([]); setCategories([]); setError(cause instanceof Error ? cause.message : 'Cannot load inventory.'); }
     } finally { if (alive()) setLoading(false); }
-  }, [scope?.businessId, scope?.branchId, session.request]);
+  }, [scope, session]);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -229,7 +229,7 @@ export default function Inventory() {
       })}
     {!loading && !error && (tab === 'Categories' ? !categoryList.length : !filtered.length) &&
       <InlineNotice text="No records match these filters."/>}
-    <Text style={s.footer}>Inventory updates use your business's saved branch stock records.</Text>
+    <Text style={s.footer}>Stock updates apply to this branch.</Text>
   </KScreen>;
 }
 

@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { usePathname, useRouter, type Href } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C } from './theme';
-import { SymbolView } from 'expo-symbols';
 import KassaBackground from '@/components/KassaBackground';
 import { KassaBusinessHeader } from './business-header';
 import { KassaBottomNavigation } from './bottom-navigation';

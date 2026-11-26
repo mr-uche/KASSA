@@ -50,6 +50,7 @@ export default function SignUp() {
   const session = useKassaSession();
   // Credentials stay in memory. They are never put in navigation URLs or local storage.
   const registered = useRef<Pick<MerchantRegistration, 'email' | 'password'> | null>(null);
+  const [accountCreated, setAccountCreated] = useState(false);
 
   // Account creation is the entry screen. The four screenshots follow in order.
   const [step, setStep] = useState(0);
@@ -178,6 +179,7 @@ export default function SignUp() {
       if (!registered.current) {
         await registerMerchantUser(details);
         registered.current = { email: details.email, password: details.password };
+        setAccountCreated(true);
       }
       await onboardMerchantBusiness(details);
       const scopes = await session.signIn(details.email, details.password);
@@ -306,7 +308,7 @@ export default function SignUp() {
         <KField label="Account holder name" value={bankAccountName}
           onChangeText={setBankAccountName} placeholder="Name on the account"/>
         <View style={s.info}>
-          <Text style={s.infoText}>Account details are supplied by you, not independently verified. KASSA never holds the customer's money.</Text>
+          <Text style={s.infoText}>Account details are supplied by you, not independently verified. KASSA never holds customer funds.</Text>
         </View>
       </>}
 
@@ -352,7 +354,7 @@ export default function SignUp() {
           <Text style={s.backText}>Back</Text>
         </Pressable>}
         <View style={s.primary}>
-          <KButton text={step === 4 ? (busy ? 'Saving business…' : registered.current ? 'Retry setup' : 'Finish setup') : 'Continue'}
+          <KButton text={step === 4 ? (busy ? 'Saving business…' : accountCreated ? 'Retry setup' : 'Finish setup') : 'Continue'}
             disabled={busy}
             onPress={step === 4 ? () => { void submit(); } : continueStep}/>
         </View>
