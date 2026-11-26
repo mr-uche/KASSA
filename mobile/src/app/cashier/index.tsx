@@ -33,6 +33,7 @@ function saleStatus(sale: CashierDashboard['recentSales'][number]): string {
 const quickActions = [
   { label: 'Scan product', route: '/cashier/scan-product', icon: { ios: 'barcode.viewfinder', android: 'barcode_scanner', web: 'barcode_scanner' } },
   { label: 'Find product', route: '/cashier/new-sale', icon: { ios: 'magnifyingglass', android: 'search', web: 'search' } },
+  { label: 'Add product', route: '/cashier/add-product', icon: { ios: 'plus', android: 'add', web: 'add' } },
   { label: 'Transactions', route: '/cashier/transactions', icon: { ios: 'list.bullet.rectangle', android: 'receipt_long', web: 'receipt_long' } },
 ] as const;
 
@@ -49,6 +50,7 @@ export default function CashierHome() {
   const financialAllowed = canAccess(scope, 'View financial overview');
   const canSell = canAccess(scope, 'Manage sales');
   const canViewTransactions = canAccess(scope, 'View transactions');
+  const canAddProduct = canAccess(scope, 'Manage products & inventory');
   const go = (path: string) => router.push(path as Href);
 
   const refresh = useCallback(async (isCurrent: () => boolean = () => true) => {
@@ -173,7 +175,8 @@ export default function CashierHome() {
       <Text style={[s.sectionTitle, s.actionsHeading]}>Quick Actions</Text>
       <View style={s.actionsRow}>
         {quickActions.filter(action =>
-          action.label === 'Transactions' ? canViewTransactions : canSell).map(action => (
+          action.label === 'Transactions' ? canViewTransactions :
+          action.label === 'Add product' ? canAddProduct : canSell).map(action => (
           <Pressable
             key={action.label}
             accessibilityRole="button"
@@ -271,9 +274,9 @@ const s = StyleSheet.create({
   cardNote: { color: C.muted, fontSize: 14 },
   today: { color: C.green, fontSize: 14, marginTop: 6 },
   actionsHeading: { marginTop: 24, marginBottom: 13 },
-  actionsRow: { flexDirection: 'row', flexWrap: 'nowrap', gap: 8 },
+  actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   quickAction: {
-    flex: 1, minWidth: 0, minHeight: 99, backgroundColor: C.white, borderColor: C.border,
+    flexBasis: '48%', flexGrow: 1, minWidth: 0, minHeight: 99, backgroundColor: C.white, borderColor: C.border,
     borderWidth: 1, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 4,
     alignItems: 'center', justifyContent: 'center',
   },

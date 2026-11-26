@@ -27,7 +27,8 @@ function localPayment(record: OfflineCashRecord, branchId: string): CompletedPay
     createdAt: record.recordedAt,
     status: 'PAID',
     total: record.total,
-    subtotal: record.total,
+    subtotal: record.subtotal,
+    discount: record.discount,
     currency: 'NGN',
     branchId,
     customer: record.customerName ?? undefined,
@@ -152,7 +153,9 @@ export default function OfflineReceipt() {
         </View>)}
         <View style={s.rule}/>
         <View style={s.row}><Text style={s.label}>Subtotal</Text>
-          <Text style={s.value}>{naira(Number(record.total))}</Text></View>
+          <Text style={s.value}>{naira(Number(record.subtotal))}</Text></View>
+        {Number(record.discount) > 0 && <View style={s.row}><Text style={s.label}>Discount</Text>
+          <Text style={s.value}>−{naira(Number(record.discount))}</Text></View>}
         <View style={s.row}><Text style={s.label}>Payment method</Text>
           <Text style={s.value}>{receiptMethod(record.channel)}</Text></View>
         {payment.cashReceived !== null && <>

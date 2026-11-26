@@ -13,6 +13,13 @@ type DemoStore = {
   branch: string;
   paymentMethod: string;
   customerName: string;
+  subtotal: number;
+  discount: number;
+  discountValid: boolean;
+  discountType: 'fixed' | 'percent';
+  discountInput: string;
+  setDiscountType(value: 'fixed' | 'percent'): void;
+  setDiscountInput(value: string): void;
   total: number;
   count: number;
   catalog: Product[];
@@ -48,6 +55,8 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
   const [branch, setBranch] = useState('Main Branch');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [customerName, setCustomerName] = useState('');
+  const [discountType, setDiscountTypeState] = useState<'fixed' | 'percent'>('fixed');
+  const [discountInput, setDiscountInputState] = useState('');
   const [catalog, setCatalog] = useState<Product[]>([]);
   const [catalogSource, setCatalogSource] = useState<'live' | 'cached' | 'none'>('none');
   const [catalogSavedAt, setCatalogSavedAt] = useState<number | null>(null);
@@ -172,6 +181,8 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
     setOfflineQueue(null);
     setBranch(scope?.branchName ?? 'Main Branch');
     setCustomerName('');
+    setDiscountInputState('');
+    setDiscountTypeState('fixed');
   }, [scope?.businessId, scope?.branchId]);
 
   useEffect(() => { void refreshCatalog(); }, [refreshCatalog]);
@@ -242,6 +253,7 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
   const clear = () => {
     if (pendingSale) return;
     setLines([]);
+    setDiscountInputState('');
   };
   const beginNewSale = () => {
     setLines([]);
@@ -249,19 +261,39 @@ export function KassaDemoProvider({ children }: { children: React.ReactNode }) {
     setCompletedPayment(null);
     setPaymentMethod('Cash');
     setCustomerName('');
+    setDiscountInputState('');
+    setDiscountTypeState('fixed');
   };
 
-  const total = useMemo(() => {
+  const subtotal = useMemo(() => {
     const totalKobo = lines.reduce((sum, line) => {
       const product = catalog.find(item => item.id === line.id);
       return sum + toKobo(product?.price ?? 0) * line.quantity;
     }, 0);
     return totalKobo / 100;
   }, [lines, catalog]);
+  const subtotalKobo = toKobo(subtotal);
+  const raw = discountInput.trim();
+  const numericValid = raw === '' || /^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(raw);
+  const value = numericValid && raw ? toKobo(Number(raw)) : 0;
+  const discountKobo = discountType === 'percent' && Number.isSafeInteger(subtotalKobo) &&
+      Number.isSafeInteger(value) && value <= 10000
+    ? Number((BigInt(subtotalKobo) * BigInt(value) + 5000n) / 10000n)
+    : value;
+  const discountValid = !!pendingSale || (numericValid && Number.isSafeInteger(subtotalKobo) && Number.isSafeInteger(discountKobo) &&
+    (discountType !== 'percent' || value <= 10000) &&
+    (discountKobo === 0 || (discountKobo > 0 && discountKobo < subtotalKobo)));
+  const discount = pendingSale ? Number(pendingSale.discount ?? 0) : discountValid ? discountKobo / 100 : 0;
+  const total = pendingSale ? Number(pendingSale.total) : (subtotalKobo - toKobo(discount)) / 100;
+  const setDiscountType = (value: 'fixed' | 'percent') => {
+    if (pendingSale) return;
+    setDiscountTypeState(value); setDiscountInputState('');
+  };
+  const setDiscountInput = (value: string) => { if (!pendingSale) setDiscountInputState(value); };
   const count = lines.reduce((sum, line) => sum + line.quantity, 0);
 
   return <DemoContext.Provider value={{
-    lines, branch, paymentMethod, customerName, total, count, catalog, catalogSource, catalogSavedAt, offlineMode, offlineQueue, syncingOfflineSales, loadingCatalog, catalogError,
+    lines, branch, paymentMethod, customerName, subtotal: pendingSale ? Number(pendingSale.subtotal) : subtotal, discount, discountValid, discountType, discountInput, setDiscountType, setDiscountInput, total, count, catalog, catalogSource, catalogSavedAt, offlineMode, offlineQueue, syncingOfflineSales, loadingCatalog, catalogError,
     pendingSale, completedPayment, add, subtract, remove, clear, beginNewSale, refreshCatalog, refreshOfflineQueue,
     setBranch, setPaymentMethod, setCustomerName, setPendingSale, setCompletedPayment,
   }}>{children}</DemoContext.Provider>;

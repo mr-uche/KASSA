@@ -10,30 +10,34 @@ import {
     Pressable,
     Alert,
     ScrollView,
+    KeyboardAvoidingView,
+    Platform,
 } from "react-native";
 import {SymbolView} from "expo-symbols";
-import { useKassaSession, type KassaScope } from '@/components/kassa-demo/api';
+import { supportsRememberedLogin, useKassaSession } from '@/components/kassa-demo/api';
 
 export default function LoginScreen() {
     const[showPassword, setShowPassword] =useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [submitting, setSubmitting] = useState(false);
-    const [choices, setChoices] = useState<KassaScope[]>([]);
+    const [rememberMe, setRememberMe] = useState(supportsRememberedLogin);
     const session = useKassaSession();
+    const choices = session.scope ? [] : session.scopes;
     const signIn = async () => {
       if (submitting) return;
       setSubmitting(true);
       try {
-        const options = await session.signIn(email, password);
+        const options = await session.signIn(email, password, rememberMe);
+        setPassword('');
         if (options.length === 1) router.replace('/cashier');
-        else setChoices(options);
       } catch (error) {
         Alert.alert('Unable to sign in', error instanceof Error ? error.message : 'Try again.');
       } finally { setSubmitting(false); }
     };
   return (
  <KassaBackground>
+   <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'web' ? undefined : 'padding'}>
    <ScrollView
   style={styles.container}
   contentContainerStyle={styles.scrollContent}
@@ -110,6 +114,25 @@ export default function LoginScreen() {
 </View>
 
  
+{supportsRememberedLogin && <Pressable accessibilityRole="checkbox"
+  accessibilityState={{ checked: rememberMe }} disabled={submitting || session.restoring}
+  onPress={() => setRememberMe(value => !value)} style={styles.rememberRow}>
+  <View style={[styles.rememberBox, rememberMe && styles.rememberChecked]}>
+    {rememberMe && <Text style={styles.rememberTick}>✓</Text>}
+  </View>
+  <Text style={styles.rememberLabel}>Remember me on this device</Text>
+</Pressable>}
+
+{!!session.restoreError && <View style={styles.restoreNotice}>
+  <Text style={styles.restoreText}>{session.restoreError}</Text>
+  <Pressable accessibilityRole="button" disabled={session.restoring || submitting}
+    onPress={() => { void session.restoreSession().then(selected => {
+      if (selected) router.replace('/cashier');
+    }); }}>
+    <Text style={styles.forgotPassword}>Retry saved session</Text>
+  </Pressable>
+</View>}
+
 {/* Forgot Password */}
 <Pressable
   style={styles.forgotPasswordContainer}
@@ -129,10 +152,10 @@ export default function LoginScreen() {
 <Pressable
   style={styles.signInButton}
   onPress={() => { void signIn(); }}
-  disabled={submitting}
+  disabled={submitting || session.restoring}
 >
   <Text style={styles.signInText}>
-    {submitting ? 'Signing in…' : 'Sign In'}
+    {session.restoring ? 'Restoring session…' : submitting ? 'Signing in…' : 'Sign In'}
   </Text>
 </Pressable>
 
@@ -177,11 +200,19 @@ export default function LoginScreen() {
 
 
     </ScrollView>
+   </KeyboardAvoidingView>
  </KassaBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  rememberRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, marginBottom: 8 },
+  rememberBox: { width: 22, height: 22, borderRadius: 5, borderWidth: 1, borderColor: '#0F6E56', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  rememberChecked: { backgroundColor: '#0F6E56' },
+  rememberTick: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  rememberLabel: { flex: 1, color: '#374151', fontSize: 14 },
+  restoreNotice: { marginBottom: 14, padding: 12, borderRadius: 8, backgroundColor: '#EAF5F0', gap: 8 },
+  restoreText: { color: '#374151', fontSize: 13 },
   branchChoices: { marginTop: 17 , gap: 8 },
   branchTitle: { color: '#111827', fontWeight: '700', fontSize: 20 },
   branchChoice: { padding: 12, borderColor: '#D6EAE1', borderWidth: 1, borderRadius: 9, backgroundColor: '#EAF5F0' },

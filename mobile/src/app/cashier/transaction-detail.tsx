@@ -42,6 +42,7 @@ export default function TransactionDetail() {
         <View style={s.status}><StatusChip label={paid ? 'Successful' : failed ? 'Failed' : 'Pending'}
           color={paid ? 'green' : failed ? 'red' : 'orange'}/></View>
         <Text style={s.total}>{money(sale.total)}</Text>
+        {Number(sale.discount ?? 0) > 0 && <Text style={s.small}>Subtotal: {money(sale.subtotal)} · Discount: −{money(sale.discount ?? '0')}</Text>}
         {!!sale.customer && sale.customer !== 'Walk-in customer' &&
           sale.customer !== 'Customer details unavailable' &&
           <Text style={s.small}>Customer: {sale.customer}</Text>}

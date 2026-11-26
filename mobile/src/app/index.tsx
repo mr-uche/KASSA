@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, Image, StatusBar, Animated, Easing, useWindowDimensions,
 } from 'react-native';
@@ -10,14 +10,15 @@ const SPLASH_DURATION_MS = 5000;
 /** KASSA branded splash: exactly five seconds before moving to sign-in. */
 export default function KassaSplash() {
   const router = useRouter();
-  const { scope } = useKassaSession();
+  const { scope, restoring } = useKassaSession();
+  const [splashElapsed, setSplashElapsed] = useState(false);
   const { width, height } = useWindowDimensions();
-  const circleProgress = useRef(new Animated.Value(0)).current;
-  const brandOpacity = useRef(new Animated.Value(0)).current;
-  const screenOpacity = useRef(new Animated.Value(1)).current;
-  const taglineOpacity = useRef([
+  const [circleProgress] = useState(() => new Animated.Value(0));
+  const [brandOpacity] = useState(() => new Animated.Value(0));
+  const [screenOpacity] = useState(() => new Animated.Value(1));
+  const [taglineOpacity] = useState(() => [
     new Animated.Value(0), new Animated.Value(0), new Animated.Value(0),
-  ]).current;
+  ]);
 
   useEffect(() => {
     const circles = Animated.loop(Animated.sequence([
@@ -45,22 +46,23 @@ export default function KassaSplash() {
     ]);
     circles.start();
     reveal.start();
-    const fadeTimer = setTimeout(() => {
-      Animated.timing(screenOpacity, {
-        toValue: 0, duration: 350, useNativeDriver: true,
-      }).start();
-    }, SPLASH_DURATION_MS - 350);
-    const navigationTimer = setTimeout(() => {
-      router.replace(scope ? '/cashier' : '/login');
-    }, SPLASH_DURATION_MS);
+    const navigationTimer = setTimeout(() => setSplashElapsed(true), SPLASH_DURATION_MS - 350);
     return () => {
-      clearTimeout(fadeTimer);
       clearTimeout(navigationTimer);
       circles.stop();
       reveal.stop();
       screenOpacity.stopAnimation();
     };
-  }, [circleProgress, brandOpacity, screenOpacity, taglineOpacity, router, scope]);
+  }, [circleProgress, brandOpacity, screenOpacity, taglineOpacity]);
+
+  useEffect(() => {
+    if (restoring || !splashElapsed) return;
+    const fade = Animated.timing(screenOpacity, { toValue: 0, duration: 350, useNativeDriver: true });
+    fade.start(({ finished }) => {
+      if (finished) router.replace(scope ? '/cashier' : '/login');
+    });
+    return () => fade.stop();
+  }, [restoring, splashElapsed, scope, router, screenOpacity]);
 
   const firstX = circleProgress.interpolate({
     inputRange: [0, 1], outputRange: [0, 100 - width],

@@ -25,7 +25,7 @@ export function DropdownFilter({
   }
 
   const menuWidth = Math.min(Math.max(rect.width, 165), screenWidth - 24);
-  const menuHeight = Math.min(options.length * 43 + 10, 275);
+  const menuHeight = Math.min(Math.max(options.length, 1) * 43 + 10, 275);
   const left = Math.max(12, Math.min(rect.x, screenWidth - menuWidth - 12));
   const below = rect.y + rect.height + 4;
   const top = below + menuHeight <= screenHeight - 12
@@ -47,6 +47,9 @@ export function DropdownFilter({
           onPress={() => setOpen(false)} style={StyleSheet.absoluteFill}/>
         <View style={[s.menu, { top, left, width: menuWidth, maxHeight: menuHeight }]}>
           <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="always">
+            {!options.length && <View style={s.option}>
+              <Text style={s.emptyText}>No options available</Text>
+            </View>}
             {options.map(option => (
               <Pressable key={option} accessibilityRole="button"
                 accessibilityState={{ selected: value === option }}
@@ -79,6 +82,7 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'space-between', gap: 7 },
   optionSelected: { backgroundColor: C.mint },
   optionText: { flex: 1, fontSize: 13, color: C.title },
+  emptyText: { flex: 1, fontSize: 13, color: C.muted },
   selectedText: { color: C.green, fontWeight: '800' },
   checkmark: { color: C.green, fontWeight: '800', fontSize: 13 },
 });

@@ -1,4 +1,7 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Alert, Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+import { router } from 'expo-router';
 import { fetch as expoFetch } from 'expo/fetch';
 import type { File } from 'expo-file-system';
 
@@ -27,6 +30,7 @@ export type CheckoutSale = {
   status: string;
   total: string;
   subtotal: string;
+  discount?: string;
   currency: string;
   branchId: string;
   cashier?: string;
@@ -55,9 +59,14 @@ function urlFor(path: string): string {
   return address.replace(/\/api\/v1$/, '') + '/api/v1/' + path.replace(/^\//, '');
 }
 
-async function http<T>(path: string, token?: string, body?: unknown, method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'): Promise<T> {
+class HttpError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
+
+async function http<T>(path: string, token?: string, body?: unknown, method?: 'GET' | 'POST' | 'PATCH' | 'DELETE', signal?: AbortSignal): Promise<T> {
   const response = await fetch(urlFor(path), {
     method: method ?? (body === undefined ? 'GET' : 'POST'),
+    signal,
     headers: {
       Accept: 'application/json',
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
@@ -69,7 +78,7 @@ async function http<T>(path: string, token?: string, body?: unknown, method?: 'G
   if (!response.ok) {
     const error = result && typeof result === 'object' ? result as { message?: string | string[] } : null;
     const message = Array.isArray(error?.message) ? error.message.join(', ') : error?.message;
-    throw new Error(typeof message === 'string' ? message : 'Request failed (' + response.status + ').');
+    throw new HttpError(typeof message === 'string' ? message : 'Request failed (' + response.status + ').', response.status);
   }
   return result as T;
 }
@@ -136,33 +145,32 @@ export async function onboardMerchantBusiness(details: MerchantRegistration): Pr
   });
 }
 
-type Session = {
-  user: Account | null;
-  scope: KassaScope | null;
-  scopes: KassaScope[];
-  signIn(email: string, password: string): Promise<KassaScope[]>;
-  selectScope(scope: KassaScope): void;
-  signOut(): Promise<void>;
-  request<T>(path: string, body?: unknown, method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'): Promise<T>;
-  uploadReceipt(path: string, file: File): Promise<void>;
-  downloadReceipt(path: string): Promise<Uint8Array>;
-};
-const SessionContext = createContext<Session | null>(null);
+const SESSION_KEY = 'kassa.remembered-session.v1';
+export const supportsRememberedLogin = Platform.OS === 'android' || Platform.OS === 'ios';
+type RememberedSession = { refreshToken: string; businessId?: string; branchId?: string };
+const storageOptions = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
+async function loadRememberedSession(): Promise<RememberedSession | null> {
+  if (!supportsRememberedLogin) return null;
+  const raw = await SecureStore.getItemAsync(SESSION_KEY, storageOptions);
+  if (!raw) return null;
+  let saved: RememberedSession;
+  try { saved = JSON.parse(raw) as RememberedSession; }
+  catch { await SecureStore.deleteItemAsync(SESSION_KEY, storageOptions); return null; }
+  if (!saved || typeof saved.refreshToken !== 'string' || !saved.refreshToken) {
+    await SecureStore.deleteItemAsync(SESSION_KEY, storageOptions);
+    return null;
+  }
+  return saved;
+}
+async function writeRememberedSession(saved: RememberedSession | null) {
+  if (!supportsRememberedLogin) return;
+  if (saved) await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(saved), storageOptions);
+  else await SecureStore.deleteItemAsync(SESSION_KEY, storageOptions);
+}
 
-export function KassaSessionProvider({ children }: { children: React.ReactNode }) {
-  // Tokens remain in memory; they are never written to AsyncStorage or public logs.
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [refreshToken, setRefreshToken] = useState<string | null>(null);
-  const [user, setUser] = useState<Account | null>(null);
-  const [scopes, setScopes] = useState<KassaScope[]>([]);
-  const [scope, setScope] = useState<KassaScope | null>(null);
-
-  const signIn = useCallback(async (email: string, password: string) => {
-    const login = await http<LoginResponse>('auth/login', undefined, {
-      email: email.trim().toLowerCase(), password, rememberMe: true,
-    });
-    const businesses = await http<Business[]>('businesses/mine', login.accessToken);
-    const permitted = businesses
+async function getPermittedScopes(token: string, signal?: AbortSignal): Promise<KassaScope[]> {
+  const businesses = await http<Business[]>('businesses/mine', token, undefined, 'GET', signal);
+  return businesses
       .filter(b => b.myRole === 'Owner' || b.myPermissions.includes('*') ||
         b.myPermissions.some(permission => [
           'View dashboard', 'Manage sales', 'View transactions', 'Manage sales & transactions',
@@ -173,55 +181,206 @@ export function KassaSessionProvider({ children }: { children: React.ReactNode }
         businessId: b.id, businessName: b.name, branchId: branch.id, branchName: branch.name,
         branchAddress: branch.address ?? null, myRole: b.myRole, myPermissions: b.myPermissions,
       })));
-    if (!permitted.length) throw new Error('No active branch with sales access is assigned to this account.');
-    setAccessToken(login.accessToken);
-    setRefreshToken(login.refreshToken ?? null);
-    setUser(login.user);
-    setScopes(permitted);
-    setScope(permitted.length === 1 ? permitted[0] : null);
-    return permitted;
+}
+function chooseScope(scopes: KassaScope[], saved: RememberedSession | null): KassaScope | null {
+  return scopes.find(item => item.businessId === saved?.businessId && item.branchId === saved?.branchId)
+    ?? (scopes.length === 1 ? scopes[0] : null);
+}
+
+type Session = {
+  restoring: boolean;
+  restoreError: string;
+  restoreSession(): Promise<KassaScope | null>;
+  user: Account | null;
+  scope: KassaScope | null;
+  scopes: KassaScope[];
+  signIn(email: string, password: string, rememberMe?: boolean): Promise<KassaScope[]>;
+  selectScope(scope: KassaScope): void;
+  signOut(): Promise<void>;
+  request<T>(path: string, body?: unknown, method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'): Promise<T>;
+  uploadReceipt(path: string, file: File): Promise<void>;
+  downloadReceipt(path: string): Promise<Uint8Array>;
+};
+const SessionContext = createContext<Session | null>(null);
+
+export function KassaSessionProvider({ children }: { children: React.ReactNode }) {
+  // Only the opaque refresh token and selected branch IDs are persisted, never passwords or access tokens.
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(null);
+  const [user, setUser] = useState<Account | null>(null);
+  const [scopes, setScopes] = useState<KassaScope[]>([]);
+  const [scope, setScope] = useState<KassaScope | null>(null);
+  const [restoring, setRestoring] = useState(true);
+  const [restoreError, setRestoreError] = useState('');
+  const generation = useRef(0);
+  const currentRefresh = useRef<string | null>(null);
+  const remembered = useRef<RememberedSession | null>(null);
+  const storageQueue = useRef<Promise<void>>(Promise.resolve());
+  const refreshInFlight = useRef<{ token: string; promise: Promise<string> } | null>(null);
+
+  // Serialize writes so a branch change cannot re-create a token after logout.
+  const persist = useCallback((saved: RememberedSession | null) => {
+    remembered.current = saved;
+    const operation = storageQueue.current.catch(() => undefined).then(() => writeRememberedSession(saved));
+    storageQueue.current = operation;
+    return operation;
   }, []);
 
-  const selectScope = useCallback((choice: KassaScope) => {
-    if (!scopes.some(item => item.businessId === choice.businessId && item.branchId === choice.branchId)) {
-      throw new Error('This branch is not available to your account.');
+  const clearMemory = useCallback(() => {
+    generation.current += 1;
+    currentRefresh.current = null;
+    refreshInFlight.current = null;
+    setAccessToken(null); setRefreshToken(null); setUser(null); setScopes([]); setScope(null);
+  }, []);
+
+  const restoreSession = useCallback(async (): Promise<KassaScope | null> => {
+    const attempt = ++generation.current;
+    setRestoring(true);
+    setRestoreError('');
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+      const saved = await loadRememberedSession();
+      if (generation.current !== attempt || !saved) return null;
+      remembered.current = saved;
+      const refreshed = await http<LoginResponse>('auth/refresh', undefined,
+        { refreshToken: saved.refreshToken }, 'POST', controller.signal);
+      const permitted = await getPermittedScopes(refreshed.accessToken, controller.signal);
+      if (generation.current !== attempt) return null;
+      if (!permitted.length) {
+        await persist(null);
+        setRestoreError('No active branch is assigned to this account. Contact your business owner.');
+        return null;
+      }
+      const selected = chooseScope(permitted, saved);
+      currentRefresh.current = saved.refreshToken;
+      setAccessToken(refreshed.accessToken);
+      setRefreshToken(saved.refreshToken);
+      setUser(refreshed.user); setScopes(permitted); setScope(selected);
+      return selected;
+    } catch (error) {
+      if (generation.current !== attempt) return null;
+      if (error instanceof HttpError && error.status === 401) {
+        try { await persist(null); } catch {
+          setRestoreError('Could not clear the expired saved session. Sign in again.');
+        }
+      } else {
+        // Temporary connectivity errors must not erase a valid remembered session.
+        setRestoreError('Could not restore your session. Connect to the internet and retry, or sign in again.');
+      }
+      return null;
+    } finally {
+      clearTimeout(timer);
+      if (generation.current === attempt) setRestoring(false);
     }
-    setScope(choice);
-  }, [scopes]);
+  }, [persist]);
+
+  useEffect(() => {
+    void Promise.resolve().then(restoreSession);
+    return () => { generation.current += 1; };
+  }, [restoreSession]);
+
+  const signIn = useCallback(async (email: string, password: string, rememberMe = true) => {
+    const attempt = ++generation.current;
+    // Keep refresh capability while this app process is open; the checkbox controls device persistence.
+    const login = await http<LoginResponse>('auth/login', undefined, {
+      email: email.trim().toLowerCase(), password, rememberMe: true,
+    });
+    const permitted = await getPermittedScopes(login.accessToken);
+    if (!permitted.length) throw new Error('No active branch with sales access is assigned to this account.');
+    if (generation.current !== attempt) throw new Error('Sign-in was interrupted. Try again.');
+    const selected = chooseScope(permitted, null);
+    const saved = rememberMe && supportsRememberedLogin && login.refreshToken
+      ? { refreshToken: login.refreshToken, businessId: selected?.businessId, branchId: selected?.branchId }
+      : null;
+    try { await persist(saved); }
+    catch {
+      // Never silently claim that a login was remembered when device storage failed.
+      throw new Error('Unable to update secure login storage. Please try again.');
+    }
+    if (generation.current !== attempt) throw new Error('Sign-in was interrupted. Try again.');
+    currentRefresh.current = login.refreshToken ?? null;
+    setAccessToken(login.accessToken);
+    setRefreshToken(login.refreshToken ?? null);
+    setUser(login.user); setScopes(permitted); setScope(selected);
+    setRestoreError(''); setRestoring(false);
+    return permitted;
+  }, [persist]);
+
+  const selectScope = useCallback((choice: KassaScope) => {
+    const allowed = scopes.find(item => item.businessId === choice.businessId && item.branchId === choice.branchId);
+    if (!allowed) throw new Error('This branch is not available to your account.');
+    setScope(allowed);
+    if (remembered.current) {
+      void persist({ ...remembered.current, businessId: allowed.businessId, branchId: allowed.branchId })
+        .catch(() => Alert.alert('Branch preference', 'This branch could not be remembered on your device.'));
+    }
+  }, [scopes, persist]);
 
   const signOut = useCallback(async () => {
-    const token = refreshToken;
-    setAccessToken(null); setRefreshToken(null); setUser(null); setScopes([]); setScope(null);
-    if (token) await http('auth/logout', undefined, { refreshToken: token }).catch(() => undefined);
-  }, [refreshToken]);
+    const token = currentRefresh.current ?? remembered.current?.refreshToken;
+    clearMemory();
+    setRestoreError('');
+    const cleared = persist(null).then(() => true, () => false);
+    const revoked = token
+      ? http('auth/logout', undefined, { refreshToken: token }).then(() => true, () => false)
+      : Promise.resolve(false);
+    const [localCleared, serverRevoked] = await Promise.all([cleared, revoked]);
+    if (!localCleared && !serverRevoked) {
+      Alert.alert('Sign-out warning', 'Secure storage could not be cleared and the session could not be revoked. Reconnect and sign out again before sharing this device.');
+    }
+  }, [clearMemory, persist]);
+
+  const refreshAccess = useCallback(async (token: string): Promise<string> => {
+    if (currentRefresh.current !== token) throw new Error('Your session changed. Sign in again.');
+    if (refreshInFlight.current?.token === token) return refreshInFlight.current.promise;
+    const attempt = generation.current;
+    const promise = (async () => {
+      try {
+        const refreshed = await http<LoginResponse>('auth/refresh', undefined, { refreshToken: token });
+        if (generation.current !== attempt || currentRefresh.current !== token)
+          throw new Error('Your session changed. Sign in again.');
+        setAccessToken(refreshed.accessToken);
+        return refreshed.accessToken;
+      } catch (error) {
+        if (generation.current === attempt && currentRefresh.current === token &&
+            error instanceof HttpError && error.status === 401) {
+          await signOut();
+          router.replace('/login');
+          throw new Error('Your session expired. Sign in again.');
+        }
+        throw error;
+      } finally {
+        if (refreshInFlight.current?.token === token) refreshInFlight.current = null;
+      }
+    })();
+    refreshInFlight.current = { token, promise };
+    return promise;
+  }, [signOut]);
 
   const request = useCallback(async <T,>(path: string, body?: unknown, method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'): Promise<T> => {
-    if (!accessToken) throw new Error('Sign in to make a sale.');
+    if (!accessToken || (refreshToken && currentRefresh.current !== refreshToken))
+      throw new Error('Sign in to make a sale.');
     try {
       return await http<T>(path, accessToken, body, method);
     } catch (error) {
-      if (!refreshToken || !(error instanceof Error) || !/unauthorized|expired|sign in|401/i.test(error.message)) {
-        throw error;
-      }
-      const refreshed = await http<LoginResponse>('auth/refresh', undefined, { refreshToken });
-      setAccessToken(refreshed.accessToken);
-      return http<T>(path, refreshed.accessToken, body, method);
+      if (!refreshToken || !(error instanceof HttpError) || error.status !== 401) throw error;
+      const renewed = await refreshAccess(refreshToken);
+      return http<T>(path, renewed, body, method);
     }
-  }, [accessToken, refreshToken]);
-
+  }, [accessToken, refreshToken, refreshAccess]);
 
   // Keep expense receipts on the same authenticated backend as merchant data.
   // The Expo fetch implementation handles the File as a multipart Blob.
   const authorizedFileFetch = useCallback(async (
     path: string, makeOptions: (token: string) => RequestInit,
   ) => {
-    if (!accessToken) throw new Error('Sign in before accessing receipts.');
+    if (!accessToken || (refreshToken && currentRefresh.current !== refreshToken)) throw new Error('Sign in before accessing receipts.');
     const send = (token: string) => expoFetch(urlFor(path), makeOptions(token));
     let response = await send(accessToken);
     if (response.status === 401 && refreshToken) {
-      const refreshed = await http<LoginResponse>('auth/refresh', undefined, { refreshToken });
-      setAccessToken(refreshed.accessToken);
-      response = await send(refreshed.accessToken);
+      const renewed = await refreshAccess(refreshToken);
+      response = await send(renewed);
     }
     if (!response.ok) {
       const detail = await response.json().catch(() => null) as { message?: string | string[] } | null;
@@ -229,7 +388,7 @@ export function KassaSessionProvider({ children }: { children: React.ReactNode }
         : detail?.message || 'Receipt request failed (' + response.status + ').');
     }
     return response;
-  }, [accessToken, refreshToken]);
+  }, [accessToken, refreshToken, refreshAccess]);
 
   const uploadReceipt = useCallback(async (path: string, file: File): Promise<void> => {
     const body = new FormData();
@@ -248,7 +407,7 @@ export function KassaSessionProvider({ children }: { children: React.ReactNode }
   }, [authorizedFileFetch]);
 
   return (
-    <SessionContext.Provider value={{ user, scope, scopes, signIn, selectScope, signOut, request, uploadReceipt, downloadReceipt }}>
+    <SessionContext.Provider value={{ user, scope, scopes, restoring, restoreError, restoreSession, signIn, selectScope, signOut, request, uploadReceipt, downloadReceipt }}>
       {children}
     </SessionContext.Provider>
   );

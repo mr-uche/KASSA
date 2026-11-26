@@ -1,5 +1,5 @@
-import React from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { usePathname, useRouter, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C } from './theme';
@@ -29,9 +29,15 @@ export function KScreen({ title, subtitle, children, nav = true, back = false, s
   // Auth screens remain unchanged; business pages share one consistent header.
   const headerVisible = nav && !!scope && pathname.startsWith('/cashier') && pathname !== '/cashier/sign-up';
   const standaloneBrand = showBrand && !headerVisible;
-  return <KassaBackground><View style={s.screen}>
+  const [keyboardVisible, setKeyboardVisible] = useState(() => Keyboard.isVisible());
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  return <KassaBackground><KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'web' ? undefined : 'padding'}>
     {headerVisible && <KassaBusinessHeader logo={<KassaLogo compact />}/>}
-    <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
+    <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingTop: headerVisible ? 12 : Math.max(insets.top, 12) + 14, paddingBottom: 36, paddingHorizontal: 24, flexGrow: 1 }}>
       {back ? <Pressable onPress={() => router.back()} style={{ marginBottom: 20, alignSelf: 'flex-start' }}><Text style={{ color: C.green, fontWeight: '700' }}>‹  Back</Text></Pressable> : null}
       {standaloneBrand ? <KassaLogo compact={!loginSizedBrand} loginSize={loginSizedBrand}/> : null}
@@ -40,8 +46,8 @@ export function KScreen({ title, subtitle, children, nav = true, back = false, s
       <View style={{ marginTop: title ? 22 : standaloneBrand ? 28 : 0 }}>{children}</View>
       {showPreviewLabel ? <Text style={s.demoLabel}>KASSA SCREEN PREVIEW  ·  SAMPLE DATA ONLY</Text> : null}
     </ScrollView>
-    {headerVisible && <KassaBottomNavigation/>}
-  </View></KassaBackground>;
+    {headerVisible && !keyboardVisible && <KassaBottomNavigation/>}
+  </KeyboardAvoidingView></KassaBackground>;
 }
 
 export function KCard({ children, style }: { children: React.ReactNode; style?: object }) {

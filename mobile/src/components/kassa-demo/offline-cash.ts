@@ -13,11 +13,11 @@ export type OfflineLine = {
 export type OfflinePaymentChannel = 'CASH' | 'POS' | 'CARD' | 'BANK_TRANSFER';
 export type OfflineCashRecord = {
   id: string; recordedAt: string; status: 'QUEUED' | 'REVIEW' | 'SYNCED';
-  total: string; cashReceived: string; channel: OfflinePaymentChannel;
+  total: string; subtotal: string; discount: string; cashReceived: string; channel: OfflinePaymentChannel;
   customerName: string | null; items: OfflineLine[];
   error: string | null;
 };
-type DbSale = { id: string; recordedAt: string; state: string; total: string;
+type DbSale = { id: string; recordedAt: string; state: string; total: string; discount: string;
   cashReceived: string; channel: string | null; customerName: string | null;
   itemsJson: string; lastError: string | null };
 type DbCatalog = {
@@ -64,6 +64,9 @@ async function database() {
       }
       if (!columns.some(column => column.name === 'customerName')) {
         await db.execAsync('ALTER TABLE offline_cash_sales ADD COLUMN customerName TEXT');
+      }
+      if (!columns.some(column => column.name === 'discount')) {
+        await db.execAsync("ALTER TABLE offline_cash_sales ADD COLUMN discount TEXT NOT NULL DEFAULT '0.00'");
       }
       return db;
     })().catch(error => {
@@ -131,7 +134,7 @@ export async function loadOfflineCatalogue(scope: OfflineScope) {
 function fromDb(row: DbSale): OfflineCashRecord {
   return {
     id: row.id, recordedAt: row.recordedAt, status: row.state as OfflineCashRecord['status'],
-    total: row.total, cashReceived: row.cashReceived,
+    total: row.total, discount: row.discount, subtotal: formatMoney((Math.round(Number(row.total) * 100) + Math.round(Number(row.discount) * 100)) / 100), cashReceived: row.cashReceived,
     channel: (['CASH', 'POS', 'CARD', 'BANK_TRANSFER'].includes(row.channel ?? '')
       ? row.channel : 'CASH') as OfflinePaymentChannel,
     customerName: row.customerName ?? null,
@@ -142,7 +145,7 @@ function fromDb(row: DbSale): OfflineCashRecord {
 export async function getOfflineSales(scope: OfflineScope): Promise<OfflineCashRecord[]> {
   const db = await database();
   const records = await db.getAllAsync<DbSale>(
-    'SELECT id,recordedAt,state,total,cashReceived,channel,customerName,itemsJson,lastError FROM offline_cash_sales WHERE userId=? AND businessId=? AND branchId=? ORDER BY recordedAt DESC LIMIT 150',
+    'SELECT id,recordedAt,state,total,discount,cashReceived,channel,customerName,itemsJson,lastError FROM offline_cash_sales WHERE userId=? AND businessId=? AND branchId=? ORDER BY recordedAt DESC LIMIT 150',
     ...params(scope),
   );
   return records.map(fromDb);
@@ -166,7 +169,7 @@ export async function getOfflineSaleQueueStatus(scope: OfflineScope): Promise<Of
 
 export async function recordOfflineSale(scope: OfflineScope,
   selected: { productId: string; quantity: number }[], channel: OfflinePaymentChannel,
-  cashReceived: number, customerName = '',
+  cashReceived: number, customerName = '', discountAmount = 0, expectedTotal?: number,
 ): Promise<OfflineCashRecord> {
   if (!['CASH', 'POS', 'CARD', 'BANK_TRANSFER'].includes(channel) ||
       !selected.length || selected.length > 50 ||
@@ -214,18 +217,24 @@ export async function recordOfflineSale(scope: OfflineScope,
       totalKobo += priceKobo * item.quantity;
       return { productId: item.productId, name: product.name, quantity: item.quantity, unitPrice: product.price };
     });
-    if (!Number.isSafeInteger(totalKobo) || totalKobo <= 0 ||
-      (channel === 'CASH' && Math.round(cashReceived * 100) < totalKobo))
+    const discountKobo = Math.round(discountAmount * 100);
+    if (!Number.isSafeInteger(totalKobo) || !Number.isSafeInteger(discountKobo) || discountKobo < 0 || discountKobo >= totalKobo || totalKobo > 99_999_999_999_999)
+      throw new Error('Invalid offline sale discount or subtotal.');
+    const payableKobo = totalKobo - discountKobo;
+    if (expectedTotal !== undefined && Math.round(expectedTotal * 100) !== payableKobo)
+      throw new Error('Saved prices or discount changed. Review the amount collected before saving.');
+    if (channel === 'CASH' && Math.round(cashReceived * 100) < payableKobo)
       throw new Error('Cash received must cover the sale total.');
     const row: OfflineCashRecord = {
-      id, recordedAt, status: 'QUEUED', total: formatMoney(totalKobo / 100),
-      cashReceived: formatMoney(channel === 'CASH' ? cashReceived : totalKobo / 100),
+      id, recordedAt, status: 'QUEUED', total: formatMoney(payableKobo / 100),
+      subtotal: formatMoney(totalKobo / 100), discount: formatMoney(discountKobo / 100),
+      cashReceived: formatMoney(channel === 'CASH' ? cashReceived : payableKobo / 100),
       channel, customerName: customerName.trim() || null, items: lines, error: null,
     };
     await tx.runAsync(`INSERT INTO offline_cash_sales
-      (id,userId,businessId,branchId,recordedAt,state,total,cashReceived,channel,customerName,itemsJson)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-      row.id, ...params(scope), row.recordedAt, row.status, row.total, row.cashReceived,
+      (id,userId,businessId,branchId,recordedAt,state,total,discount,cashReceived,channel,customerName,itemsJson)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+      row.id, ...params(scope), row.recordedAt, row.status, row.total, row.discount, row.cashReceived,
       row.channel, row.customerName, JSON.stringify(lines));
     result.saved = row;
   });
@@ -251,7 +260,7 @@ export async function syncOfflineCash(scope: OfflineScope,
   try {
     const db = await database();
     const rows = await db.getAllAsync<DbSale>(
-      `SELECT id,recordedAt,state,total,cashReceived,channel,customerName,itemsJson,lastError
+      `SELECT id,recordedAt,state,total,discount,cashReceived,channel,customerName,itemsJson,lastError
        FROM offline_cash_sales WHERE userId=? AND businessId=? AND branchId=?
          AND (state='QUEUED' ${retryReview ? "OR state='REVIEW'" : ""})
        ORDER BY recordedAt ASC LIMIT 100`,
@@ -267,14 +276,16 @@ export async function syncOfflineCash(scope: OfflineScope,
           recordedAt: row.recordedAt, channel: row.channel || 'CASH',
           ...(row.channel === 'CASH' || !row.channel ? { cashReceived: true } : { confirmedReceived: true }),
           ...(row.customerName?.trim() ? { customerName: row.customerName.trim() } : {}),
+          ...(Number(row.discount) > 0 ? { discountAmount: row.discount } : {}),
           items: lines.map(line => ({
             productId: line.productId, quantity: line.quantity, unitPrice: line.unitPrice,
           })),
         });
-        if (sale.status !== 'PAID' || !sale.payments.some(payment =>
+        if (sale.status !== 'PAID' || Math.round(Number(sale.total) * 100) !== Math.round(Number(row.total) * 100) ||
+          Math.round(Number(sale.discount ?? 0) * 100) !== Math.round(Number(row.discount) * 100) || !sale.payments.some(payment =>
           payment.channel === (row.channel || 'CASH') && payment.status === 'SUCCEEDED' &&
           payment.provider === ((row.channel || 'CASH') === 'CASH' ? 'OFFLINE_CASH' : 'OFFLINE_MERCHANT_ATTESTED'))) {
-          throw new Error('Server did not accept this offline sale.');
+          throw new Error('Offline sale totals or payment conflict: owner review required.');
         }
         await db.runAsync(
           "UPDATE offline_cash_sales SET state='SYNCED',lastError=NULL,syncedAt=? WHERE id=?",

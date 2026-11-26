@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { saleDiscountKobo } from './sale-discount';
 import { PrismaService } from '../prisma/prisma.service';
 import { requireBusinessPermission } from '../business-access';
 import { ConfirmCashDto, ConfirmMerchantPaymentDto, CreateSaleDto, OfflineCashSaleDto, SalesListQueryDto, ScanLookupQueryDto } from './dto/sales.dto';
@@ -178,7 +179,8 @@ export class SalesService {
     const reference = 'KSA-' + dto.clientRequestId.replace(/-/g, '');
     const existing = await this.prisma.sale.findUnique({ where: { reference }, include: this.include });
     if (existing) {
-      if (existing.businessId !== dto.businessId || existing.branchId !== dto.branchId ||
+      if (existing.businessId !== dto.businessId || existing.branchId !== dto.branchId || existing.cashierId !== userId ||
+          toKobo(existing.discount.toString()) !== saleDiscountKobo(toKobo(existing.subtotal.toString()), dto.discountAmount) ||
           existing.payments[0]?.channel !== dto.channel || existing.items.length !== dto.items.length ||
           existing.customerId !== (dto.customerId ?? null) ||
           (existing.customerNameSnapshot ?? null) !== (dto.customerName?.trim() || null) ||
@@ -218,14 +220,15 @@ export class SalesService {
     const totalKobo = lines.reduce((sum, item) => sum + item.totalKobo, 0n);
     if (totalKobo <= 0n || totalKobo > 99_999_999_999_999n)
       throw new BadRequestException('Sale total outside supported range');
-    const total = money(totalKobo);
+    const discountKobo = saleDiscountKobo(totalKobo, dto.discountAmount);
+    const total = money(totalKobo - discountKobo);
     try {
       const sale = await this.prisma.sale.create({
         data: {
           reference, businessId: dto.businessId, branchId: dto.branchId,
           cashierId: userId, customerId: dto.customerId ?? null,
           customerNameSnapshot: dto.customerName?.trim() || null,
-          status: 'PENDING_PAYMENT', subtotal: total, discount: '0.00', total,
+          status: 'PENDING_PAYMENT', subtotal: money(totalKobo), discount: money(discountKobo), total,
           items: { create: lines.map((line) => ({
             productId: line.productId, productNameSnapshot: line.productNameSnapshot,
             quantity: line.quantity, unitPrice: line.unitPrice, lineTotal: line.lineTotal,
@@ -527,10 +530,11 @@ export class SalesService {
         saved.payments.length !== 1 || saved.payments[0].channel !== channel ||
         saved.payments[0].status !== 'SUCCEEDED' || saved.payments[0].provider !== provider ||
         (saved.customerNameSnapshot ?? null) !== customerName ||
+         toKobo(saved.discount.toString()) !== saleDiscountKobo(toKobo(saved.subtotal.toString()), dto.discountAmount) ||
         saved.items.length !== dto.items.length ||
         dto.items.some((line) => !saved.items.some((item) =>
           item.productId === line.productId && item.quantity === line.quantity &&
-          item.unitPrice.toString() === line.unitPrice))) {
+          money(toKobo(item.unitPrice.toString())) === line.unitPrice))) {
         throw new ConflictException({
           code: 'OFFLINE_DUPLICATE_ID_CONFLICT',
           message: 'This offline transaction ID is already associated with different sale details',
@@ -585,6 +589,7 @@ export class SalesService {
           if (sumKobo <= 0n || sumKobo > 99_999_999_999_999n)
             throw new BadRequestException('Offline sale total outside supported range');
 
+          const discountKobo = saleDiscountKobo(sumKobo, dto.discountAmount);
           for (const line of [...lines].sort((a, b) => a.productId.localeCompare(b.productId))) {
             const stock = await tx.stockBalance.updateMany({
               where: {
@@ -603,13 +608,13 @@ export class SalesService {
             }
           }
 
-          const total = money(sumKobo);
+          const total = money(sumKobo - discountKobo);
           const sale = await tx.sale.create({
             data: {
               reference, businessId: dto.businessId, branchId: dto.branchId,
               cashierId: userId, customerNameSnapshot: customerName, status: 'PAID',
               createdAt: recordedAt, // Preserve the actual sale time on synced receipts.
-              subtotal: total, discount: '0.00', total,
+              subtotal: money(sumKobo), discount: money(discountKobo), total,
               items: { create: lines.map((item) => ({
                 productId: item.productId, productNameSnapshot: item.productNameSnapshot,
                 quantity: item.quantity, unitPrice: item.unitPrice, lineTotal: money(item.lineLineKobo),
