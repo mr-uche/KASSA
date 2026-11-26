@@ -44,7 +44,7 @@ export default function OfflineSalesPage() {
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState("");
   const [receiptId, setReceiptId] = useState("");
-  const [shellReady, setShellReady] = useState(false);
+  const [, setShellReady] = useState(false);
   const [interruptedPayment, setInterruptedPayment] = useState(false);
   const [backupPassphrase, setBackupPassphrase] = useState("");
   const [backupFile, setBackupFile] = useState<File | null>(null);
@@ -143,7 +143,7 @@ export default function OfflineSalesPage() {
     function onShellMessage(event: MessageEvent) {
       if (event.data?.type !== "KASSA_OFFLINE_SHELL") return;
       setShellReady(event.data.prepared === true);
-      if (!event.data.prepared) setMessage("Some offline page resources could not be saved. Reopen this page while connected before testing.");
+      if (!event.data.prepared) setMessage("Offline setup incomplete. Reopen this page online.");
     }
     const onDeviceUpdate = () => void refreshDevice();
     const onIdentityChanged = () => void refreshDevice();

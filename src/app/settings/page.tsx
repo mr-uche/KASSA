@@ -471,7 +471,7 @@ export default function SettingsPage() {
                 <section className={cardClass}>
                   <h3 className="text-base font-semibold text-gray-900">Payment setup</h3>
                   <p className="mt-2 text-sm leading-6 text-gray-600">
-                    Customers pay your business directly using cash, bank transfer or the business's own POS/card terminal. KASSA does not process, hold or settle customer payments. Staff record confirmation after checking your actual bank credit or successful terminal transaction.
+                    Customers pay your business directly. Verify receipt before confirming.
                   </p>
                   <Link href="/sales/new" className="mt-3 inline-block text-sm font-semibold text-emerald-800 hover:underline">Go to New Sale</Link>
                 </section>
@@ -694,7 +694,7 @@ export default function SettingsPage() {
             {section === "Notifications" && (
               <section className={cardClass}>
                 <h2 className="text-lg font-semibold text-gray-900">Notification preferences</h2>
-                <p className="mt-2 text-sm text-gray-500">These switches are stored on this browser only. Email, push and SMS delivery are not connected yet.</p>
+                <p className="mt-2 text-sm text-gray-500">Preferences saved in this browser. Message delivery unavailable.</p>
                 <div className="mt-5 divide-y divide-gray-100">
                   {notificationRows.map((item) => (
                     <div key={item.key} className="flex items-center justify-between gap-4 py-4">
@@ -761,7 +761,7 @@ export default function SettingsPage() {
                 <p className="mt-3 text-xs text-gray-500">
                   Date filtering applies to transactions and newly created customers.
                   Products, current stock, staff and branches represent the present business snapshot.
-                  Financial test-mode transactions are labelled separately.
+                  Non-live payments are labelled separately.
                 </p>
                 <button type="button" onClick={() => void runExport()}
                   disabled={loading || !context || exporting}

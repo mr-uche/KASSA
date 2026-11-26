@@ -222,7 +222,7 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
   const failed = filteredTransactions.filter((row) => row.status === "Failed").length;
 
   function exportTransactions() {
-    const rows = [["Reference", "Customer", "Cashier", "Channel", "Items", "Amount (NGN)", "Status", "Created At", "Test transaction"],
+    const rows = [["Reference", "Customer", "Cashier", "Channel", "Items", "Amount (NGN)", "Status", "Created At", "Non-live transaction"],
       ...filteredTransactions.map((row) => [row.reference, row.customer, row.cashier, row.channel,
         row.items, String(row.total), row.status, row.createdAt, row.testMode ? "YES" : "NO"])];
     const safe = (value: string) => {
