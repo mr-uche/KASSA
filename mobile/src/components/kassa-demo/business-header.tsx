@@ -19,6 +19,11 @@ function initials(name: string) {
 }
 
 export function KassaBusinessHeader({ logo }: { logo: React.ReactNode }) {
+  const { user, scope } = useKassaSession();
+  return <BusinessHeaderContent key={JSON.stringify([user?.id, scope?.businessId, scope?.branchId])} logo={logo}/>;
+}
+
+function BusinessHeaderContent({ logo }: { logo: React.ReactNode }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, scope } = useKassaSession();
@@ -32,7 +37,7 @@ export function KassaBusinessHeader({ logo }: { logo: React.ReactNode }) {
   const name = user?.fullName?.trim() || 'Staff member';
 
   const refresh = useCallback(async (isCurrent: () => boolean = () => true) => {
-    if (!user || !scope) { if (isCurrent()) { setAlerts(0); setRecent([]); } return; }
+    if (!user || !scope) return;
     try {
       const key = { userId: user.id, businessId: scope.businessId, branchId: scope.branchId };
       const [queue, rows] = await Promise.all([getOfflineSaleQueueStatus(key), getOfflineSales(key)]);
@@ -47,7 +52,7 @@ export function KassaBusinessHeader({ logo }: { logo: React.ReactNode }) {
         setNotificationError('Local sale sync notifications are unavailable on this device.');
       }
     }
-  }, [user?.id, scope?.businessId, scope?.branchId]);
+  }, [user, scope]);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -55,7 +60,11 @@ export function KassaBusinessHeader({ logo }: { logo: React.ReactNode }) {
     return () => { active = false; };
   }, [refresh]));
   // Recheck the real local queue after an offline cash sale or sync event.
-  useEffect(() => { void refresh(); }, [refresh, offlineQueue?.waiting, syncingOfflineSales]);
+  useEffect(() => {
+    let active = true;
+    void refresh(() => active);
+    return () => { active = false; };
+  }, [refresh, offlineQueue?.waiting, syncingOfflineSales]);
 
   const navigate = (route: Href) => {
     setBellOpen(false);
