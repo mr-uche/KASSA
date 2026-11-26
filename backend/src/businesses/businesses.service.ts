@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { requireBusinessPermission } from '../business-access';
+import { DEFAULT_STAFF_ROLES } from '../staff-branches/default-staff-roles';
 import { featureGatesEnabled, SUBSCRIPTION_ENTITLEMENTS } from '../subscription/subscription-access';
 import { OnboardingDto } from './dto/onboarding.dto';
 import { UpdateBusinessSettingsDto } from './dto/update-business-settings.dto';
@@ -223,6 +224,10 @@ export class BusinessesService {
           permissions: ['*'],
           isSystem: true,
         },
+      });
+
+      await tx.businessRole.createMany({
+        data: DEFAULT_STAFF_ROLES.map(role => ({ ...role, businessId: business.id, isSystem: false })),
       });
 
       await tx.businessMembership.create({

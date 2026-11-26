@@ -95,7 +95,13 @@ export default function StaffAndBranches() {
   }, [reload]));
 
   const activeBranches = data.branches.filter(item => item.status === 'Active');
-  const availableRoles = data.roles.filter(item => item.name !== 'Owner');
+  // Match the backend's role-assignment checks; managers cannot grant permissions they do not hold.
+  const heldPermissions = scope?.myPermissions ?? [];
+  const availableRoles = data.roles.filter(item => item.name.toLowerCase() !== 'owner' &&
+    (isOwner || (Array.isArray(item.permissions) && item.permissions.every(permission =>
+      heldPermissions.includes(permission) ||
+      (heldPermissions.includes('Manage sales & transactions') &&
+        (permission === 'Manage sales' || permission === 'View transactions'))))));
   const staffCategories = ['All categories', ...new Set(data.staff.map(item => item.role).filter(Boolean))];
   const accessLevels = ['All access levels', ...new Set(data.roles.map(item => item.access).filter(Boolean))];
   const visible = useMemo(() => {
@@ -136,13 +142,13 @@ export default function StaffAndBranches() {
     { label: 'Custom roles', value: String(data.roles.filter(role => !role.isSystem).length) },
     { label: 'Access levels', value: String(new Set(data.roles.map(role => role.access)).size) },
   ];
-  const selectedRole = data.roles.find(item => item.id === inviteRole);
-  const selectedBranch = data.branches.find(item => item.id === inviteBranch);
+  const selectedRole = availableRoles.find(item => item.id === inviteRole);
+  const selectedBranch = activeBranches.find(item => item.id === inviteBranch);
 
   async function invite() {
     if (!scope || busy) return;
     if (!fullName.trim() || fullName.trim().length > 120 ||
-      !/^\S+@\S+\.\S+$/.test(email.trim()) || !inviteRole || !inviteBranch) {
+      !/^\S+@\S+\.\S+$/.test(email.trim()) || !selectedRole || !selectedBranch) {
       setError('Enter a valid name, email, role and active branch.');
       return;
     }
@@ -343,7 +349,11 @@ export default function StaffAndBranches() {
             onChange={name => setInviteBranch(activeBranches.find(branch => branch.name === name)?.id ?? '')}/>
         </View>
       </View>
-      <SmallAction label={busy ? 'Creating…' : 'Create invite'} disabled={busy}
+      {!loading && !availableRoles.length && <InlineNotice warning text={isOwner
+        ? 'No assignable roles. Create a role under Roles & Permissions and try again.'
+        : 'No roles are available within your permissions. Contact the business owner.'}/>}
+      {!loading && !activeBranches.length && <InlineNotice warning text="No active branches are available. Add or activate a branch first."/>}
+      <SmallAction label={busy ? 'Creating…' : 'Create invite'} disabled={busy || loading || !selectedRole || !selectedBranch}
         onPress={() => { void invite(); }}/>
       {!!inviteResult && <View style={s.invitation}>
         <InlineNotice text="Invitation created. No email is sent automatically; share this link or token securely."/>
