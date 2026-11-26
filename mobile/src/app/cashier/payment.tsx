@@ -46,8 +46,8 @@ export default function Payment() {
   const accountsKey = !offline && businessId && branchId && userId && method.channel === 'BANK_TRANSFER'
     ? JSON.stringify([userId, businessId, branchId]) : null;
   const receivingAccounts = accountsKey && accountsResult?.key === accountsKey ? accountsResult.accounts : [];
-  const selectedBankId = receivingAccounts.some(account => account.id === bankChoice?.id && bankChoice.key === accountsKey)
-    ? bankChoice!.id : (receivingAccounts.find(account => account.isDefault) ?? receivingAccounts[0])?.id ?? '';
+  const selectedBankId = bankChoice && bankChoice.key === accountsKey && receivingAccounts.some(account => account.id === bankChoice.id)
+    ? bankChoice.id : (receivingAccounts.find(account => account.isDefault) ?? receivingAccounts[0])?.id ?? '';
   const setSelectedBankId = (id: string) => { if (accountsKey) setBankChoice({ key: accountsKey, id }); };
   useEffect(() => {
     if (!accountsKey || !businessId || !branchId) return;
@@ -240,7 +240,7 @@ export default function Payment() {
         setError('Reconnect to resolve the pending payment.');
         return;
       }
-      if (!cacheFresh || !session.user || !session.scope || !store.count ||
+      if (!store.catalogSavedAt || Date.now() - store.catalogSavedAt > 48 * 60 * 60 * 1000 || !session.user || !session.scope || !store.count ||
           orderItems.length !== store.lines.length) {
         setError('Refresh stock online every 48 hours.');
         return;
