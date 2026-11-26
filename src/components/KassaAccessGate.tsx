@@ -15,14 +15,18 @@ const permissionLabel: Record<string, string> = {
   Owner: "Business owner",
 };
 
-export default function KassaAccessGate({
-  children, permission, title,
-}: {
+type GateProps = {
   children: ReactNode;
   permission: KassaPermission | "Owner";
   title: string;
-}) {
+};
+
+export default function KassaAccessGate(props: GateProps) {
   const pathname = usePathname();
+  return <ScopedAccessGate key={JSON.stringify([pathname, props.permission])} {...props}/>;
+}
+
+function ScopedAccessGate({ children, permission, title }: GateProps) {
   const [status, setStatus] = useState<State>("checking");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -57,7 +61,6 @@ export default function KassaAccessGate({
       }
     }
 
-    setStatus("checking");
     void checkAccess();
     const onFocus = () => void checkAccess();
     const onChange = () => { setStatus("checking"); void checkAccess(); };
@@ -70,7 +73,7 @@ export default function KassaAccessGate({
       window.removeEventListener("branchChanged", onChange);
       window.removeEventListener("storage", onChange);
     };
-  }, [pathname, permission]);
+  }, [permission]);
 
   if (status === "granted") return <>{children}</>;
   return (

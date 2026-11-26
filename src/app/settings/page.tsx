@@ -203,15 +203,16 @@ export default function SettingsPage() {
     } finally { setSaving(false); }
   }
 
+  const billingBusinessId = context?.businessId;
   const refreshReceivingAccounts = useCallback(async () => {
-    if (!context) return;
+    if (!billingBusinessId) return;
     setAccountsLoading(true);
     try {
-      setMerchantAccounts(await getMerchantBankAccounts(context.businessId));
+      setMerchantAccounts(await getMerchantBankAccounts(billingBusinessId));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load receiving accounts.");
     } finally { setAccountsLoading(false); }
-  }, [context?.businessId]);
+  }, [billingBusinessId]);
 
   useEffect(() => {
     if (section === "Merchant Payment Details") void refreshReceivingAccounts();
@@ -272,16 +273,16 @@ export default function SettingsPage() {
   }
 
   const refreshBilling = useCallback(async () => {
-    if (!context?.businessId || !isOwner) return;
+    if (!billingBusinessId || !isOwner) return;
     setBillingLoading(true);
     setBillingError("");
     try {
-      setBilling(await loadBilling(context.businessId));
+      setBilling(await loadBilling(billingBusinessId));
     } catch (cause) {
       setBilling(null);
       setBillingError(cause instanceof Error ? cause.message : "Cannot load KASSA billing.");
     } finally { setBillingLoading(false); }
-  }, [context?.businessId, isOwner]);
+  }, [billingBusinessId, isOwner]);
 
   useEffect(() => {
     if (section === "Subscription & Billing") void refreshBilling();
