@@ -1,6 +1,7 @@
 "use client";
 
 import KassaHeaderActions from "@/components/KassaHeaderActions";
+import { useSelectedBranchName } from "@/lib/browser-state";
  
 import { useRouter } from "next/navigation";
 import { useState,useEffect } from "react";
@@ -63,33 +64,7 @@ export default function AddBranchPage() {
   };
 
 // Branch selected from the dashboard
-      const [selectedBranch, setSelectedBranch] = useState("Main branch");
-    
-      // Get the selected branch from the dashboard
-      useEffect(() => {
-        const savedBranch = localStorage.getItem("selectedBranch");
-    
-        if (savedBranch) {
-          setSelectedBranch(savedBranch);
-        }
-      }, []);
-    
-      // Listen for branch changes
-      useEffect(() => {
-        const handleBranchChange = () => {
-          const savedBranch = localStorage.getItem("selectedBranch");
-    
-          if (savedBranch) {
-            setSelectedBranch(savedBranch);
-          }
-        };
-    
-        window.addEventListener("storage", handleBranchChange);
-    
-        return () => {
-          window.removeEventListener("storage", handleBranchChange);
-        };
-      }, []);
+      const selectedBranch = useSelectedBranchName();
     
   return (
     <div className="min-h-screen bg-gray-50">

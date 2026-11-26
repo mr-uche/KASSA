@@ -1,11 +1,12 @@
 "use client";
 
 import KassaHeaderActions from "@/components/KassaHeaderActions";
+import { useSelectedBranchName } from "@/lib/browser-state";
 
 import { useState,useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {Menu, Bell,Loader2} from "lucide-react"
+import {Menu, Loader2} from "lucide-react"
 import KassaSidebar from "@/components/KassaSidebar";
 import { createRole, staffContext } from "@/lib/staff-branches-client";
 
@@ -47,33 +48,7 @@ export default function AddRolePage() {
   });
 
   // Branch selected from the dashboard
-        const [selectedBranch, setSelectedBranch] = useState("Main branch");
-      
-        // Get the selected branch from the dashboard
-        useEffect(() => {
-          const savedBranch = localStorage.getItem("selectedBranch");
-      
-          if (savedBranch) {
-            setSelectedBranch(savedBranch);
-          }
-        }, []);
-      
-        // Listen for branch changes
-        useEffect(() => {
-          const handleBranchChange = () => {
-            const savedBranch = localStorage.getItem("selectedBranch");
-      
-            if (savedBranch) {
-              setSelectedBranch(savedBranch);
-            }
-          };
-      
-          window.addEventListener("storage", handleBranchChange);
-      
-          return () => {
-            window.removeEventListener("storage", handleBranchChange);
-          };
-        }, []);
+        const selectedBranch = useSelectedBranchName();
 
 const handleSave = async () => {
     if (saving || !businessId) return;
