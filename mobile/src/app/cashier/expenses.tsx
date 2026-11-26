@@ -73,7 +73,7 @@ export default function Expenses() {
     } catch (cause) {
       if (isActive()) { setData(null); setError(expenseError(cause, 'Unable to load expenses.')); }
     } finally { if (isActive()) setLoading(false); }
-  }, [scope?.businessId, scope?.myRole, session.request, period]);
+  }, [scope, session, period]);
 
   useFocusEffect(useCallback(() => {
     let active = true;

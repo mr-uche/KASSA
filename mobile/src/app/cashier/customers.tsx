@@ -84,7 +84,7 @@ export default function Customers() {
     } finally {
       if (stillMounted()) setLoading(false);
     }
-  }, [scope?.businessId, scope?.branchId, session.request]);
+  }, [scope, session]);
 
   useFocusEffect(useCallback(() => {
     let active = true;

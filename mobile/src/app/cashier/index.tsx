@@ -79,7 +79,7 @@ export default function CashierHome() {
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [scope?.businessId, scope?.branchId, session.request]);
+  }, [scope, session]);
 
   const refreshProfit = useCallback(async (isCurrent: () => boolean = () => true) => {
     if (!scope || !financialAllowed) {
@@ -96,7 +96,7 @@ export default function CashierHome() {
     } catch (cause) {
       if (isCurrent()) setProfitError(cause instanceof Error ? cause.message : 'Profit estimate unavailable.');
     }
-  }, [scope?.businessId, scope?.branchId, financialAllowed, session.request]);
+  }, [scope, financialAllowed, session]);
 
   // Refetch after each completed payment and whenever the cashier returns home.
   useFocusEffect(useCallback(() => {
@@ -124,10 +124,10 @@ export default function CashierHome() {
   return (
     <KScreen showBrand={false} showPreviewLabel={false}>
       <Text style={s.greeting}>{greeting}, {firstName}</Text>
-      <Text style={s.intro}>Ready to make today's sales quick and easy.</Text>
+      <Text style={s.intro}>Ready to make today&apos;s sales quick and easy.</Text>
 
       <View style={s.sectionHeading}>
-        <Text style={s.sectionTitle}>Today's Activity</Text>
+        <Text style={s.sectionTitle}>Today&apos;s Activity</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Refresh dashboard"
           onPress={() => { void refresh(); }}>
           <Text style={s.sampleTag}>{loading ? 'Loading…' : 'Refresh'}</Text>

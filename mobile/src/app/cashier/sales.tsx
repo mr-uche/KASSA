@@ -117,7 +117,7 @@ export default function Sales() {
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [scope?.businessId, scope?.branchId, user?.id, session.request, disconnected]);
+  }, [scope, user, session, disconnected]);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -172,7 +172,7 @@ export default function Sales() {
 
     <View style={s.summaryCard}>
       <View style={s.summaryColumn}>
-        <Text style={s.summaryLabel}>Today's sales</Text>
+        <Text style={s.summaryLabel}>Today&apos;s sales</Text>
         <Text style={s.summaryValue} adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1}>
           {summary ? naira(Number(summary.today.amountReceived)) : loading ? '…' : '—'}
         </Text>
