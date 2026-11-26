@@ -5,6 +5,7 @@ import { SymbolView } from 'expo-symbols';
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
+import { useCurrentTime } from '@/hooks/use-current-time';
 
 
 function ProductIcon({ category }: { category: string }) {
@@ -24,6 +25,7 @@ function ProductIcon({ category }: { category: string }) {
 export default function NewSale() {
   const router = useRouter();
   const store = useKassaDemo();
+  const now = useCurrentTime();
   const { width, fontScale } = useWindowDimensions();
   const compact = width < 420 || fontScale > 1.1;
   const singleColumn = width < 335 || fontScale > 1.25;
@@ -54,7 +56,7 @@ export default function NewSale() {
         </Pressable>
       </View>
       {store.offlineMode && (!store.catalogSavedAt ||
-        Date.now() - store.catalogSavedAt > 48 * 60 * 60 * 1000) &&
+        now - store.catalogSavedAt > 48 * 60 * 60 * 1000) &&
         <Text style={s.offlineError}>Saved stock is missing or older than 48 hours. Refresh online before accepting cash.</Text>}
       <View style={s.searchRow}>
         <SymbolView

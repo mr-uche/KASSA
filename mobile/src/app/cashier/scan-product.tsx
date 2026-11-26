@@ -130,9 +130,7 @@ export default function ScanProduct() {
       setProcessing(false);
       inFlight.current = false;
     }
-  }, [scope?.businessId, scope?.branchId, session.user?.id, session.request,
-    store.pendingSale, store.catalog, store.lines, store.refreshCatalog,
-    store.offlineMode, store.catalogSavedAt, playScanBeep]);
+  }, [scope, session, store, playScanBeep]);
 
   const cartLines = store.lines.flatMap(line => {
     const product = store.catalog.find(item => item.id === line.id);

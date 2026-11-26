@@ -4,6 +4,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useKassaSession, type CatalogItem } from '@/components/kassa-demo/api';
 import { C, naira, toKobo } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
+import { useCurrentTime } from '@/hooks/use-current-time';
 import {
   cacheOfflineCatalog, getOfflineSales, loadOfflineCatalogue,
   recordOfflineSale, syncOfflineCash,
@@ -12,6 +13,7 @@ import {
 
 export default function OfflineSales() {
   const session = useKassaSession();
+  const now = useCurrentTime();
   const router = useRouter();
   const { savedRef } = useLocalSearchParams<{ savedRef?: string }>();
   const [products, setProducts] = useState<CachedProduct[]>([]);
@@ -26,11 +28,11 @@ export default function OfflineSales() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const scope: OfflineScope | null = session.user && session.scope ? {
-    userId: session.user.id,
-    businessId: session.scope.businessId,
-    branchId: session.scope.branchId,
-  } : null;
+  const userId = session.user?.id;
+  const businessId = session.scope?.businessId;
+  const branchId = session.scope?.branchId;
+  const scope = useMemo<OfflineScope | null>(() => userId && businessId && branchId
+    ? { userId, businessId, branchId } : null, [userId, businessId, branchId]);
 
   const load = useCallback(async (isCurrent: () => boolean = () => true) => {
     if (!scope) return;
@@ -46,7 +48,7 @@ export default function OfflineSales() {
     } catch (cause) {
       if (isCurrent()) setError(cause instanceof Error ? cause.message : 'Offline data unavailable.');
     }
-  }, [scope?.userId, scope?.businessId, scope?.branchId]);
+  }, [scope]);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -82,7 +84,7 @@ export default function OfflineSales() {
       if (state === 'active') void attemptSync();
     });
     return () => { active = false; clearInterval(timer); listener.remove(); };
-  }, [load, scope?.userId, scope?.businessId, scope?.branchId, session.request]));
+  }, [load, scope, session]));
 
   const displayed = useMemo(() => {
     const value = query.trim().toLowerCase();
@@ -99,7 +101,7 @@ export default function OfflineSales() {
   const validCash = count > 0 && validMoney && Number.isSafeInteger(toKobo(received)) &&
     toKobo(received) >= toKobo(total);
   const validPayment = method === 'CASH' ? validCash : count > 0 && merchantChecked;
-  const outdated = !cachedAt || Date.now() - cachedAt > 48 * 60 * 60 * 1000;
+  const outdated = !cachedAt || now - cachedAt > 48 * 60 * 60 * 1000;
   const pending = history.filter(item => item.status === 'QUEUED');
   const reviews = history.filter(item => item.status === 'REVIEW');
 
