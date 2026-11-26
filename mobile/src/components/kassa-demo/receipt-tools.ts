@@ -26,6 +26,8 @@ export function receiptText(payment: CompletedPayment): string {
     ...sale.items.map(item => item.name + ' — ' + item.quantity + ' × ' +
       naira(Number(item.unitPrice)) + ' = ' + naira(Number(item.lineTotal))),
     '',
+    'Subtotal: ' + naira(Number(sale.subtotal)),
+    ...(Number(sale.discount ?? 0) > 0 ? ['Discount: −' + naira(Number(sale.discount))] : []),
     'Total: ' + naira(Number(sale.total)),
     'Payment: ' + receiptMethod(channel),
     ...(cashReceived === null ? [] : [
@@ -66,6 +68,8 @@ export function receiptHtml(payment: CompletedPayment): string {
     '<p>Date: ' + escapeHtml(new Date(sale.createdAt).toLocaleString('en-NG')) + '</p>' +
     (sale.customer ? '<p>Customer: ' + escapeHtml(sale.customer) + '</p>' : '') +
     '<table>' + rows +
+    '<tr><td>Subtotal</td><td class="right">' + naira(Number(sale.subtotal)) + '</td></tr>' +
+    (Number(sale.discount ?? 0) > 0 ? '<tr><td>Discount</td><td class="right">−' + naira(Number(sale.discount)) + '</td></tr>' : '') +
     '<tr><td class="total">Total</td><td class="total right">' + naira(Number(sale.total)) + '</td></tr>' +
     '<tr><td>Payment method</td><td class="right">' + escapeHtml(receiptMethod(channel)) + '</td></tr>' +
     (cashReceived === null ? '' : '<tr><td>Cash received</td><td class="right">' + naira(cashReceived) +

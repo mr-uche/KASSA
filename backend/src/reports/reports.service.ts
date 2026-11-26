@@ -216,8 +216,8 @@ export class ReportsService {
         SELECT item."productId"::text AS "id",
           MAX(item."productNameSnapshot") AS "name",
           SUM(item."quantity")::text AS "quantity",
-          SUM(item."lineTotal")::text AS "amount"
-        FROM "SaleItem" item
+          SUM(item."lineTotal" - (ROUND(item."runningSubtotal" * sale."discount" / NULLIF(sale."subtotal", 0), 2) - ROUND((item."runningSubtotal" - item."lineTotal") * sale."discount" / NULLIF(sale."subtotal", 0), 2)))::text AS "amount"
+        FROM (SELECT si.*, SUM(si."lineTotal") OVER (PARTITION BY si."saleId" ORDER BY si."id" ROWS UNBOUNDED PRECEDING) AS "runningSubtotal" FROM "SaleItem" si) item
         JOIN "Sale" sale ON sale."id" = item."saleId"
         WHERE sale."businessId" = ${query.businessId}::uuid
           AND sale."createdAt" >= ${from} AND sale."createdAt" < ${until}
@@ -228,7 +228,7 @@ export class ReportsService {
               AND COALESCE(p."provider", '') <> 'PAYSTACK_TEST'
           )
         GROUP BY item."productId"
-        ORDER BY SUM(item."lineTotal") DESC
+        ORDER BY SUM(item."lineTotal" - (ROUND(item."runningSubtotal" * sale."discount" / NULLIF(sale."subtotal", 0), 2) - ROUND((item."runningSubtotal" - item."lineTotal") * sale."discount" / NULLIF(sale."subtotal", 0), 2))) DESC
         LIMIT 10
       `),
       this.prisma.branch.findMany({
@@ -307,7 +307,8 @@ export class ReportsService {
         'Sales are grouped by their creation date in Africa/Lagos, using current payment status.',
         'Pending electronic payments are excluded from received revenue.',
         'Failed payment rate excludes pending attempts; N/A means no completed attempts.',
-        'Figures are gross sales, not profit or bank-settled funds.',
+        'Sales revenue is after sale discounts, before costs; it is not bank-settled funds.',
+        'Product revenue allocates sale discounts proportionally by line value, rounded to kobo.',
       ],
     };
   }

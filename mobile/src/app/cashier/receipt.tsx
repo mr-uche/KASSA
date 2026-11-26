@@ -158,6 +158,9 @@ export default function Receipt() {
         <Text style={s.valueSmall} numberOfLines={1}
           adjustsFontSizeToFit minimumFontScale={0.7}>{money(sale.subtotal)}</Text>
       </View>
+      {Number(sale.discount ?? 0) > 0 && <View style={[s.detailRow, compact && s.detailRowCompact]}>
+        <Text style={s.label}>Discount</Text><Text style={s.valueSmall}>−{money(sale.discount ?? '0')}</Text>
+      </View>}
       <View style={[s.detailRow, compact && s.detailRowCompact]}>
         <Text style={s.label}>Payment method</Text>
         <Text style={[s.valueSmall, compact && s.compactValue]}>{receiptMethod(channel)}</Text>

@@ -19,6 +19,10 @@ export class CreateSaleDto {
   @ApiPropertyOptional({ description: 'Optional customer name printed on the receipt' })
   @IsOptional() @IsString() @MaxLength(120) customerName?: string;
 
+  @ApiPropertyOptional({ example: '500.00', description: 'Sale-wide discount in NGN, less than subtotal' })
+  @IsOptional() @IsString() @Matches(/^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/)
+  discountAmount?: string;
+
   @ApiProperty({ type: [SaleLineDto] })
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(50) @ValidateNested({ each: true })
   @Type(() => SaleLineDto) items!: SaleLineDto[];
@@ -83,6 +87,10 @@ export class OfflineCashSaleDto {
   @IsOptional() @IsIn([true]) cashReceived?: true;
   @ApiPropertyOptional({ enum: [true], description: 'Cashier checked merchant bank credit / terminal success record, not a customer screenshot' })
   @IsOptional() @IsIn([true]) confirmedReceived?: true;
+  @ApiPropertyOptional({ example: '500.00', description: 'Sale-wide discount in NGN, less than subtotal' })
+  @IsOptional() @IsString() @Matches(/^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/)
+  discountAmount?: string;
+
   @ApiProperty({ type: [OfflineCashLineDto] })
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(50) @ValidateNested({ each: true })
   @Type(() => OfflineCashLineDto) items!: OfflineCashLineDto[];

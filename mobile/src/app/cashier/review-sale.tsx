@@ -91,7 +91,26 @@ export default function ReviewSale() {
       <View style={s.sumRow}><Text style={s.label}>Items</Text><Text style={s.smallBold}>{store.count}</Text></View>
       <View style={s.sumRow}>
         <Text style={s.label}>Subtotal</Text>
-        <Text style={[s.smallBold, s.summaryAmount]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{naira(store.total)}</Text>
+        <Text style={[s.smallBold, s.summaryAmount]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{naira(store.subtotal)}</Text>
+      </View>
+      {!store.pendingSale && <View style={s.discountPanel}>
+        <Text style={s.customerLabel}>Apply discount (optional)</Text>
+        <View style={s.discountModes}>
+          {(['fixed', 'percent'] as const).map(type => <Pressable key={type}
+            accessibilityRole="radio" accessibilityState={{ checked: store.discountType === type }}
+            style={[s.discountMode, store.discountType === type && s.discountSelected]}
+            onPress={() => store.setDiscountType(type)}>
+            <Text style={s.smallBold}>{type === 'fixed' ? 'Fixed amount (₦)' : 'Percentage (%)'}</Text>
+          </Pressable>)}
+        </View>
+        <TextInput style={s.customerInput} accessibilityLabel="Discount value"
+          keyboardType="decimal-pad" placeholder={store.discountType === 'fixed' ? '0.00' : '0%'}
+          placeholderTextColor={C.faint} value={store.discountInput} maxLength={15}
+          onChangeText={store.setDiscountInput}/>
+        {!store.discountValid && <Text style={s.discountError}>Enter a valid discount smaller than the subtotal. The amount payable must remain positive.</Text>}
+      </View>}
+      <View style={s.sumRow}>
+        <Text style={s.label}>Discount</Text><Text style={s.smallBold}>−{naira(store.discount)}</Text>
       </View>
       <View style={s.divider} />
       <View style={s.sumRow}>
@@ -102,9 +121,9 @@ export default function ReviewSale() {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Continue to payment"
-      disabled={!store.count}
+      disabled={!store.count || !store.discountValid}
       onPress={() => router.push('/cashier/payment')}
-      style={[s.next, !store.count && { opacity: 0.4 }]}
+      style={[s.next, (!store.count || !store.discountValid) && { opacity: 0.4 }]}
     >
       <Text style={s.nextText}>Continue to payment</Text>
     </Pressable>
@@ -112,6 +131,11 @@ export default function ReviewSale() {
 }
 
 const s = StyleSheet.create({
+  discountPanel: { marginVertical: 10 },
+  discountModes: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  discountMode: { flex: 1, padding: 10, alignItems: 'center', borderRadius: 8, borderWidth: 1, borderColor: C.border },
+  discountSelected: { borderColor: C.green, backgroundColor: C.mint },
+  discountError: { color: C.danger, fontSize: 12, marginTop: 8 },
   customerPanel: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border,
     padding: 14, borderRadius: 11, marginTop: 15, marginBottom: 14 },
   customerLabel: { color: C.title, fontSize: 14, fontWeight: '800', marginBottom: 9 },

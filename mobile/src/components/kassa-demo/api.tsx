@@ -30,6 +30,7 @@ export type CheckoutSale = {
   status: string;
   total: string;
   subtotal: string;
+  discount?: string;
   currency: string;
   branchId: string;
   cashier?: string;

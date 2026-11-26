@@ -97,6 +97,7 @@ export default function Payment() {
 
   const prepareSale = async (): Promise<CheckoutSale> => {
     if (!session.scope || !session.user) throw new Error('Sign in and select an assigned branch first.');
+    if (!store.discountValid) throw new Error('Review the sale discount before payment.');
     if (offline && !pending) throw new Error('Offline sales must be recorded on this phone before synchronizing.');
     if (pending) {
       if (pending.payments[0]?.channel !== method.channel)
@@ -112,6 +113,7 @@ export default function Payment() {
       branchId: session.scope.branchId,
       clientRequestId: requestId.current,
       channel: method.channel,
+      ...(store.discount > 0 ? { discountAmount: store.discount.toFixed(2) } : {}),
       ...(store.customerName.trim() ? { customerName: store.customerName.trim() } : {}),
       items: store.lines.map(line => ({ productId: line.id, quantity: line.quantity })),
     });
@@ -124,6 +126,7 @@ export default function Payment() {
   };
 
   const finishCash = async () => {
+    if (!store.discountValid) { setError('Review the sale discount before payment.'); return; }
     if (!validCash || working) {
       setError('Enter the cash actually received. It must cover the total.');
       return;
@@ -155,7 +158,7 @@ export default function Payment() {
                 branchId: session.scope!.branchId };
               const saved = await recordOfflineSale(scope,
                 store.lines.map(line => ({ productId: line.id, quantity: line.quantity })),
-                'CASH', received, store.customerName);
+                'CASH', received, store.customerName, store.discount, amountDueKobo / 100);
               store.beginNewSale();
               await store.refreshCatalog();
               router.replace({
@@ -226,6 +229,7 @@ export default function Payment() {
 
   const finishMerchantPayment = async () => {
     if (working) return;
+    if (!store.discountValid) { setError('Review the sale discount before payment.'); return; }
     if (!merchantChecked) {
       setError('Confirm that you checked the business bank credit or successful POS record.');
       return;
@@ -252,7 +256,7 @@ export default function Payment() {
                 businessId: session.scope!.businessId, branchId: session.scope!.branchId };
               const saved = await recordOfflineSale(localScope,
                 store.lines.map(line => ({ productId: line.id, quantity: line.quantity })),
-                method.channel, amountDueKobo / 100, store.customerName);
+                method.channel, amountDueKobo / 100, store.customerName, store.discount, amountDueKobo / 100);
               store.beginNewSale();
               await store.refreshCatalog();
               router.replace({ pathname: '/cashier/offline-receipt', params: { id: saved.id } });
@@ -339,6 +343,9 @@ export default function Payment() {
           <Text style={s.amount}>{naira(toKobo(product.price) * line.quantity / 100)}</Text>
         </View>
       ))}
+      <View style={s.itemRow}><Text style={s.productQty}>Subtotal</Text><Text style={s.amount}>{naira(store.subtotal)}</Text></View>
+      {store.discount > 0 && <View style={s.itemRow}><Text style={s.productQty}>Discount</Text><Text style={s.amount}>−{naira(store.discount)}</Text></View>}
+      {!store.discountValid && <Text style={{ color: C.danger }}>Review the invalid discount before payment.</Text>}
       <View style={s.divider} />
       <View style={s.totalRow}>
         <Text style={s.totalText}>Total</Text>
