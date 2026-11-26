@@ -1,0 +1,300 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Linking, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
+import * as Print from 'expo-print';
+import { Image } from 'expo-image';
+import { useKassaDemo, type CompletedPayment } from '@/components/kassa-demo/store';
+import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api';
+import { C, naira } from '@/components/kassa-demo/theme';
+import { KScreen } from '@/components/kassa-demo/ui';
+import { exportReceiptPdf, receiptHtml, receiptMethod, receiptText, shareReceiptSms, shareReceiptWhatsApp } from '@/components/kassa-demo/receipt-tools';
+import { receiptQrDataUrl } from '@/components/kassa-demo/receipt-qr';
+
+const dateFormatter = new Intl.DateTimeFormat('en-NG', {
+  dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Lagos',
+});
+
+function isConfirmed(sale: CheckoutSale): boolean {
+  return sale.status === 'PAID' && sale.payments.some(payment => payment.status === 'SUCCEEDED');
+}
+
+function money(value: string | number): string {
+  return naira(Number(value));
+}
+
+export default function Receipt() {
+  const router = useRouter();
+  const { width, fontScale } = useWindowDimensions();
+  const compact = width < 345 || fontScale > 1.2;
+  const { saleId } = useLocalSearchParams<{ saleId?: string }>();
+  const store = useKassaDemo();
+  const session = useKassaSession();
+  const scope = session.scope;
+  const [savedSale, setSavedSale] = useState<CheckoutSale | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const current = store.completedPayment;
+  const activeId = typeof saleId === 'string' ? saleId : null;
+
+  const fetchSale = useCallback(async (isCurrent: () => boolean = () => true) => {
+    if (!activeId) return;
+    setSavedSale(null);
+    setError('');
+    if (!scope) {
+      setError('Sign in to view this receipt.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const sale = await session.request<CheckoutSale>('sales/' + encodeURIComponent(activeId));
+      if (sale.id !== activeId || sale.branchId !== scope.branchId || !isConfirmed(sale)) {
+        throw new Error('A verified receipt is not available for this transaction.');
+      }
+      if (isCurrent()) setSavedSale(sale);
+    } catch (cause) {
+      if (isCurrent()) setError(cause instanceof Error ? cause.message : 'Could not load receipt.');
+    } finally {
+      if (isCurrent()) setLoading(false);
+    }
+  }, [activeId, scope?.branchId, session.request]);
+
+  useEffect(() => {
+    let active = true;
+    void fetchSale(() => active);
+    return () => { active = false; };
+  }, [fetchSale]);
+
+  const sale = activeId ? savedSale : current?.sale ?? null;
+  const confirmed = !!sale && isConfirmed(sale);
+  const detail: CompletedPayment | null = useMemo(() => {
+    if (!sale || !confirmed) return null;
+    if (!activeId && current?.sale.id === sale.id) return current;
+    return { sale, cashReceived: null, change: 0 };
+  }, [sale, confirmed, current, activeId]);
+  const test = !!sale?.payments.some(payment => payment.provider === 'PAYSTACK_TEST');
+  const qrDataUrl = useMemo(() => sale && confirmed ? receiptQrDataUrl(sale) : null, [sale, confirmed]);
+  const channel = sale?.payments[0]?.channel ?? '';
+  const cashReceived = detail?.cashReceived ?? null;
+  const change = detail?.change ?? 0;
+  const businessName = scope?.businessName ?? 'Kassa Business';
+  const initials = businessName.split(/\s+/).filter(Boolean).slice(0, 2)
+    .map(word => word[0].toUpperCase()).join('') || 'K';
+  const safeAction = async (action: () => Promise<unknown>) => {
+    setError('');
+    try { await action(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Receipt action unavailable.'); }
+  };
+
+  if (!detail || !sale) {
+    return <KScreen title="Receipt" subtitle={loading ? 'Loading recorded sale receipt…' : 'Transaction receipt'}
+      showBrand={false} showPreviewLabel={false} back>
+      {error ? <Text style={s.error}>{error}</Text> : null}
+      {!loading && !error && <Text style={s.info}>No completed payment is selected.</Text>}
+      {activeId && <Pressable onPress={() => { void fetchSale(); }} style={s.outline}>
+        <Text style={s.outlineText}>Retry loading receipt</Text>
+      </Pressable>}
+      <Pressable onPress={() => router.replace('/cashier/sales')} style={s.button}>
+        <Text style={s.buttonText}>Back to My sales</Text>
+      </Pressable>
+    </KScreen>;
+  }
+
+  return <KScreen showBrand={false} showPreviewLabel={false}>
+    <View style={s.header}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={s.back}>
+        <SymbolView name={{ ios: 'arrow.left', android: 'arrow_back', web: 'arrow_back' }}
+          size={21} tintColor={C.green}/>
+      </Pressable>
+      <View><Text style={s.title}>Receipt</Text><Text style={s.subtitle}>#{sale.reference.slice(-8).toUpperCase()}</Text></View>
+    </View>
+
+    <View style={s.paper}>
+      <View style={s.businessHeader}>
+        <View style={s.businessLogo}><Text style={s.businessInitials}>{initials}</Text></View>
+        <Text style={s.businessName}>{businessName}</Text>
+        <Text style={s.address}>{scope?.branchName ?? 'Main branch'}
+          {scope?.branchAddress ? ' · ' + scope.branchAddress : ''}</Text>
+      </View>
+
+      <View style={s.rule} />
+      <View style={[s.detailRow, compact && s.detailRowCompact]}>
+        <Text style={s.label}>Receipt no.</Text>
+        <Text style={s.valueSmall} selectable>{sale.reference}</Text>
+      </View>
+      <View style={[s.detailRow, compact && s.detailRowCompact]}>
+        <Text style={s.label}>Date & time</Text>
+        <Text style={[s.valueSmall, compact && s.compactValue]}>{dateFormatter.format(new Date(sale.createdAt))}</Text>
+      </View>
+      <View style={[s.detailRow, compact && s.detailRowCompact]}>
+        <Text style={s.label}>Served by</Text>
+        <Text style={[s.valueSmall, compact && s.compactValue]}>{sale.cashier ?? session.user?.fullName ?? 'Cashier'}</Text>
+      </View>
+      {!!sale.customer && sale.customer !== 'Walk-in customer' &&
+        sale.customer !== 'Customer details unavailable' &&
+        <View style={[s.detailRow, compact && s.detailRowCompact]}>
+          <Text style={s.label}>Customer</Text>
+          <Text style={[s.valueSmall, compact && s.compactValue]}>{sale.customer}</Text>
+        </View>}
+      {test && <Text style={s.warning}>NON-LIVE RECEIPT</Text>}
+
+      <View style={s.rule} />
+      <View style={s.tableHead}>
+        <Text style={[s.tableLabel, s.itemNameColumn]}>ITEM</Text>
+        <Text style={[s.tableLabel, s.qty]}>QTY</Text>
+        <Text style={[s.tableLabel, s.columnPrice]}>AMOUNT</Text>
+      </View>
+      {sale.items.map(item => <View key={item.id} style={s.itemRow}>
+        <Text style={[s.itemName, s.itemNameColumn]}>{item.name}</Text>
+        <Text style={s.qty}>{item.quantity}</Text>
+        <Text style={[s.itemAmount, s.columnPrice]} numberOfLines={1}
+          adjustsFontSizeToFit minimumFontScale={0.7}
+          accessibilityLabel={item.name + ' amount ' + money(item.lineTotal)}>{money(item.lineTotal)}</Text>
+      </View>)}
+      <View style={s.rule}/>
+      <View style={[s.detailRow, compact && s.detailRowCompact]}>
+        <Text style={s.label}>Subtotal</Text>
+        <Text style={s.valueSmall} numberOfLines={1}
+          adjustsFontSizeToFit minimumFontScale={0.7}>{money(sale.subtotal)}</Text>
+      </View>
+      {Number(sale.discount ?? 0) > 0 && <View style={[s.detailRow, compact && s.detailRowCompact]}>
+        <Text style={s.label}>Discount</Text><Text style={s.valueSmall}>−{money(sale.discount ?? '0')}</Text>
+      </View>}
+      <View style={[s.detailRow, compact && s.detailRowCompact]}>
+        <Text style={s.label}>Payment method</Text>
+        <Text style={[s.valueSmall, compact && s.compactValue]}>{receiptMethod(channel)}</Text>
+      </View>
+      {cashReceived !== null && <>
+        <View style={[s.detailRow, compact && s.detailRowCompact]}>
+          <Text style={s.label}>Cash received</Text>
+          <Text style={s.valueSmall} numberOfLines={1}
+            adjustsFontSizeToFit minimumFontScale={0.7}>{money(cashReceived)}</Text>
+        </View>
+        <View style={[s.detailRow, compact && s.detailRowCompact]}>
+          <Text style={s.label}>Change given</Text>
+          <Text style={s.valueSmall} numberOfLines={1}
+            adjustsFontSizeToFit minimumFontScale={0.7}>{money(change)}</Text>
+        </View>
+      </>}
+      <View style={s.rule}/>
+      <View style={s.totalRow}>
+        <Text style={s.totalLabel}>Total paid</Text>
+        <Text style={s.totalValue} numberOfLines={1} adjustsFontSizeToFit
+          minimumFontScale={0.7} accessibilityLabel={'Total paid ' + money(sale.total)}>
+          {money(sale.total)}
+        </Text>
+      </View>
+      <View style={s.qrBlock}>
+        {qrDataUrl && <Image source={{ uri: qrDataUrl }}
+          accessibilityLabel="Scannable QR with receipt reference, amount and payment method"
+          contentFit="contain" style={s.qrImage} />}
+        <View style={s.qrDetails}>
+          <Text style={s.qrTitle}>Scan for receipt details</Text>
+          <Text style={s.qrReference} selectable>{sale.reference}</Text>
+          <Text style={s.qrDisclaimer}>Reference only. Verify payments with the merchant.</Text>
+        </View>
+      </View>
+      <Text style={s.thankYou}>Thank you for shopping with us!</Text>
+    </View>
+
+    {error ? <Text style={s.error}>{error}</Text> : null}
+    <Text style={s.shareHeading}>Share receipt</Text>
+    <Pressable accessibilityRole="button" style={s.sharePrimary}
+      onPress={() => { void safeAction(() => shareReceiptWhatsApp(detail)); }}>
+      <Text style={s.sharePrimaryText}>Send via WhatsApp</Text>
+    </Pressable>
+    <View style={s.actions}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Send receipt via SMS" style={s.outline}
+        onPress={() => { void safeAction(() => shareReceiptSms(detail)); }}>
+        <Text style={s.outlineText}>Send via SMS</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Email receipt" style={s.outline}
+        onPress={() => { void safeAction(() => Linking.openURL('mailto:?subject=' +
+          encodeURIComponent('KASSA receipt ' + sale.reference) + '&body=' +
+          encodeURIComponent(receiptText(detail)))); }}>
+        <Text style={s.outlineText}>Email receipt</Text>
+      </Pressable>
+    </View>
+    <View style={s.actions}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Share receipt" style={s.outline}
+        onPress={() => { void safeAction(() => Share.share({ message: receiptText(detail) })); }}>
+        <SymbolView name={{ ios: 'square.and.arrow.up', android: 'share', web: 'share' }}
+          tintColor={C.green} size={19}/>
+        <Text style={s.outlineText}>Share receipt</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="New sale" style={s.button}
+        onPress={() => { store.beginNewSale(); router.replace('/cashier/new-sale'); }}>
+        <Text style={s.buttonText}>New sale</Text>
+      </Pressable>
+    </View>
+    <Pressable accessibilityRole="button" style={s.pdfButton}
+      onPress={() => { void safeAction(() => exportReceiptPdf(detail)); }}>
+      <SymbolView name={{ ios: 'doc.text', android: 'picture_as_pdf', web: 'picture_as_pdf' }}
+        tintColor={C.white} size={18}/>
+      <Text style={s.pdfText}>Download PDF</Text>
+    </Pressable>
+    <Pressable accessibilityRole="button" style={s.printButton}
+      onPress={() => { void safeAction(() => Print.printAsync({ html: receiptHtml(detail) })); }}>
+      <SymbolView name={{ ios: 'printer', android: 'print', web: 'print' }} tintColor={C.green} size={17}/>
+      <Text style={s.printText}>Print receipt</Text>
+    </Pressable>
+  </KScreen>;
+}
+
+const s = StyleSheet.create({
+  shareHeading: { fontSize: 19, fontWeight: '800', color: C.title, marginTop: 19, marginBottom: 10 },
+  sharePrimary: { backgroundColor: C.green, borderRadius: 9, minHeight: 50,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
+  sharePrimaryText: { color: C.white, fontSize: 14, fontWeight: '800' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  back: { backgroundColor: C.mint, width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 27, color: C.title, fontWeight: '800' },
+  subtitle: { color: C.muted, fontSize: 14, marginTop: 3 },
+  paper: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 17 },
+  businessHeader: { alignItems: 'center', paddingVertical: 7 },
+  businessLogo: { backgroundColor: C.mint, width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center' },
+  businessInitials: { color: C.green, fontWeight: '800', fontSize: 18 },
+  businessName: { color: C.title, fontWeight: '800', fontSize: 17, marginTop: 8, textAlign: 'center' },
+  address: { color: C.muted, fontSize: 14, marginTop: 4, textAlign: 'center' },
+  rule: { height: 1, borderTopWidth: 1, borderTopColor: '#E8EDF0', marginVertical: 13, borderStyle: 'dashed' },
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
+    gap: 10, paddingVertical: 5, minWidth: 0 },
+  detailRowCompact: { flexDirection: 'column', alignItems: 'stretch', gap: 4 },
+  label: { color: C.muted, fontSize: 14, flex: 1, minWidth: 0, flexShrink: 1 },
+  valueSmall: { color: C.title, fontSize: 14, fontWeight: '700', textAlign: 'right',
+    flex: 1.45, minWidth: 0, flexShrink: 1, flexWrap: 'wrap' },
+  compactValue: { flexGrow: 0, flexShrink: 1, flexBasis: 'auto', alignSelf: 'stretch' },
+  warning: { fontSize: 14, color: C.orange, fontWeight: '800', textAlign: 'center', marginTop: 12 },
+  tableHead: { flexDirection: 'row', alignItems: 'center', paddingBottom: 10, gap: 7, minWidth: 0 },
+  tableLabel: { fontSize: 14, color: C.muted, fontWeight: '800' },
+  itemRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8, gap: 7, minWidth: 0 },
+  itemName: { fontSize: 14, color: C.title, fontWeight: '700' },
+  itemNameColumn: { flex: 1, minWidth: 0, flexShrink: 1 },
+  itemAmount: { fontSize: 14, color: C.title, fontWeight: '800' },
+  qty: { fontSize: 14, width: 30, flexShrink: 0, textAlign: 'center', color: C.muted },
+  columnPrice: { width: 102, maxWidth: '48%', minWidth: 0, flexShrink: 1, textAlign: 'right' },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, minWidth: 0, marginTop: 3 },
+  totalLabel: { fontSize: 16, fontWeight: '800', color: C.title, flexShrink: 1 },
+  totalValue: { fontSize: 24, fontWeight: '800', color: C.green, flexShrink: 1, minWidth: 0, maxWidth: '70%', textAlign: 'right' },
+  qrBlock: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: C.border,
+    marginTop: 17, paddingTop: 14, gap: 12, minWidth: 0 },
+  qrImage: { width: 92, height: 92, flexShrink: 0, backgroundColor: C.white },
+  qrDetails: { flex: 1, minWidth: 0 },
+  qrTitle: { fontSize: 12, fontWeight: '800', color: C.title, lineHeight: 18 },
+  qrReference: { fontSize: 11, lineHeight: 16, color: C.green,
+    marginTop: 3, flexShrink: 1 },
+  qrDisclaimer: { fontSize: 10, lineHeight: 15, color: C.muted, marginTop: 5 },
+  thankYou: { color: C.muted, fontSize: 14, textAlign: 'center', marginTop: 13 },
+  info: { color: C.muted, fontSize: 14, lineHeight: 20 },
+  error: { color: C.danger, fontSize: 14, marginVertical: 12 },
+  actions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  button: { flex: 1, backgroundColor: C.green, minHeight: 49, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 9, flexDirection: 'row' },
+  buttonText: { color: C.white, fontSize: 14, fontWeight: '800' },
+  outline: { flex: 1, borderWidth: 1, borderColor: C.border, backgroundColor: C.white, minHeight: 49, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 9, flexDirection: 'row', gap: 7 },
+  outlineText: { color: C.green, fontSize: 14, fontWeight: '800' },
+  pdfButton: { flexDirection: 'row', gap: 9, justifyContent: 'center', alignItems: 'center', minHeight: 50, marginTop: 16, borderRadius: 9, backgroundColor: C.green },
+  pdfText: { color: C.white, fontWeight: '800', fontSize: 14 },
+  printButton: { flexDirection: 'row', gap: 8, justifyContent: 'center', alignItems: 'center', paddingVertical: 16 },
+  printText: { color: C.green, fontWeight: '700', fontSize: 14 },
+});

@@ -1,1016 +1,599 @@
 "use client";
 
-import { useState } from "react";
-import { Download, Menu } from "lucide-react";
+import KassaHeaderActions from "@/components/KassaHeaderActions";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Download, Menu, RefreshCw } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
+import { formatNaira, inventoryFetch } from "@/lib/inventory-client";
+import {
+  fetchAnalytics, ReportsAccessError, type AnalyticsReport, type ReportChannel, type ReportGranularity,
+} from "@/lib/reports-client";
 
-const rangeTabs = ["Daily", "Weekly", "Monthly", "Custom range"] as const;
-type RangeTab = (typeof rangeTabs)[number];
-
-const channelColors: Record<string, string> = {
-  "Bank transfer": "bg-emerald-800",
-  POS: "bg-emerald-500",
-  Cash: "bg-emerald-300",
-  USSD: "bg-emerald-200",
-  "Card & wallet": "bg-emerald-100",
+type RangeTab = "Daily" | "Weekly" | "Monthly" | "Custom range";
+type QuickRange = "Last 30 days" | "This quarter" | "Year to date" | "Custom dates";
+type Branch = { id: string; name: string; isActive: boolean };
+type Membership = { id: string; name: string; myRole: string; myPermissions?: string[]; branches: Branch[] };
+const rangeTabs: RangeTab[] = ["Daily", "Weekly", "Monthly", "Custom range"];
+const channelOrder: ReportChannel[] = [
+  "BANK_TRANSFER", "POS", "CASH", "USSD", "CARD", "WALLET",
+];
+const channelNames: Record<ReportChannel, string> = {
+  BANK_TRANSFER: "Bank transfer",
+  POS: "POS",
+  CASH: "Cash",
+  USSD: "USSD",
+  CARD: "Card",
+  WALLET: "Wallet",
+};
+const channelColors: Record<ReportChannel, string> = {
+  BANK_TRANSFER: "bg-emerald-800",
+  POS: "bg-emerald-600",
+  CASH: "bg-emerald-400",
+  USSD: "bg-emerald-300",
+  CARD: "bg-emerald-200",
+  WALLET: "bg-emerald-100",
 };
 
-const channelOrder = [
-  "Bank transfer",
-  "POS",
-  "Cash",
-  "USSD",
-  "Card & wallet",
-];
-
-function SummaryCard({
-  label,
-  value,
-  delta,
-  deltaPositive = true,
-  sub,
-}: {
-  label: string;
-  value: string;
-  delta?: string;
-  deltaPositive?: boolean;
-  sub?: string;
+const DAY = 86400000;
+function todayLagos() {
+  return new Date(Date.now() + 3600000).toISOString().slice(0, 10);
+}
+function dateMs(iso: string) {
+  return Date.parse(iso + "T00:00:00Z");
+}
+function shiftDate(iso: string, days: number) {
+  return new Date(dateMs(iso) + days * DAY).toISOString().slice(0, 10);
+}
+function startOfWeek(iso: string) {
+  const weekday = new Date(dateMs(iso)).getUTCDay();
+  return shiftDate(iso, -((weekday + 6) % 7));
+}
+function startOfMonth(iso: string) {
+  return iso.slice(0, 7) + "-01";
+}
+function shiftMonth(iso: string, months: number) {
+  const date = new Date(dateMs(startOfMonth(iso)));
+  date.setUTCMonth(date.getUTCMonth() + months);
+  return date.toISOString().slice(0, 10);
+}
+function lastDayCount(from: string, to: string) {
+  return Math.floor((dateMs(to) - dateMs(from)) / DAY) + 1;
+}
+function getDates(range: RangeTab, quick: QuickRange, customFrom: string, customTo: string) {
+  const today = todayLagos();
+  if (range === "Daily") {
+    return { from: shiftDate(today, -6), to: today, granularity: "day" as ReportGranularity, label: "Last 7 days" };
+  }
+  if (range === "Weekly") {
+    return { from: shiftDate(startOfWeek(today), -35), to: today, granularity: "week" as ReportGranularity, label: "Last 6 calendar weeks" };
+  }
+  if (range === "Monthly") {
+    return { from: shiftMonth(today, -5), to: today, granularity: "month" as ReportGranularity, label: "Last 6 calendar months" };
+  }
+  let from = customFrom, to = customTo;
+  if (quick === "Last 30 days") {
+    from = shiftDate(today, -29); to = today;
+  } else if (quick === "This quarter") {
+    const current = new Date(dateMs(today));
+    current.setUTCMonth(Math.floor(current.getUTCMonth() / 3) * 3, 1);
+    from = current.toISOString().slice(0, 10); to = today;
+  } else if (quick === "Year to date") {
+    from = today.slice(0, 4) + "-01-01"; to = today;
+  }
+  const days = lastDayCount(from, to);
+  return { from, to,
+    granularity: (days <= 31 ? "day" : days <= 93 ? "week" : "month") as ReportGranularity,
+    label: quick === "Custom dates" ? "Selected dates" : quick };
+}
+function buildBuckets(from: string, to: string, granularity: ReportGranularity) {
+  let cursor = granularity === "month" ? startOfMonth(from) :
+    granularity === "week" ? startOfWeek(from) : from;
+  const buckets: string[] = [];
+  while (cursor <= to && buckets.length < 370) {
+    buckets.push(cursor);
+    cursor = granularity === "month" ? shiftMonth(cursor, 1) :
+      shiftDate(cursor, granularity === "week" ? 7 : 1);
+  }
+  return buckets;
+}
+function bucketLabel(iso: string, granularity: ReportGranularity) {
+  const date = new Date(dateMs(iso));
+  return date.toLocaleDateString("en-GB", {
+    timeZone: "UTC", month: "short",
+    ...(granularity === "month" ? { year: "2-digit" } : { day: "numeric" }),
+  });
+}
+function formatMoney(value: string) {
+  return formatNaira(value);
+}
+function SummaryCard({ label, value, sub }: {
+  label: string; value: string; sub?: string;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-      <p className="text-sm text-gray-500 mb-2">{label}</p>
-      <p className="text-xl sm:text-2xl font-semibold text-gray-900">
-        {value}
-      </p>
-
-      {delta && (
-        <p
-          className={`text-xs mt-1 ${
-            deltaPositive ? "text-emerald-600" : "text-red-600"
-          }`}
-        >
-          {deltaPositive ? "↑" : "↓"} {delta}
-        </p>
-      )}
-
-      {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+    <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+      <p className="mb-2 text-sm text-gray-500">{label}</p>
+      <p className="break-words text-xl font-semibold text-gray-900 sm:text-2xl">{value}</p>
+      {sub && <p className="mt-2 text-xs text-gray-500">{sub}</p>}
     </div>
   );
 }
-
-function ChannelBreakdown({
-  data,
-}: {
-  data: { name: string; pct: number }[];
-}) {
+function ChannelLegend() {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-      <h2 className="text-base font-semibold text-gray-900 mb-1">
-        Sales by channel
-      </h2>
-
-      <p className="text-xs text-gray-400 mb-5">
-        Colors match the trend chart on the left
-      </p>
-
-      <div className="space-y-4">
-        {data.map((c) => (
-          <div key={c.name}>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span
-                className={`w-2.5 h-2.5 shrink-0 rounded-sm ${
-                  channelColors[c.name]
-                }`}
-              />
-
-              <span className="text-sm text-gray-700 flex-1">
-                {c.name}
-              </span>
-
-              <span className="text-sm text-gray-500">{c.pct}%</span>
-            </div>
-
-            <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
-              <div
-                className={`h-full rounded-full ${channelColors[c.name]}`}
-                style={{ width: `${c.pct}%` }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2 border-t border-gray-100 pt-4">
+      {channelOrder.map((channel) => (
+        <div key={channel} className="flex items-center gap-2">
+          <span className={"h-2.5 w-2.5 shrink-0 rounded-sm " + channelColors[channel]}/>
+          <span className="text-xs text-gray-600">{channelNames[channel]}</span>
+        </div>
+      ))}
     </div>
   );
 }
-
-function StackedTrendChart({
-  data,
-  title,
-}: {
-  data: { label: string; segments: number[] }[];
-  title: string;
-}) {
-  const maxTotal = Math.max(
-    ...data.map((d) =>
-      d.segments.reduce((a, b) => a + b, 0)
-    )
-  );
-
+function StackedTrendChart({ report }: { report: AnalyticsReport }) {
+  const { from, to, granularity } = report.scope;
+  const keys = useMemo(() => buildBuckets(from, to, granularity), [from, to, granularity]);
+  const amounts = new Map<string, Partial<Record<ReportChannel, number>>>();
+  for (const entry of report.trend) {
+    const current = amounts.get(entry.period) ?? {};
+    current[entry.channel] = Number(entry.amount);
+    amounts.set(entry.period, current);
+  }
+  const totals = keys.map((key) => channelOrder.reduce(
+    (sum, channel) => sum + (amounts.get(key)?.[channel] ?? 0), 0,
+  ));
+  const max = Math.max(1, ...totals);
   return (
-    <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-      <h2 className="text-base font-semibold text-gray-900 mb-1">
-        {title}
-      </h2>
-
-      <p className="text-xs text-gray-400 mb-6">
-        Colors match the trend chart on the left
+    <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6 lg:col-span-2">
+      <h2 className="text-base font-semibold text-gray-900">Confirmed sales trend</h2>
+      <p className="mb-6 mt-1 text-xs text-gray-500">
+        Paid sales by {granularity}; channel colours show confirmed revenue only.
       </p>
-
-      <div className="flex items-end justify-between gap-2 sm:gap-4 h-52 sm:h-64 overflow-x-auto">
-        {data.map((d) => {
-          return (
-            <div
-              key={d.label}
-              className="flex flex-col items-center gap-2 flex-1 h-full min-w-[28px]"
-            >
-              <div className="w-full max-w-[52px] flex flex-col-reverse justify-start flex-1">
-                {d.segments.map((seg, i) => {
-                  const heightPct = (seg / maxTotal) * 100;
-
-                  return (
-                    <div
-                      key={i}
-                      className={`w-full ${
-                        channelColors[channelOrder[i]]
-                      } ${
-                        i === d.segments.length - 1
-                          ? "rounded-t-md"
-                          : ""
-                      }`}
-                      style={{ height: `${heightPct}%` }}
-                    />
-                  );
+      <div className="overflow-x-auto">
+        <div className="flex h-60 min-w-full items-end justify-between gap-2 pb-1" style={{
+          width: keys.length > 10 ? String(keys.length * 38) + "px" : "100%",
+        }}>
+          {keys.map((key) => (
+            <div key={key} className="flex h-full min-w-[25px] flex-1 flex-col items-center gap-2">
+              <div className="flex w-full max-w-[48px] flex-1 flex-col-reverse overflow-hidden rounded-t-md"
+                title={key + ": " + formatMoney(totals[keys.indexOf(key)].toFixed(2))}>
+                {channelOrder.map((channel) => {
+                  const value = amounts.get(key)?.[channel] ?? 0;
+                  return value > 0 ? (
+                    <div key={channel} className={"w-full " + channelColors[channel]}
+                      style={{ height: String(value / max * 100) + "%" }}/>
+                  ) : null;
                 })}
               </div>
-
-              <span className="text-xs text-gray-500">
-                {d.label}
-              </span>
+              <span className="whitespace-nowrap text-[11px] text-gray-500">{bucketLabel(key, granularity)}</span>
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
-
-      <div className="flex flex-wrap gap-3 sm:gap-4 mt-6 pt-4 border-t border-gray-100">
-        {channelOrder.map((name) => (
-          <div key={name} className="flex items-center gap-2">
-            <span
-              className={`w-2.5 h-2.5 shrink-0 rounded-sm ${
-                channelColors[name]
-              }`}
-            />
-
-            <span className="text-xs text-gray-600">
-              {name}
-            </span>
+      {report.summary.paidTransactions === 0 && (
+        <p className="mt-3 text-center text-xs text-gray-500">No confirmed sales in this date range.</p>
+      )}
+      <ChannelLegend/>
+    </div>
+  );
+}
+function ChannelBreakdown({ report }: { report: AnalyticsReport }) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
+      <h2 className="text-base font-semibold text-gray-900">Sales by channel</h2>
+      <p className="mb-5 mt-1 text-xs text-gray-500">Share of confirmed gross sales</p>
+      <div className="space-y-4">
+        {report.channels.map((entry) => (
+          <div key={entry.channel}>
+            <div className="mb-1.5 flex items-center gap-2">
+              <span className={"h-2.5 w-2.5 shrink-0 rounded-sm " + channelColors[entry.channel]}/>
+              <span className="flex-1 text-sm text-gray-700">{channelNames[entry.channel]}</span>
+              <span className="text-sm text-gray-500">{entry.sharePct.toFixed(1)}%</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+              <div className={"h-full rounded-full " + channelColors[entry.channel]}
+                style={{ width: String(entry.sharePct) + "%" }}/>
+            </div>
+            <p className="mt-1 text-xs text-gray-400">{formatMoney(entry.amount)} · {entry.paidTransactions} paid</p>
           </div>
         ))}
       </div>
     </div>
   );
 }
-
-function StaffTable({
-  title,
-  rows,
-}: {
-  title: string;
-  rows: {
-    name: string;
-    transactions: number;
-    total: string;
-    failed: number;
-  }[];
-}) {
+function TablePanel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-      <h2 className="text-base font-semibold text-gray-900 mb-4">
-        {title}
-      </h2>
-
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[460px] text-sm">
-          <thead>
-            <tr className="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-100">
-              <th className="pb-3 font-medium whitespace-nowrap pr-4">
-                Staff
-              </th>
-
-              <th className="pb-3 font-medium whitespace-nowrap pr-4">
-                Transactions
-              </th>
-
-              <th className="pb-3 font-medium whitespace-nowrap pr-4">
-                Total sales
-              </th>
-
-              <th className="pb-3 font-medium whitespace-nowrap">
-                Failed
-              </th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {rows.map((r) => (
-              <tr
-                key={r.name}
-                className="border-b border-gray-50 last:border-0"
-              >
-                <td className="py-3 text-gray-700 whitespace-nowrap pr-4">
-                  {r.name}
-                </td>
-
-                <td className="py-3 text-gray-700 whitespace-nowrap pr-4">
-                  {r.transactions.toLocaleString()}
-                </td>
-
-                <td className="py-3 font-medium text-gray-900 whitespace-nowrap pr-4">
-                  {r.total}
-                </td>
-
-                <td className="py-3 text-red-600 whitespace-nowrap">
-                  {r.failed}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
+      <h2 className="mb-4 text-base font-semibold text-gray-900">{title}</h2>
+      <div className="overflow-x-auto">{children}</div>
     </div>
   );
 }
-
-function LineChart({ values }: { values: number[] }) {
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const w = 600;
-  const h = 220;
-  const range = max - min || 1;
-
-  const points = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * w;
-    const y =
-      h - ((v - min) / range) * (h - 20) - 10;
-
-    return `${x},${y}`;
-  });
-
-  const areaPoints = `0,${h} ${points.join(" ")} ${w},${h}`;
-
-  return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      className="w-full h-56"
-    >
-      <polygon
-        points={areaPoints}
-        fill="#08745F"
-        fillOpacity="0.08"
-      />
-
-      <polyline
-        points={points.join(" ")}
-        fill="none"
-        stroke="#08745F"
-        strokeWidth={2.5}
-      />
-
-      {values.map((v, i) => {
-        const [x, y] = points[i]
-          .split(",")
-          .map(Number);
-
-        return (
-          <circle
-            key={i}
-            cx={x}
-            cy={y}
-            r={4}
-            fill="#08745F"
-          />
-        );
-      })}
-    </svg>
-  );
+function csvRows(report: AnalyticsReport) {
+  const rows: string[][] = [];
+  function add(...values: Array<string | number | null>) {
+    rows.push(values.map((item) => item == null ? "" : String(item)));
+  }
+  add("Kassa reports & analytics", report.scope.from + " to " + report.scope.to);
+  add("Business ID", report.scope.businessId);
+  add("Branch ID", report.scope.branchId ?? "All branches");
+  add("Reporting timezone", report.scope.timezone);
+  add();
+  add("Summary", "Value");
+  add("Confirmed gross sales (NGN)", report.summary.paidSales);
+  add("Confirmed paid transactions", report.summary.paidTransactions);
+  add("Average confirmed sale (NGN)", report.summary.averageSale);
+  add("Pending sales", report.summary.pendingTransactions);
+  add("Failed payment attempts", report.summary.failedPayments);
+  add("Failed payment rate (%)", report.summary.failedPaymentRate);
+  add("Previous period confirmed sales (NGN)", report.summary.previousPaidSales);
+  add("Change from previous period (%)", report.summary.salesChangePercent);
+  add();
+  add("Channel", "Paid gross sales (NGN)", "Paid transactions", "Share (%)");
+  report.channels.forEach((r) => add(channelNames[r.channel], r.amount, r.paidTransactions, r.sharePct));
+  add();
+  add("Trend period", "Channel", "Confirmed sales (NGN)", "Paid transactions");
+  report.trend.forEach((r) => add(r.period, channelNames[r.channel], r.amount, r.transactions));
+  add();
+  add("Cashier", "Paid transactions", "Confirmed gross sales (NGN)", "Failed payments");
+  report.staff.forEach((r) => add(r.name, r.paidTransactions, r.paidSales, r.failedPayments));
+  add();
+  add("Branch", "Confirmed gross sales (NGN)", "Paid transactions");
+  report.branches.forEach((r) => add(r.name, r.amount, r.paidTransactions));
+  add();
+  add("Product", "Units sold", "Confirmed gross sales (NGN)");
+  report.products.forEach((r) => add(r.name, r.unitsSold, r.paidSales));
+  add();
+  report.notes.forEach((note) => add("Note", note));
+  return rows;
 }
 
-// ----- Daily data -----
-
-const dailyTrend = [
-  { label: "Mon", segments: [26, 17, 11, 6, 2] },
-  { label: "Tue", segments: [33, 21, 14, 7, 3] },
-  { label: "Wed", segments: [20, 13, 9, 4, 2] },
-  { label: "Thu", segments: [39, 25, 17, 8, 3] },
-  { label: "Fri", segments: [34, 22, 15, 7, 3] },
-  { label: "Sat", segments: [40, 26, 17, 9, 4] },
-  { label: "Sun", segments: [42, 27, 18, 9, 4] },
-];
-
-const dailyChannels = [
-  { name: "Bank transfer", pct: 42 },
-  { name: "POS", pct: 27 },
-  { name: "Cash", pct: 18 },
-  { name: "USSD", pct: 9 },
-  { name: "Card & wallet", pct: 4 },
-];
-
-const dailyStaff = [
-  {
-    name: "Ifeoma Bassey",
-    transactions: 88,
-    total: "₦612,400",
-    failed: 2,
-  },
-  {
-    name: "Ibrahim Musa",
-    transactions: 58,
-    total: "₦408,200",
-    failed: 1,
-  },
-];
-
-// ----- Weekly data -----
-
-const weeklyTrend = [
-  { label: "Wk 1", segments: [16, 10, 7, 4, 1] },
-  { label: "Wk 2", segments: [24, 14, 9, 5, 2] },
-  { label: "Wk 3", segments: [11, 7, 5, 3, 1] },
-  { label: "Wk 4", segments: [25, 16, 10, 6, 2] },
-  { label: "Wk 5", segments: [21, 13, 8, 5, 2] },
-  { label: "Wk 6", segments: [28, 18, 12, 7, 2] },
-];
-
-const weeklyChannels = [
-  { name: "Bank transfer", pct: 41 },
-  { name: "POS", pct: 29 },
-  { name: "Cash", pct: 17 },
-  { name: "USSD", pct: 10 },
-  { name: "Card & wallet", pct: 3 },
-];
-
-const weeklyStaff = [
-  {
-    name: "Ifeoma Bassey",
-    transactions: 512,
-    total: "₦10,214,600",
-    failed: 6,
-  },
-  {
-    name: "Ibrahim Musa",
-    transactions: 338,
-    total: "₦6,725,600",
-    failed: 3,
-  },
-];
-
-// ----- Monthly data -----
-
-const monthlyTrend = [
-  { label: "Mar", segments: [17, 11, 7, 4, 2] },
-  { label: "Apr", segments: [22, 14, 9, 5, 2] },
-  { label: "May", segments: [15, 10, 6, 3, 1] },
-  { label: "Jun", segments: [33, 21, 14, 8, 3] },
-  { label: "Jul", segments: [40, 26, 17, 9, 4] },
-  { label: "Aug", segments: [35, 23, 15, 8, 3] },
-];
-
-const monthlyChannels = [
-  { name: "Bank transfer", pct: 39 },
-  { name: "POS", pct: 30 },
-  { name: "Cash", pct: 15 },
-  { name: "USSD", pct: 12 },
-  { name: "Card & wallet", pct: 4 },
-];
-
-const monthlyStaff = [
-  {
-    name: "Ifeoma Bassey",
-    transactions: 2204,
-    total: "₦41,052,600",
-    failed: 24,
-  },
-  {
-    name: "Ibrahim Musa",
-    transactions: 1458,
-    total: "₦27,368,300",
-    failed: 14,
-  },
-];
-
-// ----- Custom range: Last 30 days data -----
-
-const customTrend = [
-  18,
-  22,
-  15,
-  28,
-  24,
-  32,
-  27,
-  36,
-  30,
-  40,
-];
-
-const customChannels = [
-  { name: "Bank transfer", pct: 40 },
-  { name: "POS", pct: 28 },
-  { name: "Cash", pct: 18 },
-  { name: "USSD", pct: 10 },
-  { name: "Card & wallet", pct: 4 },
-];
-
-const customStaff = [
-  {
-    name: "Ifeoma Bassey",
-    transactions: 1764,
-    total: "₦14,540,200",
-    failed: 9,
-  },
-  {
-    name: "Ibrahim Musa",
-    transactions: 1182,
-    total: "₦9,640,300",
-    failed: 6,
-  },
-];
-
-// ----- Custom range: This quarter data -----
-
-const quarterTrend = [
-  {
-    label: "Week 1",
-    segments: [1.1, 0.8, 0.5, 0.3, 0.1],
-  },
-  {
-    label: "Week 2",
-    segments: [1.3, 0.9, 0.6, 0.3, 0.1],
-  },
-  {
-    label: "Week 3",
-    segments: [1.2, 0.8, 0.5, 0.3, 0.1],
-  },
-  {
-    label: "Week 4",
-    segments: [1.5, 1.0, 0.7, 0.4, 0.2],
-  },
-  {
-    label: "Week 5",
-    segments: [1.6, 1.1, 0.7, 0.4, 0.2],
-  },
-  {
-    label: "Week 6",
-    segments: [1.8, 1.2, 0.8, 0.4, 0.2],
-  },
-  {
-    label: "Week 7",
-    segments: [1.9, 1.3, 0.8, 0.5, 0.2],
-  },
-  {
-    label: "Week 8",
-    segments: [2.1, 1.4, 0.9, 0.5, 0.2],
-  },
-  {
-    label: "Week 9",
-    segments: [2.3, 1.6, 1.0, 0.5, 0.2],
-  },
-  {
-    label: "Week 10",
-    segments: [2.5, 1.7, 1.1, 0.6, 0.2],
-  },
-  {
-    label: "Week 11",
-    segments: [2.7, 1.8, 1.2, 0.6, 0.3],
-  },
-  {
-    label: "Week 12",
-    segments: [2.9, 2.0, 1.3, 0.7, 0.3],
-  },
-  {
-    label: "Week 13",
-    segments: [3.1, 2.1, 1.4, 0.7, 0.3],
-  },
-];
-
-const quarterChannels = [
-  { name: "Bank transfer", pct: 40 },
-  { name: "POS", pct: 28 },
-  { name: "Cash", pct: 18 },
-  { name: "USSD", pct: 10 },
-  { name: "Card & wallet", pct: 4 },
-];
-
-const quarterStaff = [
-  {
-    name: "Ifeoma Bassey",
-    transactions: 1764,
-    total: "₦14,540,200",
-    failed: 9,
-  },
-  {
-    name: "Ibrahim Musa",
-    transactions: 1182,
-    total: "₦9,640,300",
-    failed: 6,
-  },
-];
-
-// ----- Custom range: Year to date data -----
-
-const ytdTrend = [
-  { label: "Jan", segments: [3.2, 2.1, 1.4, 0.6, 0.2] },
-  { label: "Feb", segments: [3.6, 2.3, 1.5, 0.6, 0.2] },
-  { label: "Mar", segments: [4.0, 2.5, 1.5, 0.7, 0.3] },
-  { label: "Apr", segments: [4.3, 2.6, 1.6, 0.7, 0.3] },
-  { label: "May", segments: [4.7, 2.8, 1.7, 0.8, 0.3] },
-  { label: "Jun", segments: [5.0, 3.0, 1.7, 0.8, 0.3] },
-  { label: "Jul", segments: [5.4, 3.1, 1.8, 0.9, 0.4] },
-  { label: "Aug", segments: [5.8, 3.3, 1.9, 0.9, 0.4] },
-  { label: "Sep", segments: [6.2, 3.5, 2.0, 1.0, 0.4] },
-  { label: "Oct", segments: [6.6, 3.7, 2.1, 1.0, 0.4] },
-  { label: "Nov", segments: [7.0, 3.9, 2.2, 1.1, 0.5] },
-  { label: "Dec", segments: [7.5, 4.1, 2.3, 1.1, 0.5] },
-];
-
-const ytdChannels = [
-  { name: "Bank transfer", pct: 40 },
-  { name: "POS", pct: 28 },
-  { name: "Cash", pct: 18 },
-  { name: "USSD", pct: 10 },
-  { name: "Card & wallet", pct: 4 },
-];
-
-const ytdStaff = [
-  {
-    name: "Ifeoma Bassey",
-    transactions: 1764,
-    total: "₦14,540,200",
-    failed: 9,
-  },
-  {
-    name: "Ibrahim Musa",
-    transactions: 1182,
-    total: "₦9,640,300",
-    failed: 6,
-  },
-];
-
 export default function ReportsPage() {
-  const [range, setRange] = useState<RangeTab>("Daily");
-  const [fromDate, setFromDate] = useState("2026-07-01");
-  const [toDate, setToDate] = useState("2026-08-19");
-  const [quickFilter, setQuickFilter] = useState<"Last 30 days" | "This quarter" | "Year to date">(
-    "Last 30 days"
-  );
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [businessId, setBusinessId] = useState("");
+  const [branchId, setBranchId] = useState("all");
+  const [owner, setOwner] = useState(false);
+  const [range, setRange] = useState<RangeTab>("Daily");
+  const [quick, setQuick] = useState<QuickRange>("Last 30 days");
+  const [customFrom, setCustomFrom] = useState(() => shiftDate(todayLagos(), -29));
+  const [customTo, setCustomTo] = useState(() => todayLagos());
+  const [report, setReport] = useState<AnalyticsReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const dates = useMemo(() => getDates(range, quick, customFrom, customTo),
+    [range, quick, customFrom, customTo]);
+  const currentBusiness = memberships.find((m) => m.id === businessId);
+  const selectedBranch = branchId === "all" ? "All branches" :
+    currentBusiness?.branches.find((branch) => branch.id === branchId)?.name ?? "Branch";
+  const selectableBranches = currentBusiness?.branches ?? [];
+
+  useEffect(() => {
+    let active = true;
+    async function init() {
+      try {
+        const data = await inventoryFetch<Membership[]>("/api/businesses/mine");
+        if (!active) return;
+        if (!data.length) throw new Error("Complete business onboarding to view reports.");
+        const selected = localStorage.getItem("selectedBranchId") ?? "";
+        const business = data.find((item) => item.branches.some((branch) => branch.id === selected)) ?? data[0];
+        setMemberships(data);
+        const isOwner = business.myRole === "Owner";
+        const allowed = isOwner ||
+          business.myPermissions?.includes("View reports & analytics") === true;
+        setAccessDenied(!allowed);
+        if (!allowed) {
+          setBusinessId("");
+          setReport(null);
+          setLoading(false);
+          return;
+        }
+        setBusinessId(business.id);
+        setOwner(isOwner);
+        setBranchId(isOwner ? "all" : business.branches[0]?.id ?? "all");
+      } catch (cause) {
+        if (active) { setError(cause instanceof Error ? cause.message : "Unable to load branches."); setLoading(false); }
+      }
+    }
+    void init();
+    return () => { active = false; };
+  }, []);
+
+  const loadReport = useCallback(async () => {
+    if (!businessId) return;
+    const duration = lastDayCount(dates.from, dates.to);
+    if (!Number.isFinite(duration) || duration < 1 || duration > 366) {
+      setReport(null);
+      setLoading(false);
+      setError("Select a valid date range of 1 to 366 days.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const data = await fetchAnalytics({
+        businessId,
+        ...(branchId !== "all" ? { branchId } : {}),
+        from: dates.from, to: dates.to, granularity: dates.granularity,
+      });
+      setReport(data);
+    } catch (cause) {
+      setReport(null);
+      if (cause instanceof ReportsAccessError) setAccessDenied(true);
+      setError(cause instanceof Error ? cause.message : "Unable to load analytics.");
+    } finally {
+      setLoading(false);
+    }
+  }, [businessId, branchId, dates.from, dates.to, dates.granularity]);
+
+  useEffect(() => {
+    if (!businessId) return;
+    let active = true;
+    setLoading(true);
+    setError("");
+    const days = lastDayCount(dates.from, dates.to);
+    if (days < 1 || days > 366 || !Number.isFinite(days)) {
+      setReport(null);
+      setError("Select a valid date range of 1 to 366 days.");
+      setLoading(false);
+      return;
+    }
+    fetchAnalytics({
+      businessId,
+      ...(branchId !== "all" ? { branchId } : {}),
+      from: dates.from, to: dates.to, granularity: dates.granularity,
+    }).then((result) => {
+      if (active) { setReport(result); setError(""); }
+    }).catch((cause) => {
+      if (active) {
+        setReport(null);
+        if (cause instanceof ReportsAccessError) setAccessDenied(true);
+        setError(cause instanceof Error ? cause.message : "Unable to load analytics.");
+      }
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [businessId, branchId, dates.from, dates.to, dates.granularity, reloadKey]);
+
+  useEffect(() => {
+    const update = () => setReloadKey((k) => k + 1);
+    const changedBranch = () => {
+      const selected = localStorage.getItem("selectedBranchId") ?? "";
+      const branch = currentBusiness?.branches.find((item) => item.id === selected);
+      if (branch) setBranchId(branch.id);
+      setReloadKey((k) => k + 1);
+    };
+    window.addEventListener("focus", update);
+    window.addEventListener("branchChanged", changedBranch);
+    return () => {
+      window.removeEventListener("focus", update);
+      window.removeEventListener("branchChanged", changedBranch);
+    };
+  }, [currentBusiness]);
+
+  function downloadReport() {
+    if (!report || loading) return;
+    const rows = csvRows(report);
+    const safe = (value: string) => {
+      const text = /^[\s]*[=+@-]/.test(value) ? "'" + value : value;
+      return '"' + text.replaceAll('"', '""') + '"';
+    };
+    const csv = "\ufeff" + rows.map((line) => line.map(safe).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "kassa-report-" + report.scope.from + "-to-" + report.scope.to + ".csv";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  const metrics = report?.summary;
+  const change = metrics?.salesChangePercent == null ? "No comparable prior-period sales" :
+    (metrics.salesChangePercent >= 0 ? "+" : "") + metrics.salesChangePercent.toFixed(2) + "% vs preceding period";
+
+  // A direct visit to /reports must be blocked visibly, not just show empty
+  // report controls. Backend permissions are still the final authority.
+  if (accessDenied) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
+        <main className="min-h-screen lg:ml-[198px]">
+          <div className="border-b border-gray-200 bg-white px-6 py-6">
+            <h1 className="text-xl font-bold text-[#182033]">Reports &amp; Analytics</h1>
+          </div>
+          <div role="alert" className="mx-4 mt-8 max-w-xl rounded-xl border border-gray-200 bg-white p-6 sm:mx-6 lg:mx-8">
+            <h2 className="mb-2 text-lg font-semibold text-gray-900">Access restricted</h2>
+            <p className="text-sm leading-6 text-gray-600">
+              Your role does not include <strong>View reports &amp; analytics</strong>.
+              Ask your business owner to enable this permission in
+              Staff &amp; Branches → Roles &amp; Permissions.
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50">
-      <KassaSidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
+      <KassaSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
+      <main className="min-h-screen lg:ml-[198px]">
+        <header className="flex min-h-[80px] items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <button type="button" onClick={() => setSidebarOpen(true)}
+              className="shrink-0 rounded-md p-1.5 text-[#374151] transition hover:bg-[#F3F4F6] lg:hidden"
+              aria-label="Open menu">
+              <Menu size={22} />
+            </button>
+            <h1 className="truncate text-[18px] font-bold text-[#182033] sm:text-[20px] lg:text-[21px]">
+              Reports &amp; Analytics
+            </h1>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:gap-5">
+            <div className="hidden w-[130px] sm:block sm:w-[150px] lg:w-[162px]">
+              <label className="sr-only" htmlFor="report-branch">Report branch</label>
+                <select id="report-branch" value={branchId} onChange={(e) => setBranchId(e.target.value)}
+                  className="h-[34px] w-full rounded-[9px] border border-[#D8DCE3] bg-white pl-3 pr-11 text-[12px] text-[#374151] sm:text-[13px]">
+                  {owner && <option value="all">All branches</option>}
+                  {selectableBranches.map((branch) => <option value={branch.id} key={branch.id}>{branch.name}{!branch.isActive ? " (inactive)" : ""}</option>)}
+                </select>
+            </div>
+            <KassaHeaderActions />
+          </div>
+        </header>
 
-      <main className="lg:ml-[198px] p-4 sm:p-6 lg:p-8">
-        <div className="flex items-center gap-3 mb-6">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="shrink-0 rounded-md p-1.5 text-gray-700 transition hover:bg-gray-100 lg:hidden"
-            aria-label="Open menu"
-          >
-            <Menu size={22} />
-          </button>
-          <h1 className="text-2xl font-semibold text-gray-900">Reports &amp; Analytics</h1>
-        </div>
-
-        {/* Range tabs + download */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-          <div className="flex bg-white rounded-lg border border-gray-200 p-1 overflow-x-auto max-w-full">
-            {rangeTabs.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setRange(tab)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                  range === tab
-                    ? "bg-emerald-800 text-white"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {tab}
+        <div className="mb-6 flex flex-col gap-3 px-4 pt-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pt-8 lg:px-8 lg:pt-12">
+          <div className="flex max-w-full overflow-x-auto rounded-lg border border-gray-200 bg-white p-1">
+            {rangeTabs.map((item) => (
+              <button key={item} onClick={() => setRange(item)}
+                className={"whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors " +
+                  (range === item ? "bg-emerald-800 text-white" : "text-gray-500 hover:text-gray-700")}>
+                {item}
               </button>
             ))}
           </div>
-
-          <button className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto">
-            <Download size={16} />
-            Download Report
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => void loadReport()} disabled={!businessId || loading}
+              aria-label="Refresh report" title="Refresh report"
+              className="rounded-lg border border-gray-200 bg-white p-2.5 text-gray-500 hover:bg-gray-50 disabled:opacity-50">
+              <RefreshCw size={16}/>
+            </button>
+            <button type="button" disabled={!report || loading} onClick={downloadReport}
+              className="flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+              <Download size={16}/> Download Report
+            </button>
+          </div>
         </div>
 
-        {/* ---------------- DAILY ---------------- */}
-
-        {range === "Daily" && (
-          <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <SummaryCard
-                label="Total sales (7 days)"
-                value="₦2,840,600"
-                delta="9% vs prior week"
-              />
-
-              <SummaryCard
-                label="Avg transaction value"
-                value="₦8,270"
-                delta="3% vs prior week"
-              />
-
-              <SummaryCard
-                label="Failed payment rate"
-                value="2.1%"
-                delta="0.4pt vs prior week"
-                deltaPositive={false}
-              />
-
-              <SummaryCard
-                label="Top branch"
-                value="Main branch"
-                sub="64% of total sales"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              <StackedTrendChart
-                data={dailyTrend}
-                title="Sales trend — last 7 days, by channel"
-              />
-
-              <ChannelBreakdown data={dailyChannels} />
-            </div>
-
-            <StaffTable
-              title="Sales by staff member — last 7 days"
-              rows={dailyStaff}
-            />
-          </>
-        )}
-
-        {/* ---------------- WEEKLY ---------------- */}
-
-        {range === "Weekly" && (
-          <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <SummaryCard
-                label="Total sales (6 weeks)"
-                value="₦16,940,200"
-                delta="14% vs prior 6 weeks"
-              />
-
-              <SummaryCard
-                label="Avg weekly sales"
-                value="₦2,823,366"
-                delta="6% vs prior period"
-              />
-
-              <SummaryCard
-                label="Failed payment rate"
-                value="1.8%"
-                delta="0.3pt vs prior period"
-                deltaPositive={false}
-              />
-
-              <SummaryCard
-                label="Best week"
-                value="Week 6"
-                sub="₦3,412,800 in sales"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              <StackedTrendChart
-                data={weeklyTrend}
-                title="Sales trend — last 6 weeks, by channel"
-              />
-
-              <ChannelBreakdown data={weeklyChannels} />
-            </div>
-
-            <StaffTable
-              title="Sales by staff member — last 6 weeks"
-              rows={weeklyStaff}
-            />
-          </>
-        )}
-
-        {/* ---------------- MONTHLY ---------------- */}
-
-        {range === "Monthly" && (
-          <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <SummaryCard
-                label="Total sales (6 months)"
-                value="₦68,420,900"
-                delta="21% vs prior 6 months"
-              />
-
-              <SummaryCard
-                label="Avg monthly sales"
-                value="₦11,403,483"
-                delta="9% vs prior period"
-              />
-
-              <SummaryCard
-                label="Failed payment rate"
-                value="1.6%"
-                delta="0.5pt vs prior period"
-                deltaPositive={false}
-              />
-
-              <SummaryCard
-                label="Best month"
-                value="July 2026"
-                sub="₦13,860,400 in sales"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              <StackedTrendChart
-                data={monthlyTrend}
-                title="Sales trend — last 6 months, by channel"
-              />
-
-              <ChannelBreakdown data={monthlyChannels} />
-            </div>
-
-            <StaffTable
-              title="Sales by staff member — last 6 months"
-              rows={monthlyStaff}
-            />
-          </>
-        )}
-
-        {/* ---------------- CUSTOM RANGE ---------------- */}
-
         {range === "Custom range" && (
+          <div className="relative z-10 mb-5 flex flex-wrap items-end gap-3 px-4 sm:px-6 lg:px-8">
+            <label className="block text-xs text-gray-600">Quick range
+              <select value={quick} onChange={(e) => setQuick(e.target.value as QuickRange)}
+                className="mt-1 block rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm">
+                {(["Last 30 days", "This quarter", "Year to date", "Custom dates"] as QuickRange[])
+                  .map((option) => <option key={option}>{option}</option>)}
+              </select>
+            </label>
+            <label className="block text-xs text-gray-600">From
+              <input type="date" value={dates.from} onChange={(e) => { setQuick("Custom dates"); setCustomFrom(e.target.value); }}
+                className="mt-1 block rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"/>
+            </label>
+            <label className="block text-xs text-gray-600">To
+              <input type="date" value={dates.to} onChange={(e) => { setQuick("Custom dates"); setCustomTo(e.target.value); }}
+                className="mt-1 block rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"/>
+            </label>
+            <div className="sm:hidden">
+              <label className="block text-xs text-gray-600">Branch
+                <select value={branchId} onChange={(e) => setBranchId(e.target.value)}
+                  className="mt-1 block rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
+                  {owner && <option value="all">All branches</option>}
+                  {selectableBranches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+                </select>
+              </label>
+            </div>
+          </div>
+        )}
+
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2 px-4 text-xs text-gray-500 sm:px-6 lg:px-8">
+          <span>Showing {dates.label}: {dates.from} – {dates.to} · {selectedBranch} · Africa/Lagos time</span>
+          {report && <span>Updated {new Date(report.scope.generatedAt).toLocaleString("en-NG")}</span>}
+        </div>
+        {loading && <p role="status" className="mb-4 px-4 text-sm text-gray-600 sm:px-6 lg:px-8">Loading real sales reports...</p>}
+        {error && <p role="alert" className="mb-4 px-4 text-sm text-red-700 sm:px-6 lg:px-8">{error}</p>}
+
+        {report && (
           <>
-            {/* Responsive custom range controls */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 mb-6">
-              
-              {/* Dates */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_auto_1fr] gap-4 items-end">
-                
-                <div className="w-full">
-                  <label className="block text-xs text-gray-500 mb-1.5">
-                    From
-                  </label>
-
-                  <input
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) =>
-                      setFromDate(e.target.value)
-                    }
-                    className="w-full px-3 sm:px-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
-                  />
-                </div>
-
-                <span className="hidden lg:block text-gray-400 pb-2.5">
-                  →
-                </span>
-
-                <div className="w-full">
-                  <label className="block text-xs text-gray-500 mb-1.5">
-                    To
-                  </label>
-
-                  <input
-                    type="date"
-                    value={toDate}
-                    onChange={(e) =>
-                      setToDate(e.target.value)
-                    }
-                    className="w-full px-3 sm:px-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-700"
-                  />
-                </div>
-              </div>
-
-              {/* Quick filters + Apply */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-4">
-                
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() =>
-                      setQuickFilter("Last 30 days")
-                    }
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-                      quickFilter === "Last 30 days"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    Last 30 days
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setQuickFilter("This quarter")
-                    }
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-                      quickFilter === "This quarter"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    This quarter
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setQuickFilter("Year to date")
-                    }
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-                      quickFilter === "Year to date"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    Year to date
-                  </button>
-                </div>
-
-                <button className="w-full sm:w-auto sm:ml-auto bg-emerald-800 hover:bg-emerald-900 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">
-                  Apply
-                </button>
-              </div>
+            <div className="mb-6 grid grid-cols-2 gap-4 px-4 sm:px-6 lg:px-8 lg:grid-cols-4">
+              <SummaryCard label="Confirmed sales" value={formatMoney(metrics?.paidSales ?? "0")}
+                sub={change}/>
+              <SummaryCard label="Avg transaction value" value={formatMoney(metrics?.averageSale ?? "0")}
+                sub={String(metrics?.paidTransactions ?? 0) + " paid transactions"}/>
+              <SummaryCard label="Failed payment rate"
+                value={metrics?.failedPaymentRate == null ? "N/A" : metrics.failedPaymentRate.toFixed(1) + "%"}
+                sub={String(metrics?.failedPayments ?? 0) + " failed payment attempts"}/>
+              <SummaryCard label={owner && branchId === "all" ? "Top branch" : "Total transactions"}
+                value={owner && branchId === "all"
+                  ? metrics?.topBranch?.name ?? "No sales yet"
+                  : String(metrics?.totalTransactions ?? 0)}
+                sub={owner && branchId === "all"
+                  ? metrics?.topBranch ? metrics.topBranch.sharePct.toFixed(1) + "% of confirmed revenue" : "No confirmed branch revenue"
+                  : String(metrics?.pendingTransactions ?? 0) + " pending sales"}/>
+            </div>
+            <div className="mb-6 grid grid-cols-2 gap-4 px-4 sm:px-6 lg:px-8 lg:grid-cols-3">
+              <SummaryCard label="Paid transactions" value={String(metrics?.paidTransactions ?? 0)}/>
+              <SummaryCard label="Pending sales" value={String(metrics?.pendingTransactions ?? 0)}
+                sub="Not included in confirmed sales"/>
+              <SummaryCard label="Previous period sales" value={formatMoney(metrics?.previousPaidSales ?? "0")}/>
             </div>
 
-            {/* Year to date */}
-
-            {quickFilter === "Year to date" && (
-              <>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                  <SummaryCard
-                    label="Total sales (YTD 2026)"
-                    value="₦91,240,600"
-                    delta="19% vs same period 2025"
-                  />
-
-                  <SummaryCard
-                    label="Transactions"
-                    value="11,528"
-                    delta="12% vs same period 2025"
-                  />
-
-                  <SummaryCard
-                    label="Failed payment rate"
-                    value="1.8%"
-                    delta="0.6pt vs same period 2025"
-                    deltaPositive={false}
-                  />
-
-                  <SummaryCard
-                    label="Days covered"
-                    value="231 days"
-                    sub="1 Jan – 19 Aug 2026"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                  <StackedTrendChart
-                    data={ytdTrend}
-                    title="Sales trend — year to date, by channel"
-                  />
-
-                  <ChannelBreakdown
-                    data={ytdChannels}
-                  />
-                </div>
-
-                <StaffTable
-                  title="Sales by staff member — Year to date 2026"
-                  rows={ytdStaff}
-                />
-              </>
-            )}
-
-            {/* This quarter */}
-
-            {quickFilter === "This quarter" && (
-              <>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                  <SummaryCard
-                    label="Total sales (Q3 2026)"
-                    value="₦35,760,800"
-                    delta="16% vs Q2 2026"
-                  />
-
-                  <SummaryCard
-                    label="Transactions"
-                    value="4,312"
-                    delta="9% vs Q2 2026"
-                  />
-
-                  <SummaryCard
-                    label="Failed payment rate"
-                    value="1.6%"
-                    delta="0.3pt vs Q2 2026"
-                    deltaPositive={false}
-                  />
-
-                  <SummaryCard
-                    label="Days covered"
-                    value="92 days"
-                    sub="1 Jul – 30 Sep 2026"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                  <StackedTrendChart
-                    data={quarterTrend}
-                    title="Sales trend — this quarter, by channel"
-                  />
-
-                  <ChannelBreakdown
-                    data={quarterChannels}
-                  />
-                </div>
-
-                <StaffTable
-                  title="Sales by staff member — Q3 2026"
-                  rows={quarterStaff}
-                />
-              </>
-            )}
-
-            {/* Last 30 days */}
-
-            {quickFilter === "Last 30 days" && (
-              <>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                  <SummaryCard
-                    label="Total sales (1 Jul – 19 Aug)"
-                    value="₦24,180,500"
-                    delta="11% vs same period prior"
-                  />
-
-                  <SummaryCard
-                    label="Transactions"
-                    value="2,946"
-                    delta="7% vs same period prior"
-                  />
-
-                  <SummaryCard
-                    label="Failed payment rate"
-                    value="1.7%"
-                    delta="0.4pt vs same period prior"
-                    deltaPositive={false}
-                  />
-
-                  <SummaryCard
-                    label="Days covered"
-                    value="50 days"
-                    sub="1 Jul – 19 Aug 2026"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                  
-                  <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
-                    <h2 className="text-base font-semibold text-gray-900 mb-6">
-                      Sales trend — 1 Jul to 19 Aug 2026
-                    </h2>
-
-                    <LineChart values={customTrend} />
-
-                    <div className="flex justify-between mt-2 text-xs text-gray-400">
-                      <span>Jul 1</span>
-                      <span>Jul 20</span>
-                      <span>Aug 8</span>
-                      <span>Aug 19</span>
-                    </div>
-                  </div>
-
-                  <ChannelBreakdown
-                    data={customChannels}
-                  />
-                </div>
-
-                <StaffTable
-                  title="Sales by staff member — 1 Jul to 19 Aug 2026"
-                  rows={customStaff}
-                />
-              </>
-            )}
+            <div className="mb-6 grid grid-cols-1 gap-6 px-4 sm:px-6 lg:px-8 lg:grid-cols-3">
+              <StackedTrendChart report={report}/>
+              <ChannelBreakdown report={report}/>
+            </div>
+            <div className="mb-6 grid grid-cols-1 gap-6 px-4 sm:px-6 lg:px-8 xl:grid-cols-2">
+              <TablePanel title="Sales by staff member">
+                <table className="w-full min-w-[450px] text-left text-sm">
+                  <thead><tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-500">
+                    <th className="pb-3 pr-3 font-medium">Staff</th>
+                    <th className="pb-3 pr-3 font-medium">Paid transactions</th>
+                    <th className="pb-3 pr-3 font-medium">Confirmed sales</th>
+                    <th className="pb-3 font-medium">Failed</th>
+                  </tr></thead>
+                  <tbody>
+                    {report.staff.map((staff) => <tr key={staff.id ?? staff.name} className="border-b border-gray-50 last:border-0">
+                      <td className="whitespace-nowrap py-3 pr-3 text-gray-700">{staff.name}</td>
+                      <td className="py-3 pr-3 text-gray-700">{staff.paidTransactions}</td>
+                      <td className="whitespace-nowrap py-3 pr-3 font-medium text-gray-900">{formatMoney(staff.paidSales)}</td>
+                      <td className="py-3 text-red-600">{staff.failedPayments}</td>
+                    </tr>)}
+                    {!report.staff.length && <tr><td colSpan={4} className="py-7 text-center text-gray-500">No recorded staff sales.</td></tr>}
+                  </tbody>
+                </table>
+              </TablePanel>
+              <TablePanel title="Branch performance">
+                <table className="w-full min-w-[350px] text-left text-sm">
+                  <thead><tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-500">
+                    <th className="pb-3 pr-3 font-medium">Branch</th>
+                    <th className="pb-3 pr-3 font-medium">Paid transactions</th>
+                    <th className="pb-3 font-medium">Confirmed sales</th>
+                  </tr></thead>
+                  <tbody>
+                    {report.branches.map((branch) => <tr key={branch.id} className="border-b border-gray-50 last:border-0">
+                      <td className="whitespace-nowrap py-3 pr-3 text-gray-700">{branch.name}</td>
+                      <td className="py-3 pr-3 text-gray-700">{branch.paidTransactions}</td>
+                      <td className="whitespace-nowrap py-3 font-medium text-gray-900">{formatMoney(branch.amount)}</td>
+                    </tr>)}
+                    {!report.branches.length && <tr><td colSpan={3} className="py-7 text-center text-gray-500">No branches found.</td></tr>}
+                  </tbody>
+                </table>
+              </TablePanel>
+            </div>
+            <div className="mb-6 px-4 sm:px-6 lg:px-8">
+              <TablePanel title="Top-selling products (confirmed sales)">
+                <table className="w-full min-w-[440px] text-left text-sm">
+                  <thead><tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-500">
+                    <th className="pb-3 pr-4 font-medium">Product</th>
+                    <th className="pb-3 pr-4 font-medium">Units sold</th>
+                    <th className="pb-3 font-medium">Confirmed sales</th>
+                  </tr></thead>
+                  <tbody>
+                    {report.products.map((product) => <tr key={product.id} className="border-b border-gray-50 last:border-0">
+                      <td className="py-3 pr-4 text-gray-700">{product.name}</td>
+                      <td className="py-3 pr-4 text-gray-700">{product.unitsSold}</td>
+                      <td className="py-3 font-medium text-gray-900">{formatMoney(product.paidSales)}</td>
+                    </tr>)}
+                    {!report.products.length && <tr><td colSpan={3} className="py-7 text-center text-gray-500">No paid product sales in this period.</td></tr>}
+                  </tbody>
+                </table>
+              </TablePanel>
+            </div>
+            <p className="mb-8 px-4 text-xs leading-6 text-gray-500 sm:px-6 lg:px-8">
+              Confirmed gross sales are not profit or bank-settled funds. Only paid sales with a successful payment
+              count as revenue; unverified electronic payments stay pending. The report groups transactions by
+              sale creation date in Africa/Lagos, using each sale&apos;s current status. Failed payment rate excludes
+              pending attempts. Exported CSV uses the same date and branch filters.
+            </p>
           </>
         )}
       </main>

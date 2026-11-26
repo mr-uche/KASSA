@@ -1,0 +1,30 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_KASSA_API_URL": "https://kassa-api-18he.onrender.com/api/v1",
+        "EAS_NO_FROZEN_LOCKFILE": "1"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "environment": "preview",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_KASSA_API_URL": "https://kassa-api-18he.onrender.com/api/v1",
+        "EAS_NO_FROZEN_LOCKFILE": "1"
+      }
+    }
+  }
+}

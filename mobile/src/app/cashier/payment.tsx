@@ -1,0 +1,504 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import * as Crypto from 'expo-crypto';
+import { SymbolView } from 'expo-symbols';
+import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api';
+import { useKassaDemo } from '@/components/kassa-demo/store';
+import { C, naira, toKobo } from '@/components/kassa-demo/theme';
+import { KScreen } from '@/components/kassa-demo/ui';
+import { CheckoutProgress } from '@/components/kassa-demo/checkout-progress';
+import { recordOfflineSale } from '@/components/kassa-demo/offline-cash';
+
+const methods = [
+  { name: 'Cash', channel: 'CASH', detail: 'Confirm cash received' },
+  { name: 'Transfer', channel: 'BANK_TRANSFER', detail: 'Check bank credit' },
+  { name: 'Card', channel: 'CARD', detail: 'Check POS receipt' },
+  { name: 'POS', channel: 'POS', detail: 'Check the business terminal success record' },
+] as const;
+
+export default function Payment() {
+  const router = useRouter();
+  const store = useKassaDemo();
+  const session = useKassaSession();
+  const [cashInput, setCashInput] = useState('');
+  const [merchantChecked, setMerchantChecked] = useState(false);
+  const [receivingAccounts, setReceivingAccounts] = useState<{
+    id: string; bankName: string; accountNumber: string; accountName: string; isDefault: boolean;
+  }[]>([]);
+  const [selectedBankId, setSelectedBankId] = useState('');
+  const [autoVerificationMessage, setAutoVerificationMessage] = useState('');
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState('');
+  // A stable request ID prevents a double sale when a request is retried on this screen.
+  const requestId = useRef<string | null>(null);
+
+  const method = methods.find(item => item.name === store.paymentMethod) ?? methods[0];
+  const pending = store.pendingSale;
+  const locked = pending !== null;
+  const offline = store.offlineMode;
+  const cacheFresh = !!store.catalogSavedAt &&
+    Date.now() - store.catalogSavedAt <= 48 * 60 * 60 * 1000;
+  useEffect(() => {
+    let active = true;
+    if (offline || !session.scope || method.channel !== 'BANK_TRANSFER') {
+      setReceivingAccounts([]);
+      setSelectedBankId('');
+      return () => { active = false; };
+    }
+    const query = '?businessId=' + encodeURIComponent(session.scope.businessId) +
+      '&branchId=' + encodeURIComponent(session.scope.branchId);
+    void session.request<typeof receivingAccounts>('sales/receiving-accounts' + query)
+      .then(accounts => {
+        if (!active) return;
+        setReceivingAccounts(accounts);
+        setSelectedBankId(old => accounts.some(a => a.id === old) ? old :
+          (accounts.find(a => a.isDefault) ?? accounts[0])?.id ?? '');
+      }).catch(() => { if (active) setReceivingAccounts([]); });
+    return () => { active = false; };
+  }, [session.scope?.businessId, session.scope?.branchId, method.channel, offline, session.request]);
+
+  useEffect(() => {
+    let active = true;
+    if (!pending || offline || method.channel === 'CASH') {
+      setAutoVerificationMessage('');
+      return () => { active = false; };
+    }
+    void session.request<{ status: string; detail: string }>(
+      'sales/' + encodeURIComponent(pending.id) + '/verification-status'
+    ).then(result => {
+      if (active) setAutoVerificationMessage(result.status === 'NOT_CONNECTED'
+        ? 'Verify payment in your bank or POS records.'
+        : result.detail);
+    }).catch(() => {
+      if (active) setAutoVerificationMessage('Verify payment in your bank or POS records.');
+    });
+    return () => { active = false; };
+  }, [pending?.id, method.channel, offline, session.request]);
+
+  // Once the sale exists, the backend amount is authoritative.
+  const amountDueKobo = toKobo(pending ? Number(pending.total) : store.total);
+  const enteredCash = cashInput.replace(/,/g, '').trim();
+  const enteredCashKobo = /^(?:0|[1-9][0-9]{0,11})(?:[.][0-9]{1,2})?$/.test(enteredCash)
+    ? toKobo(Number(enteredCash)) : null;
+  const validCash = enteredCashKobo !== null && Number.isSafeInteger(enteredCashKobo) &&
+    amountDueKobo > 0 && enteredCashKobo >= amountDueKobo;
+  const received = (enteredCashKobo ?? 0) / 100;
+  const change = validCash ? (enteredCashKobo - amountDueKobo) / 100 : 0;
+  const orderItems = store.lines.map(line => ({
+    line,
+    product: store.catalog.find(item => item.id === line.id),
+  })).filter((entry): entry is typeof entry & { product: NonNullable<typeof entry.product> } => !!entry.product);
+  const changedPrice = !!pending && (amountDueKobo !== toKobo(store.total) ||
+    pending.items.some(item => {
+      const local = store.catalog.find(product => product.id === item.productId);
+      return !local || toKobo(Number(item.unitPrice)) !== toKobo(local.price);
+    }));
+
+  const prepareSale = async (): Promise<CheckoutSale> => {
+    if (!session.scope || !session.user) throw new Error('Sign in and select an assigned branch first.');
+    if (!store.discountValid) throw new Error('Review the sale discount before payment.');
+    if (offline && !pending) throw new Error('Offline sales must be recorded on this phone before synchronizing.');
+    if (pending) {
+      if (pending.payments[0]?.channel !== method.channel)
+        throw new Error('This pending sale uses another payment method. Verify it before starting another.');
+      return pending;
+    }
+    if (!store.count || orderItems.length !== store.lines.length) {
+      throw new Error('Your cart is empty or a product could not be found.');
+    }
+    if (!requestId.current) requestId.current = Crypto.randomUUID();
+    const saved = await session.request<CheckoutSale>('sales', {
+      businessId: session.scope.businessId,
+      branchId: session.scope.branchId,
+      clientRequestId: requestId.current,
+      channel: method.channel,
+      ...(store.discount > 0 ? { discountAmount: store.discount.toFixed(2) } : {}),
+      ...(store.customerName.trim() ? { customerName: store.customerName.trim() } : {}),
+      items: store.lines.map(line => ({ productId: line.id, quantity: line.quantity })),
+    });
+    store.setPendingSale(saved);
+    if (toKobo(Number(saved.total)) !== toKobo(store.total)) {
+      setCashInput('');
+      throw new Error('Catalogue prices changed. Review the updated amount and enter cash received again.');
+    }
+    return saved;
+  };
+
+  const finishCash = async () => {
+    if (!store.discountValid) { setError('Review the sale discount before payment.'); return; }
+    if (!validCash || working) {
+      setError('Enter the cash actually received. It must cover the total.');
+      return;
+    }
+    if (offline) {
+      if (pending) {
+        setError('Reconnect to verify the pending sale. Do not duplicate it.');
+        return;
+      }
+      if (!cacheFresh || !session.user || !session.scope) {
+        setError('Refresh stock online every 48 hours.');
+        return;
+      }
+      if (!store.count || orderItems.length !== store.lines.length) {
+        setError('Some products in this sale are missing from the saved catalogue.');
+        return;
+      }
+      Alert.alert(
+        'Confirm offline cash',
+        'You received ' + naira(received) + ' for ' + naira(amountDueKobo / 100) +
+        ' (change ' + naira(change) + '). Saved on this device until synced. Do not charge twice.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Cash collected — save', onPress: () => { void (async () => {
+            setWorking(true);
+            setError('');
+            try {
+              const scope = { userId: session.user!.id, businessId: session.scope!.businessId,
+                branchId: session.scope!.branchId };
+              const saved = await recordOfflineSale(scope,
+                store.lines.map(line => ({ productId: line.id, quantity: line.quantity })),
+                'CASH', received, store.customerName, store.discount, amountDueKobo / 100);
+              store.beginNewSale();
+              await store.refreshCatalog();
+              router.replace({
+                pathname: '/cashier/offline-receipt',
+                params: { id: saved.id },
+              });
+            } catch (cause) {
+              setError(cause instanceof Error ? cause.message : 'Could not store offline sale. Do not collect cash again.');
+            } finally { setWorking(false); }
+          })(); } },
+        ]
+      );
+      return;
+    }
+    setWorking(true);
+    setError('');
+    let sale: CheckoutSale;
+    try {
+      // Create or recover the sale BEFORE showing a cash confirmation prompt.
+      // Its price may have changed since the cashier selected the products.
+      sale = await prepareSale();
+      const serverDueKobo = toKobo(Number(sale.total));
+      if (toKobo(received) < serverDueKobo) {
+        setCashInput('');
+        throw new Error('The final price is higher than the cash received. Enter the revised amount.');
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not calculate the final amount.');
+      setWorking(false);
+      return;
+    }
+    setWorking(false);
+    const serverDueKobo = toKobo(Number(sale.total));
+    const serverChange = (toKobo(received) - serverDueKobo) / 100;
+    Alert.alert(
+      'Confirm cash received',
+      'Confirm cash received: ' + naira(received) +
+      ' for the final total of ' + naira(serverDueKobo / 100) +
+      '. Change to return: ' + naira(serverChange) +
+      '.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cash received', onPress: () => { void (async () => {
+          setWorking(true);
+          setError('');
+          try {
+            const confirmed = await session.request<CheckoutSale>(
+              'sales/' + encodeURIComponent(sale.id) + '/confirm-cash',
+              { cashReceived: true }
+            );
+            if (confirmed.status !== 'PAID' || confirmed.payments[0]?.status !== 'SUCCEEDED') {
+              throw new Error('The cash payment was not confirmed by the server.');
+            }
+            store.setCompletedPayment({
+              sale: confirmed, cashReceived: received,
+              change: (toKobo(received) - toKobo(Number(confirmed.total))) / 100,
+            });
+            router.replace('/cashier/complete');
+          } catch (cause) {
+            setError(cause instanceof Error ? cause.message : 'Unable to confirm cash payment.');
+          } finally {
+            setWorking(false);
+          }
+        })(); } },
+      ]
+    );
+  };
+
+  const finishMerchantPayment = async () => {
+    if (working) return;
+    if (!store.discountValid) { setError('Review the sale discount before payment.'); return; }
+    if (!merchantChecked) {
+      setError('Check the bank or POS record first.');
+      return;
+    }
+    if (offline) {
+      if (pending) {
+        setError('Reconnect to resolve the pending payment.');
+        return;
+      }
+      if (!cacheFresh || !session.user || !session.scope || !store.count ||
+          orderItems.length !== store.lines.length) {
+        setError('Refresh stock online every 48 hours.');
+        return;
+      }
+      Alert.alert('Confirm offline ' + method.name + ' payment',
+        'Confirm the business received ' + naira(amountDueKobo / 100) + ' via ' + method.name +
+        '. Check bank or POS records, not screenshots. ' +
+        'Saved offline until synced. Do not charge twice.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Payment received — save', onPress: () => { void (async () => {
+            setWorking(true); setError('');
+            try {
+              const localScope = { userId: session.user!.id,
+                businessId: session.scope!.businessId, branchId: session.scope!.branchId };
+              const saved = await recordOfflineSale(localScope,
+                store.lines.map(line => ({ productId: line.id, quantity: line.quantity })),
+                method.channel, amountDueKobo / 100, store.customerName, store.discount, amountDueKobo / 100);
+              store.beginNewSale();
+              await store.refreshCatalog();
+              router.replace({ pathname: '/cashier/offline-receipt', params: { id: saved.id } });
+            } catch (cause) {
+              setError(cause instanceof Error ? cause.message : 'Could not save the offline sale. Check the queue before retrying.');
+            } finally { setWorking(false); }
+          })(); } },
+        ]);
+      return;
+    }
+    if (pending?.payments[0]?.provider) {
+      setError('This existing payment is provider-managed and requires business-owner reconciliation.');
+      return;
+    }
+    setWorking(true);
+    setError('');
+    let sale: CheckoutSale;
+    try {
+      sale = await prepareSale();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not create the pending sale.');
+      setWorking(false);
+      return;
+    }
+    setWorking(false);
+    Alert.alert(
+      'Confirm direct business payment',
+      'Confirm receipt of ' + naira(Number(sale.total)) + ' via ' +
+        method.name + '. Verify bank/POS credit, not screenshots. ' +
+        'Confirmation updates stock.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Payment received', onPress: () => { void (async () => {
+          setWorking(true);
+          setError('');
+          try {
+            const confirmed = await session.request<CheckoutSale>(
+              'sales/' + encodeURIComponent(sale.id) + '/confirm-merchant-payment', {
+                confirmedReceived: true,
+                ...(method.channel === 'BANK_TRANSFER' && selectedBankId ? { bankAccountId: selectedBankId } : {}),
+              });
+            if (confirmed.status !== 'PAID' ||
+                !confirmed.payments.some(p => p.status === 'SUCCEEDED' && p.provider === 'MERCHANT_ATTESTED')) {
+              throw new Error('The business payment was not recorded. Do not issue goods.');
+            }
+            store.setCompletedPayment({ sale: confirmed, cashReceived: null, change: 0 });
+            router.replace('/cashier/complete');
+          } catch (cause) {
+            setError(cause instanceof Error ? cause.message : 'Could not record confirmation. Recheck sale status before retrying.');
+          } finally { setWorking(false); }
+        })(); } },
+      ],
+    );
+  };
+
+  return <KScreen showBrand={false} showPreviewLabel={false}>
+    <View style={s.heading}>
+      <Pressable accessibilityLabel="Back to sale review" accessibilityRole="button" onPress={() => router.push('/cashier/review-sale')} style={s.back}>
+        <SymbolView name={{ ios: 'arrow.left', android: 'arrow_back', web: 'arrow_back' }} size={21} tintColor={C.green} />
+      </Pressable>
+      <View><Text style={s.title}>Payment</Text><Text style={s.subtitle}>Complete customer purchase</Text></View>
+    </View>
+
+    <CheckoutProgress stage={2}/>
+    {offline && !cacheFresh && <Text style={{ color: C.danger, fontSize: 13, marginBottom: 15 }}>
+      Saved product stock is missing or older than 48 hours. Connect to refresh before recording sales.
+    </Text>}
+    <Text style={s.sectionTitle}>Order summary</Text>
+    <View style={s.summary}>
+      {pending ? pending.items.map(item => (
+        <View style={s.itemRow} key={item.id}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.productName}>{item.name}</Text>
+            <Text style={s.productQty}>{item.quantity} × {naira(Number(item.unitPrice))}</Text>
+          </View>
+          <Text style={s.amount}>{naira(Number(item.lineTotal))}</Text>
+        </View>
+      )) : orderItems.map(({ line, product }) => (
+        <View style={s.itemRow} key={product.id}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.productName}>{product.name}</Text>
+            <Text style={s.productQty}>{line.quantity} × {naira(product.price)}</Text>
+          </View>
+          <Text style={s.amount}>{naira(toKobo(product.price) * line.quantity / 100)}</Text>
+        </View>
+      ))}
+      <View style={s.itemRow}><Text style={s.productQty}>Subtotal</Text><Text style={s.amount}>{naira(store.subtotal)}</Text></View>
+      {store.discount > 0 && <View style={s.itemRow}><Text style={s.productQty}>Discount</Text><Text style={s.amount}>−{naira(store.discount)}</Text></View>}
+      {!store.discountValid && <Text style={{ color: C.danger }}>Review the invalid discount before payment.</Text>}
+      <View style={s.divider} />
+      <View style={s.totalRow}>
+        <Text style={s.totalText}>Total</Text>
+        <Text style={s.totalValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}
+          accessibilityLabel={'Amount to collect ' + naira(amountDueKobo / 100)}>{naira(amountDueKobo / 100)}</Text>
+      </View>
+      {changedPrice && <Text style={{ color: C.orange, fontWeight: '700', fontSize: 14, lineHeight: 20, marginTop: 12 }}>
+        Catalogue prices changed. The amount above comes from the backend. Review the items and re-enter cash received before confirming.
+      </Text>}
+    </View>
+
+    <Text style={[s.sectionTitle, { marginTop: 26 }]}>How did the customer pay?</Text>
+    {methods.map(item => {
+      const selected = method.name === item.name;
+      return <Pressable key={item.name} accessibilityRole="button"
+        accessibilityState={{ selected, disabled: locked && !selected }}
+        disabled={locked && !selected}
+        onPress={() => { store.setPaymentMethod(item.name); setMerchantChecked(false); }}
+        style={[s.method, selected && s.methodSelected, (locked && !selected) && { opacity: 0.45 }]}>
+        <View style={[s.radio, selected && s.radioSelected]}>{selected && <View style={s.dot} />}</View>
+        <View><Text style={s.methodName}>{item.name}</Text><Text style={s.methodDesc}>{item.detail}</Text></View>
+      </Pressable>;
+    })}
+
+    {method.channel === 'CASH' ? <>
+      <Text style={s.sectionTitle}>Cash collected</Text>
+      <TextInput
+        accessibilityLabel="Cash received amount in naira"
+        keyboardType="decimal-pad"
+        placeholder="₦ 0"
+        placeholderTextColor={C.faint}
+        value={cashInput}
+        onChangeText={setCashInput}
+        editable={!working}
+        style={s.cashInput}
+      />
+      <View style={s.changeRow}>
+        <Text style={s.changeLabel}>Change to give</Text>
+        <Text style={s.changeNumber}>{naira(change)}</Text>
+      </View>
+      {enteredCash.length > 0 && enteredCashKobo !== null && enteredCashKobo < amountDueKobo &&
+        <Text style={s.error}>Remaining cash to collect: {naira((amountDueKobo - enteredCashKobo) / 100)}</Text>}
+    </> : <View style={s.note}>
+      <Text style={s.noteText}>Payments go directly to your business. Verify bank or POS records, not screenshots.</Text>
+      {!offline && method.channel === 'BANK_TRANSFER' &&
+        <View style={[s.summary, { marginTop: 14, padding: 12 }]}>
+          <Text style={s.methodName}>Business receiving account</Text>
+          {receivingAccounts.length ? receivingAccounts.map(account =>
+            <Pressable key={account.id} accessibilityRole="radio"
+              accessibilityState={{ checked: selectedBankId === account.id }}
+              onPress={() => setSelectedBankId(account.id)}
+              style={[s.method, selectedBankId === account.id && s.methodSelected, { marginTop: 8 }]}>
+              <View style={[s.radio, selectedBankId === account.id && s.radioSelected]}>
+                {selectedBankId === account.id && <View style={s.dot}/>}
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={s.methodName}>{account.bankName}{account.isDefault ? ' · Default' : ''}</Text>
+                <Text style={s.methodDesc}>{account.accountNumber}</Text>
+                <Text style={s.methodDesc}>{account.accountName}</Text>
+              </View>
+            </Pressable>,
+          ) : <Text style={[s.noteText, { marginTop: 8 }]}>
+            No receiving account added.
+          </Text>}
+          <Text style={[s.noteText, { marginTop: 8 }]}>
+            Account details are not bank-verified.
+          </Text>
+        </View>}
+      <Text style={[s.noteText, { marginTop: 12 }]}>
+        {offline
+          ? 'Verify directly with your bank or POS. Sync when online.'
+          : autoVerificationMessage || 'Manual confirmation required.'}
+      </Text>
+      <Pressable accessibilityRole="checkbox"
+        accessibilityState={{ checked: merchantChecked }}
+        onPress={() => setMerchantChecked(value => !value)}
+        style={[s.method, { gap: 12, marginTop: 12 }]}>
+        <View style={[s.radio, merchantChecked && s.radioSelected]}>
+          {merchantChecked && <View style={s.dot}/>}
+        </View>
+        <Text style={[s.noteText, { flex: 1 }]}>
+          I confirm the full amount was received.
+        </Text>
+      </Pressable>
+    </View>}
+
+    {offline && pending && <Text style={s.error}>Reconnect to resolve this pending payment.</Text>}
+    {pending?.payments[0]?.provider === 'PAYSTACK_TEST' &&
+      <Text style={s.error}>Non-live transaction. Contact the owner to reconcile.</Text>}
+    {!session.scope && <Text style={s.error}>Sign in to KASSA before completing payments.</Text>}
+    {error ? <Text style={s.error}>{error}</Text> : null}
+    {working && <View accessibilityRole="progressbar" style={s.recording}>
+      <ActivityIndicator size="small" color={C.green}/>
+      <View style={{ flex: 1 }}>
+        <Text style={s.recordingTitle}>Recording payment</Text>
+        <Text style={s.recordingText}>Saving payment. Do not submit again.</Text>
+      </View>
+    </View>}
+    <Pressable
+      accessibilityRole="button"
+      disabled={working || !session.scope || !store.count ||
+        (offline && (!cacheFresh || !!pending)) ||
+        (method.channel === 'CASH' && !validCash) ||
+        (method.channel !== 'CASH' && (!merchantChecked || (!offline && !!pending?.payments[0]?.provider)))}
+      onPress={method.channel === 'CASH' ? finishCash : () => { void finishMerchantPayment(); }}
+      style={[s.primary, (working || !session.scope || !store.count ||
+        (offline && (!cacheFresh || !!pending)) ||
+        (method.channel === 'CASH' && !validCash) ||
+        (method.channel !== 'CASH' && (!merchantChecked || (!offline && !!pending?.payments[0]?.provider)))) && { opacity: 0.5 }]}
+    >
+      <Text style={s.primaryText}>{working ? 'Please wait…' :
+        method.channel === 'CASH' ? (offline ? 'Save offline cash sale' : 'Confirm cash received') :
+        offline ? 'Save offline ' + method.name + ' sale' : 'Confirm payment'}</Text>
+    </Pressable>
+    {!session.scope && <Pressable onPress={() => router.push('/login')} style={s.verify}><Text style={s.verifyText}>Go to sign in</Text></Pressable>}
+  </KScreen>;
+}
+
+const s = StyleSheet.create({
+  recording: { flexDirection: 'row', gap: 12, padding: 13, marginTop: 14, marginBottom: 12,
+    borderRadius: 12, borderWidth: 1, borderColor: C.mintBorder, backgroundColor: C.mint },
+  recordingTitle: { fontWeight: '800', color: C.greenDark, fontSize: 14 },
+  recordingText: { color: C.muted, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  heading: { flexDirection: 'row', alignItems: 'center', gap: 11, marginBottom: 25 },
+  back: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.mint, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 26, color: C.title, fontWeight: '800' },
+  subtitle: { color: C.muted, fontSize: 14, marginTop: 2 },
+  sectionTitle: { color: C.title, fontWeight: '800', fontSize: 20, marginBottom: 12 },
+  summary: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 11, padding: 16 },
+  itemRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, alignItems: 'center' },
+  productName: { color: C.title, fontSize: 14, fontWeight: '700' },
+  productQty: { color: C.faint, fontSize: 14, marginTop: 4 },
+  amount: { color: C.title, fontSize: 14, fontWeight: '800' },
+  divider: { backgroundColor: C.border, height: 1, marginVertical: 10 },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, minWidth: 0 },
+  totalText: { color: C.title, fontSize: 14, fontWeight: '800' },
+  totalValue: { fontSize: 22, color: C.green, fontWeight: '800', flexShrink: 1, maxWidth: '75%', textAlign: 'right', minWidth: 0 },
+  method: { backgroundColor: C.white, borderColor: C.border, borderWidth: 1, borderRadius: 9, padding: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  methodSelected: { backgroundColor: C.mint, borderColor: C.green },
+  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: C.faint, justifyContent: 'center', alignItems: 'center', marginRight: 13 },
+  radioSelected: { borderColor: C.green },
+  dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: C.green },
+  methodName: { color: C.title, fontSize: 14, fontWeight: '800' },
+  methodDesc: { color: C.muted, fontSize: 14, marginTop: 4 },
+  cashInput: { backgroundColor: C.white, color: C.title, borderWidth: 1, borderColor: C.green, height: 55, borderRadius: 9, paddingHorizontal: 16, fontSize: 20, marginBottom: 10 },
+  changeRow: { backgroundColor: C.mint, borderRadius: 9, padding: 17, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  changeLabel: { color: C.muted, fontSize: 14 },
+  changeNumber: { color: C.green, fontSize: 22, fontWeight: '800' },
+  primary: { backgroundColor: C.green, borderRadius: 9, alignItems: 'center', marginTop: 22, padding: 18 },
+  primaryText: { color: C.white, fontSize: 14, fontWeight: '800' },
+  note: { backgroundColor: C.mint, padding: 14, borderRadius: 9, marginTop: 14 },
+  noteText: { fontSize: 14, color: C.greenDark, lineHeight: 22 },
+  error: { color: C.danger, fontSize: 14, marginTop: 12 },
+  verify: { borderRadius: 9, borderWidth: 1, borderColor: C.green, padding: 14, alignItems: 'center', marginTop: 10 },
+  verifyText: { color: C.green, fontWeight: '800', fontSize: 14 },
+});
