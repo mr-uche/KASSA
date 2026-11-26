@@ -7,7 +7,7 @@ import Link from "next/link";
 import { CheckCircle2, Loader2, Menu, ShieldAlert } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import { getInventoryContext } from "@/lib/inventory-client";
-import { loadBilling, beginSubscription, verifySubscription, type BillingStatus } from "@/lib/kassa-billing";
+import { loadBilling, beginSubscription, verifySubscription, type BillingStatus, type BillingCycle } from "@/lib/kassa-billing";
 import {
   getBusinessSettings, updateBusinessSettings, getMerchantBankAccounts,
   addMerchantBankAccount, updateMerchantBankAccount, deleteMerchantBankAccount,
@@ -17,6 +17,17 @@ import {
   getBusinessExport, downloadBusinessExport,
   type ExportDateRange, type ExportFormat, type ExportSection,
 } from "@/lib/data-export";
+
+const billingCycles: { code: BillingCycle; label: string; period: string }[] = [
+  { code: "monthly", label: "Monthly", period: "month" },
+  { code: "quarterly", label: "Quarterly", period: "quarter" },
+  { code: "annual", label: "Annually", period: "year" },
+];
+const planDescriptions: Record<string, string> = {
+  starter: "For small businesses", growth: "For growing businesses",
+  business: "For established businesses", enterprise: "For larger retail operations",
+};
+const billingMoney = (kobo: number) => "₦" + (kobo / 100).toLocaleString("en-NG", { maximumFractionDigits: 2 });
 
 const navigation = [
   "Business profile",
@@ -107,6 +118,7 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [accountClosed, setAccountClosed] = useState(false);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingBusy, setBillingBusy] = useState(false);
   const [billingError, setBillingError] = useState("");
@@ -471,8 +483,7 @@ export default function SettingsPage() {
                 <section className={cardClass}>
                   <h2 className="text-lg font-semibold text-gray-900">KASSA Subscription & Billing</h2>
                   <p className="mt-2 text-sm text-gray-600">
-                    Paystack handles your KASSA service subscription only. Customer purchases
-                    are paid directly to your business, not KASSA.
+                    Manage your subscription and billing history.
                   </p>
                   {billingLoading && <p className="mt-3 text-sm text-gray-500">Loading billing information…</p>}
                   {billingError && <p role="alert" className="mt-3 text-sm text-red-700">{billingError}</p>}
@@ -495,17 +506,13 @@ export default function SettingsPage() {
                       Current tier: <strong>{billing.entitlement.tier.toUpperCase()}</strong>
                       {" · "}Up to {billing.entitlement.maxBranches} branch(es) and {billing.entitlement.maxStaff} staff account(s){billing.entitlement.ownerIncluded === false ? ", excluding the owner." : ", including the owner."}
                     </p>
-                    <p className="mt-2 text-xs text-gray-500">
-                      Feature limits: {billing.featureRestrictionsEnabled
-                        ? "Enforced on the backend" : "Pilot preview only — feature restrictions have not been enabled by the platform administrator"}.
-                    </p>
-                    <p className="mt-3 text-xs text-gray-500">
-                      {billing.environment === "test" ? "Paystack TEST mode — no real money is charged." :
-                        billing.environment === "live" ? "Paystack live payment mode." : "Gateway not configured."}
-                      {" "}Renewal is manual; automatic charging is not enabled.
-                    </p>
+                    {billing.scheduled && <p className="mt-2 text-sm text-gray-600">
+                      Next plan: {billing.scheduled.planName}{billing.scheduled.startsAt && " · Starts " + new Date(billing.scheduled.startsAt).toLocaleDateString("en-NG")}
+                    </p>}
+                    <p className="mt-2 text-xs text-gray-500">Manual renewal.</p>
+                    {billing.environment === "test" && <p className="mt-2 text-xs text-amber-700">No real funds will be charged.</p>}
                     {!billing.configured && <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                      KASSA billing plans or payment credentials have not been configured by the platform administrator.
+                      Subscription payments are currently unavailable.
                     </p>}
                     {billing.pending && <div className="mt-4 rounded-lg border border-amber-200 p-4">
                       <p className="text-sm font-semibold">Payment awaiting verification: {billing.pending.planName}</p>
@@ -530,30 +537,50 @@ export default function SettingsPage() {
                   </button>
                 </section>
                 {billing && <section className={cardClass}>
-                  <h3 className="mb-3 text-base font-semibold">Three subscription plans</h3>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    {billing.plans.map(plan => <div key={plan.code} className="rounded-lg border border-gray-200 p-4">
-                      <p className="font-semibold">{plan.name}</p>
-                      <p className="mt-2 text-xl font-bold text-emerald-800">
-                        {"₦" + (plan.amountKobo / 100).toLocaleString("en-NG", { minimumFractionDigits: 2 })}
-                      </p>
-                      <p className="mt-1 text-sm text-gray-500">{plan.durationDays} days of KASSA access</p>
-                      {plan.testPricing && <p className="mt-1 text-xs font-semibold text-amber-700">Illustrative test price</p>}
-                      <ul className="mt-3 space-y-1 text-xs text-gray-600">
-                        <li>Up to {plan.entitlement.maxBranches} branch(es)</li>
-                        <li>Up to {plan.entitlement.maxStaff} staff accounts ({plan.entitlement.ownerIncluded === false ? "owner excluded" : "owner included"})</li>
-                        <li>{plan.entitlement.features.customers ? "Customer management" : "Customer management locked"}</li>
-                        <li>{plan.entitlement.features.reports ? "Reports & Analytics" : "Reports locked"}</li>
-                        <li>{plan.entitlement.features.grossProfit ? "Gross-profit overview" : "Gross profit locked"}</li>
-                        <li>{plan.entitlement.features.dataExport ? "Data export" : "Data export locked"}</li>
-                      </ul>
-                      <button type="button" disabled={billingBusy || !billing.configured || !!billing.pending}
-                        onClick={() => void purchaseSubscription(plan.code)}
-                        className="mt-3 rounded-lg bg-emerald-800 px-4 py-2 text-sm text-white disabled:opacity-50">
-                        {billing.subscription.status === "ACTIVE" ? "Renew with this plan" : "Subscribe"}
-                      </button>
-                    </div>)}
-                  </div>
+                  <h3 className="text-xl font-bold text-gray-900">Choose your subscription</h3>
+                  <p className="mt-1 text-sm text-gray-500">Flexible plans for every business size.</p>
+                  {billing.plans.some(plan => !!plan.billingCycle) ? <>
+                    <div className="mt-4 inline-flex max-w-full rounded-xl bg-emerald-50 p-1 gap-1">
+                      {billingCycles.map(cycle => <button key={cycle.code} type="button"
+                        aria-pressed={billingCycle === cycle.code}
+                        onClick={() => setBillingCycle(cycle.code)}
+                        className={"rounded-lg px-3 py-2 text-sm font-semibold " +
+                          (billingCycle === cycle.code ? "bg-emerald-800 text-white" : "text-emerald-900")}>
+                        {cycle.label}
+                      </button>)}
+                    </div>
+                    {billingCycle !== "monthly" && <p className="mt-3 text-sm font-semibold text-emerald-800">
+                      Save {billing.plans.find(p => p.billingCycle === billingCycle)?.discountPercent ?? 0}% with {billingCycle === "annual" ? "annual" : "quarterly"} billing
+                    </p>}
+                    {billing.subscription.status === "ACTIVE" && <p className="mt-3 text-xs text-gray-600">New plans start after your current paid period.</p>}
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                      {billing.plans.filter(plan => plan.billingCycle === billingCycle).map(plan =>
+                        <div key={plan.code} className={"flex flex-col rounded-2xl border bg-white p-4 " +
+                          (plan.tier === "growth" ? "border-2 border-emerald-700" : "border-gray-200")}>
+                          <div className="min-h-5">{plan.tier === "growth" && <span className="text-xs font-bold text-emerald-800">RECOMMENDED</span>}</div>
+                          <h4 className="text-xl font-bold text-gray-900">{plan.tierName || plan.name}</h4>
+                          <p className="mt-1 text-xs text-gray-500">{planDescriptions[plan.tier || ""]}</p>
+                          <p className="mt-4 text-2xl font-bold text-emerald-800">{billingMoney(plan.amountKobo)}</p>
+                          <p className="text-xs text-gray-500">per {billingCycles.find(c => c.code === billingCycle)?.period} · {plan.durationDays} days</p>
+                          {!!plan.savingsKobo && <p className="mt-1 text-xs font-semibold text-emerald-700">Save {billingMoney(plan.savingsKobo)}</p>}
+                          <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                            <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-900">{plan.entitlement.maxBranches} {plan.entitlement.maxBranches === 1 ? "branch" : "branches"}</span>
+                            <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-900">{plan.entitlement.maxStaff} staff</span>
+                          </div>
+                          <p className="mt-2 text-xs text-gray-500">Owner account at no extra cost</p>
+                          <ul className="my-4 flex-1 space-y-2 text-sm text-gray-600">
+                            {["Sales & inventory", "Customer management", "Reports & analytics", "Offline sales", "Digital receipts", "Gross profit & data export"].map(feature =>
+                              <li key={feature} className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />{feature}</li>)}
+                          </ul>
+                          <button type="button" disabled={billingBusy || !billing.configured || !!billing.pending}
+                            onClick={() => void purchaseSubscription(plan.code)}
+                            className="w-full rounded-lg bg-emerald-800 px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+                            {billing.subscription.status === "ACTIVE" ? "Renew with " : "Choose "}{plan.tierName || plan.name}
+                          </button>
+                        </div>)}
+                    </div>
+                    <p className="mt-4 text-xs text-gray-500">All plans include core features. Staff permissions apply.</p>
+                  </> : <p className="mt-4 text-sm text-gray-600">Subscription plans are currently unavailable.</p>}
                 </section>}
                 <section className={cardClass}>
                   <h3 className="text-base font-semibold text-gray-900">Billing history</h3>
@@ -562,7 +589,7 @@ export default function SettingsPage() {
                     {billing?.history.map(charge => <div key={charge.id}
                       className="flex flex-wrap justify-between gap-3 rounded-lg border border-gray-200 p-3 text-sm">
                       <div><p className="font-semibold">{charge.planName}</p>
-                        <p className="text-xs text-gray-500">{new Date(charge.createdAt).toLocaleDateString("en-NG")} · {charge.environment.toUpperCase()}</p>
+                        <p className="text-xs text-gray-500">{new Date(charge.createdAt).toLocaleDateString("en-NG")}{charge.environment === "test" ? " · Non-live" : ""}</p>
                       </div>
                       <div className="text-right">
                         <p>{"₦" + (charge.amountKobo / 100).toLocaleString("en-NG", { minimumFractionDigits: 2 })}</p>

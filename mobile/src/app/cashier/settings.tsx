@@ -512,15 +512,10 @@ export default function Settings() {
           </Text>
           {!!billing.scheduled && <InlineNotice text={'Next paid plan: ' + billing.scheduled.planName +
             (billing.scheduled.startsAt ? ' · Starts ' + new Date(billing.scheduled.startsAt).toLocaleDateString('en-NG') : '')}/>}
-          <Text style={s.cardNote}>{billing.featureRestrictionsEnabled
-            ? 'Subscription feature limits are enforced.'
-            : 'Feature limits are in preview until the platform administrator enables enforcement.'}</Text>
-          <Text style={s.cardNote}>{billing.environment === 'test'
-            ? 'Paystack TEST mode — no real money is charged.'
-            : billing.environment === 'live' ? 'Paystack LIVE payments.' : 'Billing gateway not configured.'}
-            {' '}Renewal is manual. There are no automatic charges.</Text>
+          <Text style={s.cardNote}>Manual renewal.</Text>
+          {billing.environment === 'test' && <InlineNotice warning text="No real funds will be charged."/>}
           {!billing.configured && <InlineNotice warning
-            text="KASSA's billing plans or Paystack credentials have not been configured by the platform administrator."/>}
+            text="Subscription payments are currently unavailable."/>}
           {!!billing.pending && <>
             <Text style={s.groupTitle}>Payment awaiting verification</Text>
             <Text style={s.billingDetail}>{billing.pending.planName}</Text>
@@ -553,7 +548,7 @@ export default function Settings() {
             Save {billing.plans.find(plan => plan.billingCycle === billingCycle)?.discountPercent ?? 0}% with {billingCycle === 'annual' ? 'annual' : 'quarterly'} billing
           </Text>}
           {billing.subscription.status === 'ACTIVE' && <Text style={s.cardNote}>
-            New paid periods begin after your existing paid period ends. No automatic renewal.
+            New plans start after your current paid period.
           </Text>}
           {billing.plans.filter(plan => plan.billingCycle === billingCycle).map(plan => <View key={plan.code}
             style={[s.billingPlan, plan.tier === 'growth' && s.recommendedPlan]}>
@@ -574,8 +569,8 @@ export default function Settings() {
               disabled={billingBusy || !billing.configured || !!billing.pending}
               onPress={() => { void subscribe(plan.code); }}/>
           </View>)}
-          <Text style={s.cardNote}>All paid plans include the same business management features. Staff permissions still apply.</Text>
-        </> : <InlineNotice warning text="The new subscription catalog is not available yet. Refresh billing after the API update."/>}
+          <Text style={s.cardNote}>All plans include core features. Staff permissions apply.</Text>
+        </> : <InlineNotice warning text="Subscription plans are currently unavailable."/>}
       </KCard>}
       <KCard>
         <Text style={s.cardTitle}>Billing history</Text>
@@ -584,7 +579,7 @@ export default function Settings() {
           <View style={{ flex: 1 }}>
             <Text style={s.bankTitle}>{charge.planName}</Text>
             <Text style={s.cardNote}>
-              {new Date(charge.createdAt).toLocaleDateString('en-NG')} · {charge.environment.toUpperCase()}
+              {new Date(charge.createdAt).toLocaleDateString('en-NG')}{charge.environment === 'test' ? ' · Non-live' : ''}
             </Text>
           </View>
           <View style={s.billingAmount}>
@@ -592,7 +587,7 @@ export default function Settings() {
             <Text style={s.cardNote}>{charge.status}</Text>
           </View>
         </View>)}
-        <InlineNotice text="Only KASSA subscription fees use Paystack. Customer checkout payments go directly to the business."/>
+        <InlineNotice text="Customer payments go directly to your business."/>
       </KCard>
     </>}
 
@@ -634,7 +629,7 @@ export default function Settings() {
     {section === 'Notifications' && <KCard>
       <Text style={s.cardTitle}>Notifications</Text>
       <Text style={s.cardNote}>Choose which alerts you would like to receive.</Text>
-      <InlineNotice text="These switches save preferences on this phone. Automatic push, email and SMS delivery are not connected yet."/>
+      <InlineNotice text="Preferences are saved on this device."/>
       <Text style={s.groupTitle}>Transaction alerts</Text>
       {notificationRows.slice(0, 2).map(item => <ToggleRow key={item.key} label={item.name} description={item.info}
         value={preferences[item.key]} onValueChange={value => setPreference(item.key, value)}/>)}
@@ -644,8 +639,7 @@ export default function Settings() {
       <Text style={s.groupTitle}>Delivery channels</Text>
       {notificationRows.slice(6).map(item => <ToggleRow key={item.key} label={item.name} description={item.info}
         value={preferences[item.key]} onValueChange={value => setPreference(item.key, value)}/>)}
-      <InlineNotice text="Preferences are saved automatically to this device. No messages are sent by these settings."/>
-    </KCard>}
+      <Text style={s.cardNote}>Message delivery is unavailable.</Text>    </KCard>}
 
     {isOwner && section === 'Data Export' && <KCard>
       <Text style={s.cardTitle}>Data Export</Text>
