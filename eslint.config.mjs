@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Each application has its own validation toolchain.
+    "mobile/**",
+    "backend/**",
+    "**/dist/**",
+    "**/coverage/**",
   ]),
 ]);
 

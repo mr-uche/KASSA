@@ -13,13 +13,15 @@ export default function PaymentSuccessfulContent() {
   const params = useSearchParams();
   const id = params.get("saleId") ?? "";
   const [sale, setSale] = useState<SavedSale | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loadError, setError] = useState("");
+  const error = id ? loadError : "No verified sale selected.";
+  const [isLoading, setLoading] = useState(true);
+  const loading = !!id && isLoading;
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
-    if (!id) { setError("No verified sale selected."); setLoading(false); return; }
+    if (!id) return;
     getSale(id).then((saved) => {
       if (active) { setSale(saved); setError(""); }
     }).catch((cause) => {
