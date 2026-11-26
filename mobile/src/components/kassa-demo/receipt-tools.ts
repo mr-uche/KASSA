@@ -18,7 +18,7 @@ export function receiptText(payment: CompletedPayment): string {
   const channel = sale.payments[0]?.channel ?? '';
   const test = sale.payments.some(p => p.provider === 'PAYSTACK_TEST');
   return [
-    'KASSA — ' + (test ? 'TEST RECEIPT' : 'SALE RECEIPT'),
+    'KASSA — ' + (test ? 'NON-LIVE RECEIPT' : 'SALE RECEIPT'),
     'Reference: ' + sale.reference,
     'Date: ' + new Date(sale.createdAt).toLocaleString('en-NG'),
     ...(sale.customer ? ['Customer: ' + sale.customer] : []),
@@ -34,7 +34,7 @@ export function receiptText(payment: CompletedPayment): string {
       'Cash received: ' + naira(cashReceived),
       'Change given: ' + naira(change),
     ]),
-    test ? 'PAYSTACK TEST MODE — Not proof of a live charge.' :
+    test ? 'Non-live receipt. No real funds received.' :
       'Payment recorded as received by merchant staff. KASSA did not handle or independently verify customer funds.',
   ].join('\n');
 }
@@ -63,7 +63,7 @@ export function receiptHtml(payment: CompletedPayment): string {
     '.qr .ref{font-size:10px;color:#0F6E56;margin:5px 0;overflow-wrap:anywhere}' +
     '.qr .hint{font-size:10px;color:#667085;line-height:1.5}' +
     'footer{margin-top:25px;font-size:10px;color:#666}</style></head><body>' +
-    '<h1>KASSA</h1><p>' + (test ? 'PAYSTACK TEST RECEIPT' : 'SALE RECEIPT') + '</p>' +
+    '<h1>KASSA</h1><p>' + (test ? 'PAYSTACK NON-LIVE RECEIPT' : 'SALE RECEIPT') + '</p>' +
     '<p>Reference: ' + escapeHtml(sale.reference) + '</p>' +
     '<p>Date: ' + escapeHtml(new Date(sale.createdAt).toLocaleString('en-NG')) + '</p>' +
     (sale.customer ? '<p>Customer: ' + escapeHtml(sale.customer) + '</p>' : '') +
@@ -78,7 +78,7 @@ export function receiptHtml(payment: CompletedPayment): string {
     '<div class="qrinfo"><p><strong>Scan for receipt details</strong></p>' +
     '<p class="ref">' + escapeHtml(sale.reference) + '</p>' +
     '<p class="hint">Reference only. Verify payments with the merchant.</p></div></div>' +
-    '<footer>' + (test ? 'Test mode only. No live Paystack charge was made.' :
+    '<footer>' + (test ? 'No real funds received.' :
       'Payment recorded as received by merchant staff. KASSA did not process customer funds.') +
     '</footer></body></html>';
 }

@@ -59,14 +59,14 @@ export default function CompletedSale() {
       <Pressable accessibilityRole="button" accessibilityLabel="Return to home" onPress={() => router.replace('/cashier')} style={s.back}>
         <SymbolView name={{ ios: 'arrow.left', android: 'arrow_back', web: 'arrow_back' }} size={20} tintColor={C.green} />
       </Pressable>
-      <View><Text style={s.headerTitle}>Sale complete</Text><Text style={s.headerSub}>{isTest ? 'Paystack test payment verified' : 'Payment recorded by cashier'}</Text></View>
+      <View><Text style={s.headerTitle}>Sale complete</Text><Text style={s.headerSub}>{isTest ? 'Non-live payment' : 'Payment recorded by cashier'}</Text></View>
     </View>
 
     <View style={s.checkCircle}>
       <SymbolView name={{ ios: 'checkmark', android: 'check', web: 'check' }} tintColor={C.green} size={49} />
     </View>
     <Text style={s.title}>Payment successful</Text>
-    <Text style={s.subtitle}>{isTest ? 'Paystack TEST payment recorded by the backend.' :
+    <Text style={s.subtitle}>{isTest ? 'No real funds received.' :
       channel === 'CASH' ? 'Cash recorded and sale completed.' :
       'Payment recorded as received by the merchant. Bank/POS confirmation was supplied by staff, not independently verified by KASSA.'}</Text>
 
@@ -96,7 +96,7 @@ export default function CompletedSale() {
             adjustsFontSizeToFit minimumFontScale={0.75}>{naira(change)}</Text>
         </View>
       </>}
-      {isTest && <Text style={s.testWarning}>TEST MODE — not a live payment.</Text>}
+      {isTest && <Text style={s.testWarning}>Non-live transaction.</Text>}
     </View>
 
     <Text style={s.sectionTitle}>Share receipt</Text>
