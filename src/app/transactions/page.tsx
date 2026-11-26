@@ -151,7 +151,9 @@ export default function TransactionsPage() {
   const [error, setError] = useState("");
 
   // Branch selected from the dashboard
-const selectedBranch = useSelectedBranchName();
+  const branchName = useSelectedBranchName();
+  const [loadedBranch, setLoadedBranch] = useState<{ selected: string; name: string } | null>(null);
+  const selectedBranch = loadedBranch?.selected === branchName ? loadedBranch.name : branchName;
 
   useEffect(() => {
     let active = true;
@@ -161,7 +163,7 @@ const selectedBranch = useSelectedBranchName();
         const context = await getInventoryContext();
         const sales = await listSales(context);
         if (!active) return;
-        setSelectedBranch(context.branchName);
+        setLoadedBranch({ selected: branchName, name: context.branchName });
         setTransactions(sales.map(toTransactionRow));
         setError("");
       } catch (cause) {
@@ -173,7 +175,7 @@ const selectedBranch = useSelectedBranchName();
     }
     void loadSales();
     return () => { active = false; };
-  }, []);
+  }, [branchName]);
 
   const now = new Date();
   const filteredTransactions = transactions.filter((row) => {
