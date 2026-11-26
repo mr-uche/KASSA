@@ -122,6 +122,22 @@ export default function Profile() {
       {salesError && <Text style={s.summary}>{salesError}</Text>}
     </View>
 
+    {businessTools.length > 0 && <>
+      <Text style={s.groupLabel}>BUSINESS & TOOLS</Text>
+      <View style={s.group}>
+        {businessTools.map(item => <Pressable key={item.route}
+          accessibilityRole="button" accessibilityLabel={item.title}
+          onPress={() => router.push(item.route)} style={s.row}>
+          <View style={s.iconBubble}>
+            <SymbolView name={item.icon} tintColor={C.green} size={18}/>
+          </View>
+          <Text style={s.rowText}>{item.title}</Text>
+          <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+            size={17} tintColor={C.faint}/>
+        </Pressable>)}
+      </View>
+    </>}
+
     <Text style={s.groupLabel}>ACCOUNT</Text>
     <View style={s.group}>
       {accountLinks.map(item => <Pressable
@@ -143,22 +159,6 @@ export default function Profile() {
         }} trackColor={{ false: C.border, true: '#9CCAB8' }} thumbColor={notifications ? C.green : '#FFFFFF'} />
       </View>
     </View>
-
-    {businessTools.length > 0 && <>
-      <Text style={s.groupLabel}>BUSINESS & TOOLS</Text>
-      <View style={s.group}>
-        {businessTools.map(item => <Pressable key={item.route}
-          accessibilityRole="button" accessibilityLabel={item.title}
-          onPress={() => router.push(item.route)} style={s.row}>
-          <View style={s.iconBubble}>
-            <SymbolView name={item.icon} tintColor={C.green} size={18}/>
-          </View>
-          <Text style={s.rowText}>{item.title}</Text>
-          <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
-            size={17} tintColor={C.faint}/>
-        </Pressable>)}
-      </View>
-    </>}
 
     <Text style={s.groupLabel}>SUPPORT</Text>
     <Pressable accessibilityRole="button" style={s.row} onPress={() => router.push('/cashier/help')}>
