@@ -48,7 +48,8 @@
           "recordAudioAndroid": false,
           "enableBackgroundPlayback": false
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
