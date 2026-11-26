@@ -7,6 +7,7 @@ import { useKassaSession, type CheckoutSale } from '@/components/kassa-demo/api'
 import { useKassaDemo } from '@/components/kassa-demo/store';
 import { C, naira, toKobo } from '@/components/kassa-demo/theme';
 import { KScreen } from '@/components/kassa-demo/ui';
+import { useCurrentTime } from '@/hooks/use-current-time';
 import { CheckoutProgress } from '@/components/kassa-demo/checkout-progress';
 import { recordOfflineSale } from '@/components/kassa-demo/offline-cash';
 
@@ -21,13 +22,13 @@ export default function Payment() {
   const router = useRouter();
   const store = useKassaDemo();
   const session = useKassaSession();
+  const now = useCurrentTime();
   const [cashInput, setCashInput] = useState('');
   const [merchantChecked, setMerchantChecked] = useState(false);
-  const [receivingAccounts, setReceivingAccounts] = useState<{
-    id: string; bankName: string; accountNumber: string; accountName: string; isDefault: boolean;
-  }[]>([]);
-  const [selectedBankId, setSelectedBankId] = useState('');
-  const [autoVerificationMessage, setAutoVerificationMessage] = useState('');
+  type ReceivingAccount = { id: string; bankName: string; accountNumber: string; accountName: string; isDefault: boolean };
+  const [accountsResult, setAccountsResult] = useState<{ key: string; accounts: ReceivingAccount[] } | null>(null);
+  const [bankChoice, setBankChoice] = useState<{ key: string; id: string } | null>(null);
+  const [verificationResult, setVerificationResult] = useState<{ key: string; message: string } | null>(null);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
   // A stable request ID prevents a double sale when a request is retried on this screen.
@@ -37,44 +38,44 @@ export default function Payment() {
   const pending = store.pendingSale;
   const locked = pending !== null;
   const offline = store.offlineMode;
-  const cacheFresh = !!store.catalogSavedAt &&
-    Date.now() - store.catalogSavedAt <= 48 * 60 * 60 * 1000;
+  const cacheFresh = !!store.catalogSavedAt && now - store.catalogSavedAt <= 48 * 60 * 60 * 1000;
+  const businessId = session.scope?.businessId;
+  const branchId = session.scope?.branchId;
+  const userId = session.user?.id;
+  const request = session.request;
+  const accountsKey = !offline && businessId && branchId && userId && method.channel === 'BANK_TRANSFER'
+    ? JSON.stringify([userId, businessId, branchId]) : null;
+  const receivingAccounts = accountsKey && accountsResult?.key === accountsKey ? accountsResult.accounts : [];
+  const selectedBankId = bankChoice && bankChoice.key === accountsKey && receivingAccounts.some(account => account.id === bankChoice.id)
+    ? bankChoice.id : (receivingAccounts.find(account => account.isDefault) ?? receivingAccounts[0])?.id ?? '';
+  const setSelectedBankId = (id: string) => { if (accountsKey) setBankChoice({ key: accountsKey, id }); };
   useEffect(() => {
+    if (!accountsKey || !businessId || !branchId) return;
     let active = true;
-    if (offline || !session.scope || method.channel !== 'BANK_TRANSFER') {
-      setReceivingAccounts([]);
-      setSelectedBankId('');
-      return () => { active = false; };
-    }
-    const query = '?businessId=' + encodeURIComponent(session.scope.businessId) +
-      '&branchId=' + encodeURIComponent(session.scope.branchId);
-    void session.request<typeof receivingAccounts>('sales/receiving-accounts' + query)
-      .then(accounts => {
-        if (!active) return;
-        setReceivingAccounts(accounts);
-        setSelectedBankId(old => accounts.some(a => a.id === old) ? old :
-          (accounts.find(a => a.isDefault) ?? accounts[0])?.id ?? '');
-      }).catch(() => { if (active) setReceivingAccounts([]); });
+    const query = '?businessId=' + encodeURIComponent(businessId) + '&branchId=' + encodeURIComponent(branchId);
+    void request<ReceivingAccount[]>('sales/receiving-accounts' + query)
+      .then(accounts => { if (active) setAccountsResult({ key: accountsKey, accounts }); })
+      .catch(() => { if (active) setAccountsResult({ key: accountsKey, accounts: [] }); });
     return () => { active = false; };
-  }, [session.scope?.businessId, session.scope?.branchId, method.channel, offline, session.request]);
+  }, [accountsKey, businessId, branchId, request]);
 
+  const pendingId = pending?.id;
+  const verificationKey = pendingId && !offline && method.channel !== 'CASH'
+    ? JSON.stringify([userId, businessId, branchId, pendingId, method.channel]) : null;
+  const autoVerificationMessage = verificationKey && verificationResult?.key === verificationKey
+    ? verificationResult.message : '';
   useEffect(() => {
+    if (!verificationKey || !pendingId) return;
     let active = true;
-    if (!pending || offline || method.channel === 'CASH') {
-      setAutoVerificationMessage('');
-      return () => { active = false; };
-    }
-    void session.request<{ status: string; detail: string }>(
-      'sales/' + encodeURIComponent(pending.id) + '/verification-status'
-    ).then(result => {
-      if (active) setAutoVerificationMessage(result.status === 'NOT_CONNECTED'
-        ? 'Verify payment in your bank or POS records.'
-        : result.detail);
-    }).catch(() => {
-      if (active) setAutoVerificationMessage('Verify payment in your bank or POS records.');
-    });
+    void request<{ status: string; detail: string }>('sales/' + encodeURIComponent(pendingId) + '/verification-status')
+      .then(result => {
+        if (active) setVerificationResult({ key: verificationKey, message: result.status === 'NOT_CONNECTED'
+          ? 'Verify payment in your bank or POS records.' : result.detail });
+      }).catch(() => {
+        if (active) setVerificationResult({ key: verificationKey, message: 'Verify payment in your bank or POS records.' });
+      });
     return () => { active = false; };
-  }, [pending?.id, method.channel, offline, session.request]);
+  }, [verificationKey, pendingId, request]);
 
   // Once the sale exists, the backend amount is authoritative.
   const amountDueKobo = toKobo(pending ? Number(pending.total) : store.total);
@@ -136,7 +137,7 @@ export default function Payment() {
         setError('Reconnect to verify the pending sale. Do not duplicate it.');
         return;
       }
-      if (!cacheFresh || !session.user || !session.scope) {
+      if (!store.catalogSavedAt || Date.now() - store.catalogSavedAt > 48 * 60 * 60 * 1000 || !session.user || !session.scope) {
         setError('Refresh stock online every 48 hours.');
         return;
       }
@@ -239,7 +240,7 @@ export default function Payment() {
         setError('Reconnect to resolve the pending payment.');
         return;
       }
-      if (!cacheFresh || !session.user || !session.scope || !store.count ||
+      if (!store.catalogSavedAt || Date.now() - store.catalogSavedAt > 48 * 60 * 60 * 1000 || !session.user || !session.scope || !store.count ||
           orderItems.length !== store.lines.length) {
         setError('Refresh stock online every 48 hours.');
         return;

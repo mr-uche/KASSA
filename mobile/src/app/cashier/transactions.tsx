@@ -100,7 +100,7 @@ export default function Transactions() {
         setError(cause instanceof Error ? cause.message : 'Unable to load transactions.');
       }
     } finally { if (alive()) setLoading(false); }
-  }, [scope?.businessId, scope?.branchId, user?.id, disconnected, session.request]);
+  }, [scope, user, disconnected, session]);
 
   useFocusEffect(useCallback(() => {
     let alive = true;

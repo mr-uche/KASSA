@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useKassaDemo } from '@/components/kassa-demo/store';
@@ -13,8 +13,10 @@ export default function SwitchBranch() {
   const router = useRouter();
   const session = useKassaSession();
   const store = useKassaDemo();
-  const [selected, setSelected] = useState(keyOf(session.scope));
-  useEffect(() => { setSelected(keyOf(session.scope)); }, [session.scope?.businessId, session.scope?.branchId]);
+  const currentKey = keyOf(session.scope);
+  const [selection, setSelection] = useState<{ scope: string; key: string } | null>(null);
+  const selected = selection?.scope === currentKey ? selection.key : currentKey;
+  const setSelected = (key: string) => setSelection({ scope: currentKey, key });
 
   const save = () => {
     const choice = session.scopes.find(item => keyOf(item) === selected);

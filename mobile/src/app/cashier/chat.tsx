@@ -43,7 +43,7 @@ export default function ChatSupport() {
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [session.user?.id, session.request]);
+  }, [session]);
 
   useFocusEffect(useCallback(() => {
     let active = true;

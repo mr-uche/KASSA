@@ -44,24 +44,16 @@ function CustomersPageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [showToast, setShowToast] = useState(false);
-  const [toastText, setToastText] = useState("");
+  const action = params.get("added") === "true" ? "added" :
+    params.get("updated") === "true" ? "updated" : null;
+  const showToast = action !== null;
+  const toastText = action === "added" ? "Customer added successfully" : "Customer updated successfully";
 
   useEffect(() => {
-    const action = params.get("added") === "true" ? "added" :
-      params.get("updated") === "true" ? "updated" : null;
-    if (action) {
-      setToastText(action === "added" ? "Customer added successfully" : "Customer updated successfully");
-      setShowToast(true);
-      router.replace("/customers");
-    }
-  }, [params, router]);
-
-  useEffect(() => {
-    if (!showToast) return;
-    const timer = setTimeout(() => setShowToast(false), 4000);
+    if (!action) return;
+    const timer = setTimeout(() => router.replace("/customers"), 4000);
     return () => clearTimeout(timer);
-  }, [showToast]);
+  }, [action, router]);
 
   useEffect(() => {
     let active = true;
@@ -283,7 +275,7 @@ function CustomersPageContent() {
             <p className="text-[13px] font-semibold text-[#182033]">{toastText}</p>
             <p className="text-[12px] text-[#98A1AE]">The customer record has been saved to your business.</p>
           </div>
-          <button type="button" onClick={() => setShowToast(false)} aria-label="Dismiss notification">
+          <button type="button" onClick={() => router.replace("/customers")} aria-label="Dismiss notification">
             <X size={14} className="text-[#98A1AE]"/>
           </button>
         </div>

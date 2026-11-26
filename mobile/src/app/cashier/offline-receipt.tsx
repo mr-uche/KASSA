@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import * as Print from 'expo-print';
 import { SymbolView } from 'expo-symbols';
@@ -55,6 +55,12 @@ function localPayment(record: OfflineCashRecord, branchId: string): CompletedPay
 }
 
 export default function OfflineReceipt() {
+  const { user, scope } = useKassaSession();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  return <OfflineReceiptContent key={JSON.stringify([user?.id, scope?.businessId, scope?.branchId, id])}/>;
+}
+
+function OfflineReceiptContent() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const session = useKassaSession();
@@ -63,7 +69,7 @@ export default function OfflineReceipt() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (active: () => boolean = () => true) => {
     if (!id || !session.scope || !session.user) {
       setError('Sign in with the original cashier account to view this receipt.');
       return;
@@ -76,17 +82,20 @@ export default function OfflineReceipt() {
       });
       const found = rows.find(row => row.id === id);
       if (!found) throw new Error('This sale was not found on this phone.');
-      setRecord(found);
-      setError('');
+      if (active()) { setRecord(found); setError(''); }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not open the receipt.');
+      if (active()) { setRecord(null); setError(cause instanceof Error ? cause.message : 'Could not open the receipt.'); }
     }
-  }, [id, session.user?.id, session.scope?.businessId, session.scope?.branchId]);
+  }, [id, session.user, session.scope]);
 
-  useEffect(() => { void reload(); }, [reload]);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    void reload(() => active);
+    return () => { active = false; };
+  }, [reload]));
   const payment = useMemo(() => record && session.scope
     ? localPayment(record, session.scope.branchId) : null,
-    [record, session.scope?.branchId]);
+    [record, session.scope]);
   const qr = useMemo(() => payment ? receiptQrDataUrl(payment.sale) : null, [payment]);
   const business = session.scope?.businessName || 'KASSA';
   const initials = business.split(/\s+/).filter(Boolean).slice(0, 2)

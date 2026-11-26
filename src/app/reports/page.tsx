@@ -2,7 +2,7 @@
 
 import KassaHeaderActions from "@/components/KassaHeaderActions";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, Menu, RefreshCw } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import { formatNaira, inventoryFetch } from "@/lib/inventory-client";
@@ -258,13 +258,20 @@ export default function ReportsPage() {
   const [quick, setQuick] = useState<QuickRange>("Last 30 days");
   const [customFrom, setCustomFrom] = useState(() => shiftDate(todayLagos(), -29));
   const [customTo, setCustomTo] = useState(() => todayLagos());
-  const [report, setReport] = useState<AnalyticsReport | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [result, setResult] = useState<{ key: string; report: AnalyticsReport | null; error: string } | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [initialError, setInitialError] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const dates = useMemo(() => getDates(range, quick, customFrom, customTo),
     [range, quick, customFrom, customTo]);
+  const days = lastDayCount(dates.from, dates.to);
+  const validDates = Number.isFinite(days) && days >= 1 && days <= 366;
+  const requestKey = JSON.stringify([businessId, branchId, dates.from, dates.to, dates.granularity, reloadKey]);
+  const currentResult = result?.key === requestKey ? result : null;
+  const report = validDates && !accessDenied ? currentResult?.report ?? null : null;
+  const loading = businessId ? validDates && !currentResult && !accessDenied : initialLoading;
+  const error = businessId ? (!validDates ? "Select a valid date range of 1 to 366 days." : currentResult?.error ?? "") : initialError;
   const currentBusiness = memberships.find((m) => m.id === businessId);
   const selectedBranch = branchId === "all" ? "All branches" :
     currentBusiness?.branches.find((branch) => branch.id === branchId)?.name ?? "Branch";
@@ -286,75 +293,36 @@ export default function ReportsPage() {
         setAccessDenied(!allowed);
         if (!allowed) {
           setBusinessId("");
-          setReport(null);
-          setLoading(false);
+          setInitialLoading(false);
           return;
         }
         setBusinessId(business.id);
         setOwner(isOwner);
         setBranchId(isOwner ? "all" : business.branches[0]?.id ?? "all");
       } catch (cause) {
-        if (active) { setError(cause instanceof Error ? cause.message : "Unable to load branches."); setLoading(false); }
+        if (active) { setInitialError(cause instanceof Error ? cause.message : "Unable to load branches."); setInitialLoading(false); }
       }
     }
     void init();
     return () => { active = false; };
   }, []);
 
-  const loadReport = useCallback(async () => {
-    if (!businessId) return;
-    const duration = lastDayCount(dates.from, dates.to);
-    if (!Number.isFinite(duration) || duration < 1 || duration > 366) {
-      setReport(null);
-      setLoading(false);
-      setError("Select a valid date range of 1 to 366 days.");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    try {
-      const data = await fetchAnalytics({
-        businessId,
-        ...(branchId !== "all" ? { branchId } : {}),
-        from: dates.from, to: dates.to, granularity: dates.granularity,
-      });
-      setReport(data);
-    } catch (cause) {
-      setReport(null);
-      if (cause instanceof ReportsAccessError) setAccessDenied(true);
-      setError(cause instanceof Error ? cause.message : "Unable to load analytics.");
-    } finally {
-      setLoading(false);
-    }
-  }, [businessId, branchId, dates.from, dates.to, dates.granularity]);
-
   useEffect(() => {
-    if (!businessId) return;
+    if (!businessId || !validDates || accessDenied) return;
     let active = true;
-    setLoading(true);
-    setError("");
-    const days = lastDayCount(dates.from, dates.to);
-    if (days < 1 || days > 366 || !Number.isFinite(days)) {
-      setReport(null);
-      setError("Select a valid date range of 1 to 366 days.");
-      setLoading(false);
-      return;
-    }
     fetchAnalytics({
       businessId,
       ...(branchId !== "all" ? { branchId } : {}),
       from: dates.from, to: dates.to, granularity: dates.granularity,
-    }).then((result) => {
-      if (active) { setReport(result); setError(""); }
+    }).then((report) => {
+      if (active) setResult({ key: requestKey, report, error: "" });
     }).catch((cause) => {
-      if (active) {
-        setReport(null);
-        if (cause instanceof ReportsAccessError) setAccessDenied(true);
-        setError(cause instanceof Error ? cause.message : "Unable to load analytics.");
-      }
-    }).finally(() => { if (active) setLoading(false); });
+      if (!active) return;
+      if (cause instanceof ReportsAccessError) setAccessDenied(true);
+      setResult({ key: requestKey, report: null, error: cause instanceof Error ? cause.message : "Unable to load analytics." });
+    });
     return () => { active = false; };
-  }, [businessId, branchId, dates.from, dates.to, dates.granularity, reloadKey]);
+  }, [businessId, branchId, dates.from, dates.to, dates.granularity, requestKey, validDates, accessDenied]);
 
   useEffect(() => {
     const update = () => setReloadKey((k) => k + 1);
@@ -454,7 +422,7 @@ export default function ReportsPage() {
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => void loadReport()} disabled={!businessId || loading}
+            <button type="button" onClick={() => setReloadKey(k => k + 1)} disabled={!businessId || loading}
               aria-label="Refresh report" title="Refresh report"
               className="rounded-lg border border-gray-200 bg-white p-2.5 text-gray-500 hover:bg-gray-50 disabled:opacity-50">
               <RefreshCw size={16}/>

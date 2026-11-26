@@ -4,6 +4,7 @@ import KassaHeaderActions from "@/components/KassaHeaderActions";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useBrowserSearch, useStoredString } from "@/lib/browser-state";
 import { CheckCircle2, Loader2, Menu, ShieldAlert } from "lucide-react";
 import KassaSidebar from "@/components/KassaSidebar";
 import { getInventoryContext } from "@/lib/inventory-client";
@@ -87,7 +88,9 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () =
 
 export default function SettingsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [section, setSection] = useState<Section>("Business profile");
+  const billingReturn = new URLSearchParams(useBrowserSearch()).get("billing") === "return";
+  const [sectionChoice, setSection] = useState<Section | null>(null);
+  const section = sectionChoice ?? (billingReturn ? "Subscription & Billing" : "Business profile");
   const [isOwner, setIsOwner] = useState(false);
   const [context, setContext] = useState<{ businessId: string; branchId: string } | null>(null);
   const [settings, setSettings] = useState<BusinessSettings | null>(null);
@@ -96,8 +99,9 @@ export default function SettingsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [merchantAccounts, setMerchantAccounts] = useState<MerchantBankAccount[]>([]);
-  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountsResult, setAccountsResult] = useState<{ businessId: string; accounts: MerchantBankAccount[] } | null>(null);
+  const merchantAccounts = accountsResult?.businessId === context?.businessId ? accountsResult?.accounts ?? [] : [];
+  const accountsLoading = !!context && accountsResult?.businessId !== context.businessId;
   const [accountsSaving, setAccountsSaving] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [accountForm, setAccountForm] = useState({
@@ -105,7 +109,16 @@ export default function SettingsPage() {
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [notifications, setNotifications] = useState<NotificationPreferences>(defaultNotifications);
+  const rawPreferences = useStoredString("local", "kassa_local_notification_preferences");
+  const [notificationEdits, setNotifications] = useState<NotificationPreferences | null>(null);
+  const storedPreferences = { ...defaultNotifications };
+  try {
+    const stored = JSON.parse(rawPreferences ?? "{}") as Record<string, unknown>;
+    for (const key of Object.keys(defaultNotifications) as NotificationKey[]) {
+      if (typeof stored?.[key] === "boolean") storedPreferences[key] = stored[key] as boolean;
+    }
+  } catch { /* Keep default preferences. */ }
+  const notifications = notificationEdits ?? storedPreferences;
   const [exportSelections, setExportSelections] = useState<Record<ExportSection, boolean>>({
     transactions: true, productsInventory: true, customers: true,
     staff: true, branches: true, reportsAnalytics: true,
@@ -117,66 +130,38 @@ export default function SettingsPage() {
   const [deletePhrase, setDeletePhrase] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [accountClosed, setAccountClosed] = useState(false);
-  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [billingResult, setBillingResult] = useState<{ businessId: string; data: BillingStatus | null } | null>(null);
+  const billing = billingResult?.businessId === context?.businessId ? billingResult?.data ?? null : null;
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
-  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingRefreshing, setBillingRefreshing] = useState(false);
+  const billingLoading = billingRefreshing || (!!context && isOwner && billingResult?.businessId !== context.businessId);
   const [billingBusy, setBillingBusy] = useState(false);
   const [billingError, setBillingError] = useState("");
   const [billingMessage, setBillingMessage] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(() => getInventoryContext().then(async membership => {
+    const scope = { businessId: membership.businessId, branchId: membership.branchId };
+    const record = await getBusinessSettings(scope.businessId, scope.branchId);
+    setIsOwner(membership.myRole === "Owner");
+    setContext(scope);
+    setSettings(record);
+    setForm({
+      businessName: record.businessName,
+      businessType: record.businessType,
+      branchAddress: record.branchAddress,
+      branchPhone: record.branchPhone,
+    });
     setError("");
-    try {
-      const membership = await getInventoryContext();
-      const scope = { businessId: membership.businessId, branchId: membership.branchId };
-      setIsOwner(membership.myRole === "Owner");
-      const record = await getBusinessSettings(scope.businessId, scope.branchId);
-      setContext(scope);
-      setSettings(record);
-      setForm({
-        businessName: record.businessName,
-        businessType: record.businessType,
-        branchAddress: record.branchAddress,
-        branchPhone: record.branchPhone,
-      });
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to load settings.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("billing") === "return") {
-      setSection("Subscription & Billing");
-    }
-  }, []);
+  }).catch(cause => {
+    setError(cause instanceof Error ? cause.message : "Unable to load settings.");
+  }).finally(() => setLoading(false)), []);
 
   useEffect(() => {
     void load();
-    const onBranch = () => { void load(); };
+    const onBranch = () => { setLoading(true); setError(""); setContext(null); setIsOwner(false); void load(); };
     window.addEventListener("branchChanged", onBranch);
     return () => window.removeEventListener("branchChanged", onBranch);
   }, [load]);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("kassa_local_notification_preferences");
-      if (!raw) return;
-      const stored: unknown = JSON.parse(raw);
-      if (!stored || typeof stored !== "object") return;
-      setNotifications((current) => {
-        const next = { ...current };
-        for (const key of Object.keys(current) as NotificationKey[]) {
-          if (typeof (stored as Record<string, unknown>)[key] === "boolean") {
-            next[key] = (stored as Record<string, boolean>)[key];
-          }
-        }
-        return next;
-      });
-    } catch { /* Keep default local preferences. */ }
-  }, []);
 
   async function saveProfile() {
     if (!context || saving || loading) return;
@@ -204,14 +189,14 @@ export default function SettingsPage() {
   }
 
   const billingBusinessId = context?.businessId;
-  const refreshReceivingAccounts = useCallback(async () => {
-    if (!billingBusinessId) return;
-    setAccountsLoading(true);
-    try {
-      setMerchantAccounts(await getMerchantBankAccounts(billingBusinessId));
-    } catch (cause) {
+  const refreshReceivingAccounts = useCallback(() => {
+    if (!billingBusinessId) return Promise.resolve();
+    return getMerchantBankAccounts(billingBusinessId).then(accounts => {
+      setAccountsResult({ businessId: billingBusinessId, accounts });
+    }).catch(cause => {
+      setAccountsResult({ businessId: billingBusinessId, accounts: [] });
       setError(cause instanceof Error ? cause.message : "Unable to load receiving accounts.");
-    } finally { setAccountsLoading(false); }
+    });
   }, [billingBusinessId]);
 
   useEffect(() => {
@@ -272,16 +257,15 @@ export default function SettingsPage() {
     } finally { setAccountsSaving(false); }
   }
 
-  const refreshBilling = useCallback(async () => {
-    if (!billingBusinessId || !isOwner) return;
-    setBillingLoading(true);
-    setBillingError("");
-    try {
-      setBilling(await loadBilling(billingBusinessId));
-    } catch (cause) {
-      setBilling(null);
+  const refreshBilling = useCallback(() => {
+    if (!billingBusinessId || !isOwner) return Promise.resolve();
+    return loadBilling(billingBusinessId).then(data => {
+      setBillingResult({ businessId: billingBusinessId, data });
+      setBillingError("");
+    }).catch(cause => {
+      setBillingResult({ businessId: billingBusinessId, data: null });
       setBillingError(cause instanceof Error ? cause.message : "Cannot load KASSA billing.");
-    } finally { setBillingLoading(false); }
+    }).finally(() => setBillingRefreshing(false));
   }, [billingBusinessId, isOwner]);
 
   useEffect(() => {
@@ -366,7 +350,7 @@ export default function SettingsPage() {
         localStorage.removeItem("selectedBranch");
         localStorage.removeItem("kassa_local_notification_preferences");
       } catch { /* Already signed out server-side */ }
-      window.location.assign("/login?accountClosed=1");
+      window.location.assign(new URL("/login?accountClosed=1", window.location.origin).href);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not close account.");
     } finally { setDeleting(false); }
@@ -532,7 +516,7 @@ export default function SettingsPage() {
                       </div>
                     </div>}
                   </>}
-                  <button type="button" onClick={() => void refreshBilling()} disabled={billingLoading}
+                  <button type="button" onClick={() => { setBillingRefreshing(true); setBillingError(""); void refreshBilling(); }} disabled={billingLoading}
                     className="mt-4 text-sm font-semibold text-emerald-800 disabled:opacity-50">
                     Refresh subscription status
                   </button>

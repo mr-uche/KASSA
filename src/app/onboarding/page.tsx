@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useStoredString } from "@/lib/browser-state";
 import { useRouter } from "next/navigation";
 import { Check, Plus } from "lucide-react";
 
@@ -30,8 +31,13 @@ export default function OnboardingPage() {
   const [error, setError] = useState("");
 
   // Step 1
-  const [businessName, setBusinessName] = useState("");
-  const [businessType, setBusinessType] = useState("");
+  const rawPrefill = useStoredString("session", "kassa_onboarding_prefill");
+  let prefill: Record<string, unknown> = {};
+  try { const data = JSON.parse(rawPrefill ?? "{}"); if (data && typeof data === "object") prefill = data; } catch {}
+  const [nameEdit, setBusinessName] = useState<string | null>(null);
+  const [typeEdit, setBusinessType] = useState<string | null>(null);
+  const businessName = nameEdit ?? (typeof prefill.businessName === "string" ? prefill.businessName : "");
+  const businessType = typeEdit ?? (typeof prefill.businessType === "string" ? prefill.businessType : "");
   const [registeredName, setRegisteredName] = useState("");
   const [staffCount, setStaffCount] = useState("");
 
@@ -50,21 +56,6 @@ export default function OnboardingPage() {
     { fullName: "", role: "Cashier", phone: "" },
     { fullName: "", role: "Branch manager", phone: "" },
   ]);
-
-  useEffect(() => {
-    const raw = sessionStorage.getItem("kassa_onboarding_prefill");
-    if (!raw) return;
-    try {
-      const data: unknown = JSON.parse(raw);
-      if (data && typeof data === "object") {
-        const values = data as Record<string, unknown>;
-        if (typeof values.businessName === "string") setBusinessName(values.businessName);
-        if (typeof values.businessType === "string") setBusinessType(values.businessType);
-      }
-    } catch {
-      sessionStorage.removeItem("kassa_onboarding_prefill");
-    }
-  }, []);
 
   const addBranch = () =>
     setBranches([...branches, { name: "", address: "", phone: "" }]);

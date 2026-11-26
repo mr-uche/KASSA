@@ -6,7 +6,7 @@ import { KScreen, KCard, KField } from '@/components/kassa-demo/ui';
 import { C } from '@/components/kassa-demo/theme';
 import { DropdownFilter } from '@/components/kassa-demo/dropdown-filter';
 import {
-  ScreenHeading, SegmentedTabs, Tabs, MetricGrid, ListHeading, RecordRow,
+  ScreenHeading, SegmentedTabs, MetricGrid, ListHeading, RecordRow,
   InlineNotice, SmallAction,
 } from '@/components/kassa-demo/business-ui';
 
@@ -87,7 +87,7 @@ export default function StaffAndBranches() {
         setError(cause instanceof Error ? cause.message : 'Unable to load staff records.');
       }
     } finally { if (alive()) setLoading(false); }
-  }, [scope?.businessId, session.request]);
+  }, [scope, session]);
   useFocusEffect(useCallback(() => {
     let alive = true;
     void reload(() => alive);

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Print from 'expo-print';
 import { useFocusEffect } from 'expo-router';
@@ -153,11 +153,16 @@ function StackedTrend({ data }: { data: Analytics }) {
 }
 
 export default function Reports() {
+  const { user, scope } = useKassaSession();
+  return <ReportsContent key={JSON.stringify([user?.id, scope?.businessId, scope?.branchId, scope?.myRole, scope?.myPermissions])}/>;
+}
+
+function ReportsContent() {
   const session = useKassaSession();
   const scope = session.scope;
   const [period, setPeriod] = useState<Period>('Weekly');
   // This selection affects reports only. It never switches the cashier's checkout branch.
-  const [reportBranchId, setReportBranchId] = useState(scope?.branchId ?? 'all');
+  const [reportBranchId, setReportBranchId] = useState(scope?.myRole === 'Owner' ? 'all' : scope?.branchId ?? '');
   const [branches, setBranches] = useState<ReportBranch[]>([]);
   const [branchError, setBranchError] = useState('');
   const [customFrom, setCustomFrom] = useState(shift(lagosToday(), -29));
@@ -173,11 +178,6 @@ export default function Reports() {
   const [showAllStaff, setShowAllStaff] = useState(false);
   const owner = scope?.myRole === 'Owner';
   const range = defaultRange(period, appliedCustom.from, appliedCustom.to);
-  useEffect(() => {
-    setReportBranchId(owner ? 'all' : scope?.branchId ?? '');
-    setBranches([]);
-    setBranchError('');
-  }, [scope?.businessId, scope?.branchId, owner]);
   useFocusEffect(useCallback(() => {
     if (!owner || !scope) return;
     let active = true;
@@ -191,7 +191,7 @@ export default function Reports() {
       if (active) setBranchError('Could not load every branch. Showing active branches from your session.');
     });
     return () => { active = false; };
-  }, [scope?.businessId, owner, session.request]));
+  }, [scope, owner, session]));
 
   // If branch loading fails, keep available active branches selectable.
   const branchItems = branches.length ? branches
@@ -244,7 +244,7 @@ export default function Reports() {
     } catch (cause) {
       if (live()) { setReport(null); setError(cause instanceof Error ? cause.message : 'Cannot load analytics.'); }
     } finally { if (live()) setLoading(false); }
-  }, [scope?.businessId, scope?.branchId, owner, reportBranchId, range.from, range.to, range.granularity, customApply, session.request]);
+  }, [scope, owner, reportBranchId, range.from, range.to, range.granularity, customApply, session]);
   useFocusEffect(useCallback(() => {
     let live = true;
     void reload(() => live);

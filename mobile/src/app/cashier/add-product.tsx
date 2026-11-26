@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useKassaSession } from '@/components/kassa-demo/api';
@@ -30,19 +30,24 @@ export default function AddProduct() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const loadCategories = useCallback(async () => {
-    if (!scope || !allowed) return;
-    try {
-      const result = await session.request<Category[]>('inventory/categories?businessId=' +
-        encodeURIComponent(scope.businessId) + '&branchId=' + encodeURIComponent(scope.branchId));
-      const list = result.filter(item => item.status === 'Active');
-      setCategories(list);
-      setCategoryId(current => list.some(item => item.id === current) ? current : list[0]?.id ?? '');
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not load inventory categories.');
-    }
-  }, [scope?.businessId, scope?.branchId, allowed, session.request]);
-  useEffect(() => { void loadCategories(); }, [loadCategories]);
+  const businessId = scope?.businessId;
+  const branchId = scope?.branchId;
+  const request = session.request;
+  useEffect(() => {
+    if (!businessId || !branchId || !allowed) return;
+    let active = true;
+    void request<Category[]>('inventory/categories?businessId=' +
+      encodeURIComponent(businessId) + '&branchId=' + encodeURIComponent(branchId))
+      .then(result => {
+        if (!active) return;
+        const list = result.filter(item => item.status === 'Active');
+        setCategories(list);
+        setCategoryId(current => list.some(item => item.id === current) ? current : list[0]?.id ?? '');
+      }).catch(cause => {
+        if (active) setError(cause instanceof Error ? cause.message : 'Could not load inventory categories.');
+      });
+    return () => { active = false; };
+  }, [businessId, branchId, allowed, request]);
 
   const createCategory = async () => {
     if (!scope || !allowed || !categoryNew.trim() || busy) return;

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
@@ -16,8 +16,7 @@ export function KassaConnectionToast() {
   const { disconnected } = useKassaConnectivity();
   const { offlineMode, catalogSource, offlineQueue } = useKassaDemo();
   const insets = useSafeAreaInsets();
-  const [notice, setNotice] = useState<ConnectionNotice | null>(null);
-  const last = useRef<{ scope: string; state: ConnectionState | null } | null>(null);
+  const [transition, setTransition] = useState<{ key: string; state: ConnectionState | null; notice: ConnectionNotice | null }>({ key: '', state: null, notice: null });
 
   // A live catalogue demonstrates that Kassa's API was reachable. Merely
   // having a network signal does not justify an "Online" notification.
@@ -25,38 +24,25 @@ export function KassaConnectionToast() {
     catalogSource === 'live' ? 'online' : null;
   const key = scope ? scope.businessId + ':' + scope.branchId : '';
 
-  useEffect(() => {
-    if (!scope) {
-      last.current = null;
-      setNotice(null);
-      return;
-    }
-    if (!last.current || last.current.scope !== key) {
-      last.current = { scope: key, state: null };
-      setNotice(null);
-    }
-    if (!state || last.current.state === state) return;
-    const wasOffline = last.current.state === 'offline';
-    last.current.state = state;
-    setNotice(state === 'offline'
-      ? {
-          state,
-          title: 'Kassa is offline',
-          detail: 'Saved cash sales will sync when connected. Check that cached stock is current before selling.',
-        }
-      : {
-          state,
-          title: wasOffline ? 'Back online' : 'Kassa is online',
-          detail: 'Connected to Kassa.' +
-            ((offlineQueue?.waiting ?? 0) > 0
-              ? ' Some saved sales still need syncing or review; check the notification bell.'
-              : ''),
-        });
-  }, [key, scope, state]);
+  // Compare with the previous rendered connection state; never show a prior branch's notice.
+  if (transition.key !== key || (key && state && transition.state !== state)) {
+    const wasOffline = transition.key === key && transition.state === 'offline';
+    const nextNotice: ConnectionNotice | null = !key || !state ? null : state === 'offline'
+      ? { state, title: 'Kassa is offline',
+          detail: 'Saved sales will sync when connected. Keep stock up to date.' }
+      : { state, title: wasOffline ? 'Back online' : 'Kassa is online',
+          detail: 'Connected to Kassa.' + ((offlineQueue?.waiting ?? 0) > 0
+            ? ' Check notifications for unsynced sales.' : '') };
+    setTransition({ key, state: key ? state : null, notice: nextNotice });
+  }
+  const notice = transition.key === key ? transition.notice : null;
+  const dismiss = () => setTransition(previous => ({ ...previous, notice: null }));
 
   useEffect(() => {
     if (!notice) return;
-    const timeout = setTimeout(() => setNotice(null), notice.state === 'offline' ? 5500 : 3800);
+    const timeout = setTimeout(() => {
+      setTransition(previous => previous.notice === notice ? { ...previous, notice: null } : previous);
+    }, notice.state === 'offline' ? 5500 : 3800);
     return () => clearTimeout(timeout);
   }, [notice]);
 
@@ -75,7 +61,7 @@ export function KassaConnectionToast() {
         <Text style={s.detail}>{notice.detail}</Text>
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="Dismiss connection notification"
-        onPress={() => setNotice(null)} style={s.dismiss}>
+        onPress={dismiss} style={s.dismiss}>
         <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }}
           size={17} tintColor={C.muted}/>
       </Pressable>
