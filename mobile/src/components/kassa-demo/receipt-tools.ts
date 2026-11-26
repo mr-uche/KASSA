@@ -63,7 +63,7 @@ export function receiptHtml(payment: CompletedPayment): string {
     '.qr .ref{font-size:10px;color:#0F6E56;margin:5px 0;overflow-wrap:anywhere}' +
     '.qr .hint{font-size:10px;color:#667085;line-height:1.5}' +
     'footer{margin-top:25px;font-size:10px;color:#666}</style></head><body>' +
-    '<h1>KASSA</h1><p>' + (test ? 'PAYSTACK NON-LIVE RECEIPT' : 'SALE RECEIPT') + '</p>' +
+    '<h1>KASSA</h1><p>' + (test ? 'NON-LIVE RECEIPT' : 'SALE RECEIPT') + '</p>' +
     '<p>Reference: ' + escapeHtml(sale.reference) + '</p>' +
     '<p>Date: ' + escapeHtml(new Date(sale.createdAt).toLocaleString('en-NG')) + '</p>' +
     (sale.customer ? '<p>Customer: ' + escapeHtml(sale.customer) + '</p>' : '') +

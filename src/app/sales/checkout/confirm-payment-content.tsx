@@ -348,7 +348,7 @@ export default function ConfirmPaymentContent() {
 
               <p className="text-center text-xs text-gray-500">
                 Creating a pending sale does not receive money or issue a receipt.
-                The next screen records the cashier's confirmation after checking cash, bank credit or a successful POS transaction.
+                Verify receipt before confirming payment.
               </p>
             </div>
           </div>

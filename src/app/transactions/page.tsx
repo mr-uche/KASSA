@@ -411,7 +411,7 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
                       <StatusBadge status={transaction.status} />
                       {transaction.testMode && (
                         <span className="ml-2 inline-block rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-900">
-                          TEST
+                          Non-live
                         </span>
                       )}
                     </td>

@@ -594,7 +594,7 @@ export default function Settings() {
     {isOwner && section === 'Business receiving accounts' && <>
       <KCard>
         <Text style={s.cardTitle}>Business receiving accounts</Text>
-        <Text style={s.cardNote}>Customers transfer directly to these accounts. Cashiers see the selected account at checkout. KASSA does not receive or pay out these funds.</Text>
+        <Text style={s.cardNote}>Receiving accounts appear at checkout. Payments go directly to your business.</Text>
         {banks.map(account => <View key={account.id} style={s.bankRow}>
           <View style={{ flex: 1 }}>
             <Text style={s.bankTitle}>{account.bankName} {account.isDefault ? '· Default' : ''}</Text>
