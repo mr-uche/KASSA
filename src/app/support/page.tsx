@@ -41,19 +41,12 @@ export default function SupportInbox() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const refresh = useCallback(async () => {
-    try {
-      const list = await api<ThreadListItem[]>("inbox");
-      setThreads(list);
-      setError("");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Cannot load inbox."); }
-  }, []);
-  const refreshThread = useCallback(async (id: string) => {
-    try {
-      const result = await api<ThreadDetail>("inbox/" + encodeURIComponent(id));
-      setSelected(result);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Cannot load thread."); }
-  }, []);
+  const refresh = useCallback(() => api<ThreadListItem[]>("inbox")
+    .then(list => { setThreads(list); setError(""); })
+    .catch(cause => { setError(cause instanceof Error ? cause.message : "Cannot load inbox."); }), []);
+  const refreshThread = useCallback((id: string) => api<ThreadDetail>("inbox/" + encodeURIComponent(id))
+    .then(result => { setSelected(result); })
+    .catch(cause => { setError(cause instanceof Error ? cause.message : "Cannot load thread."); }), []);
 
   useEffect(() => {
     void refresh();
