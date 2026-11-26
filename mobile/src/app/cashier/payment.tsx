@@ -11,9 +11,9 @@ import { CheckoutProgress } from '@/components/kassa-demo/checkout-progress';
 import { recordOfflineSale } from '@/components/kassa-demo/offline-cash';
 
 const methods = [
-  { name: 'Cash', channel: 'CASH', detail: 'Count and confirm physical cash received' },
-  { name: 'Transfer', channel: 'BANK_TRANSFER', detail: 'Confirm credit in the business bank account' },
-  { name: 'Card', channel: 'CARD', detail: 'Confirm a successful transaction on the business POS terminal' },
+  { name: 'Cash', channel: 'CASH', detail: 'Confirm cash received' },
+  { name: 'Transfer', channel: 'BANK_TRANSFER', detail: 'Check bank credit' },
+  { name: 'Card', channel: 'CARD', detail: 'Check POS receipt' },
   { name: 'POS', channel: 'POS', detail: 'Check the business terminal success record' },
 ] as const;
 
@@ -68,10 +68,10 @@ export default function Payment() {
       'sales/' + encodeURIComponent(pending.id) + '/verification-status'
     ).then(result => {
       if (active) setAutoVerificationMessage(result.status === 'NOT_CONNECTED'
-        ? 'Automatic bank/POS verification is not connected. Check the merchant record and confirm manually.'
+        ? 'Verify payment in your bank or POS records.'
         : result.detail);
     }).catch(() => {
-      if (active) setAutoVerificationMessage('Automatic verification is unavailable. Check the merchant record before confirming.');
+      if (active) setAutoVerificationMessage('Verify payment in your bank or POS records.');
     });
     return () => { active = false; };
   }, [pending?.id, method.channel, offline, session.request]);
@@ -133,11 +133,11 @@ export default function Payment() {
     }
     if (offline) {
       if (pending) {
-        setError('This online sale is already pending. Reconnect and verify it; do not record it again offline.');
+        setError('Reconnect to verify the pending sale. Do not duplicate it.');
         return;
       }
       if (!cacheFresh || !session.user || !session.scope) {
-        setError('Offline product data must be downloaded within the last 48 hours. Reconnect and refresh stock first.');
+        setError('Refresh stock online every 48 hours.');
         return;
       }
       if (!store.count || orderItems.length !== store.lines.length) {
@@ -147,7 +147,7 @@ export default function Payment() {
       Alert.alert(
         'Confirm offline cash',
         'You received ' + naira(received) + ' for ' + naira(amountDueKobo / 100) +
-        ' (change ' + naira(change) + '). This sale will be stored on THIS PHONE until it can sync. Do not collect cash twice.',
+        ' (change ' + naira(change) + '). Saved on this device until synced. Do not charge twice.',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Cash collected — save', onPress: () => { void (async () => {
@@ -195,10 +195,10 @@ export default function Payment() {
     const serverChange = (toKobo(received) - serverDueKobo) / 100;
     Alert.alert(
       'Confirm cash received',
-      'Please confirm you physically received ' + naira(received) +
+      'Confirm cash received: ' + naira(received) +
       ' for the final total of ' + naira(serverDueKobo / 100) +
       '. Change to return: ' + naira(serverChange) +
-      '. Stock will be reduced after confirmation.',
+      '.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Cash received', onPress: () => { void (async () => {
@@ -231,23 +231,23 @@ export default function Payment() {
     if (working) return;
     if (!store.discountValid) { setError('Review the sale discount before payment.'); return; }
     if (!merchantChecked) {
-      setError('Confirm that you checked the business bank credit or successful POS record.');
+      setError('Check the bank or POS record first.');
       return;
     }
     if (offline) {
       if (pending) {
-        setError('This pending online payment cannot be recorded again offline. Reconnect to resolve it.');
+        setError('Reconnect to resolve the pending payment.');
         return;
       }
       if (!cacheFresh || !session.user || !session.scope || !store.count ||
           orderItems.length !== store.lines.length) {
-        setError('Offline product prices and stock must be refreshed within 48 hours before recording a payment.');
+        setError('Refresh stock online every 48 hours.');
         return;
       }
       Alert.alert('Confirm offline ' + method.name + ' payment',
         'Confirm the business received ' + naira(amountDueKobo / 100) + ' via ' + method.name +
-        '. Check the bank account or terminal success record, not a customer screenshot. ' +
-        'This sale will be saved on this phone until reconciliation. Do not collect payment twice.', [
+        '. Check bank or POS records, not screenshots. ' +
+        'Saved offline until synced. Do not charge twice.', [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Payment received — save', onPress: () => { void (async () => {
             setWorking(true); setError('');
@@ -284,9 +284,9 @@ export default function Payment() {
     setWorking(false);
     Alert.alert(
       'Confirm direct business payment',
-      'Confirm the business actually received ' + naira(Number(sale.total)) + ' via ' +
-        method.name + '. A customer screenshot or debit alert does NOT prove receipt. ' +
-        'KASSA does not hold or transfer these funds. This action records YOUR confirmation and deducts stock.',
+      'Confirm receipt of ' + naira(Number(sale.total)) + ' via ' +
+        method.name + '. Verify bank/POS credit, not screenshots. ' +
+        'Confirmation updates stock.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Payment received', onPress: () => { void (async () => {
@@ -389,7 +389,7 @@ export default function Payment() {
       {enteredCash.length > 0 && enteredCashKobo !== null && enteredCashKobo < amountDueKobo &&
         <Text style={s.error}>Remaining cash to collect: {naira((amountDueKobo - enteredCashKobo) / 100)}</Text>}
     </> : <View style={s.note}>
-      <Text style={s.noteText}>The customer pays the BUSINESS directly. KASSA never receives or holds the money. Check the business bank credit or terminal success record — never a customer screenshot alone.</Text>
+      <Text style={s.noteText}>Payments go directly to your business. Verify bank or POS records, not screenshots.</Text>
       {!offline && method.channel === 'BANK_TRANSFER' &&
         <View style={[s.summary, { marginTop: 14, padding: 12 }]}>
           <Text style={s.methodName}>Business receiving account</Text>
@@ -408,16 +408,16 @@ export default function Payment() {
               </View>
             </Pressable>,
           ) : <Text style={[s.noteText, { marginTop: 8 }]}>
-            No receiving bank account has been added by the business owner yet.
+            No receiving account added.
           </Text>}
           <Text style={[s.noteText, { marginTop: 8 }]}>
-            Account details are owner-supplied and not bank-verified.
+            Account details are not bank-verified.
           </Text>
         </View>}
       <Text style={[s.noteText, { marginTop: 12 }]}>
         {offline
-          ? 'KASSA cannot check bank/POS records while offline. Confirm using the business account or terminal directly. The record will be reconciled when online.'
-          : autoVerificationMessage || 'Automatic bank/POS verification requires a connected provider. If unavailable, confirm only after checking business records.'}
+          ? 'Verify directly with your bank or POS. Sync when online.'
+          : autoVerificationMessage || 'Manual confirmation required.'}
       </Text>
       <Pressable accessibilityRole="checkbox"
         accessibilityState={{ checked: merchantChecked }}
@@ -427,21 +427,21 @@ export default function Payment() {
           {merchantChecked && <View style={s.dot}/>}
         </View>
         <Text style={[s.noteText, { flex: 1 }]}>
-          I checked that the business actually received the full amount.
+          I confirm the full amount was received.
         </Text>
       </Pressable>
     </View>}
 
-    {offline && pending && <Text style={s.error}>This pending online transaction cannot be recorded again offline. Reconnect to complete or reconcile it.</Text>}
+    {offline && pending && <Text style={s.error}>Reconnect to resolve this pending payment.</Text>}
     {pending?.payments[0]?.provider === 'PAYSTACK_TEST' &&
-      <Text style={s.error}>This is an older Paystack TEST checkout. No new checkout is available; contact the business owner for reconciliation.</Text>}
+      <Text style={s.error}>Non-live transaction. Contact the owner to reconcile.</Text>}
     {!session.scope && <Text style={s.error}>Sign in to KASSA before completing payments.</Text>}
     {error ? <Text style={s.error}>{error}</Text> : null}
     {working && <View accessibilityRole="progressbar" style={s.recording}>
       <ActivityIndicator size="small" color={C.green}/>
       <View style={{ flex: 1 }}>
         <Text style={s.recordingTitle}>Recording payment</Text>
-        <Text style={s.recordingText}>KASSA is saving this payment confirmation. Do not submit it again.</Text>
+        <Text style={s.recordingText}>Saving payment. Do not submit again.</Text>
       </View>
     </View>}
     <Pressable
@@ -458,7 +458,7 @@ export default function Payment() {
     >
       <Text style={s.primaryText}>{working ? 'Please wait…' :
         method.channel === 'CASH' ? (offline ? 'Save offline cash sale' : 'Confirm cash received') :
-        offline ? 'Save offline ' + method.name + ' sale' : 'Confirm business received payment'}</Text>
+        offline ? 'Save offline ' + method.name + ' sale' : 'Confirm payment'}</Text>
     </Pressable>
     {!session.scope && <Pressable onPress={() => router.push('/login')} style={s.verify}><Text style={s.verifyText}>Go to sign in</Text></Pressable>}
   </KScreen>;

@@ -355,7 +355,7 @@ export default function Reports() {
           subtitle={member.paidTransactions + ' transactions · ' + member.failedPayments + ' failed'}
           amount={money(member.paidSales)} status="Sales" tone="green"/>)}
       {!report.staff.length && <InlineNotice text="No staff sales for this period."/>}
-      <Text style={s.footer}>Revenue is confirmed paid sales, not profit or bank-settled funds. Test sales are excluded.</Text>
+      <Text style={s.footer}>Revenue reflects confirmed live sales, not profit or bank settlement.</Text>
     </>}
   </KScreen>;
 }

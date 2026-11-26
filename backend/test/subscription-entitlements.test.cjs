@@ -1,35 +1,39 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  TEST_SUBSCRIPTION_PLANS, SUBSCRIPTION_ENTITLEMENTS, businessEntitlement,
+  SUBSCRIPTION_PLANS, SUBSCRIPTION_ENTITLEMENTS, businessEntitlement, tierForPlan,
   requireSubscriptionFeature, requireSubscriptionCapacity,
 } = require('../src/subscription/subscription-access');
 
-test('pilot pricing has exactly the three named tiers and fixed lengths', () => {
-  assert.deepEqual(TEST_SUBSCRIPTION_PLANS.map(x => [x.code, x.durationDays]), [
-    ['monthly', 30], ['quarterly', 90], ['annual', 365],
-  ]);
-  assert.deepEqual(TEST_SUBSCRIPTION_PLANS.map(x => x.amountKobo),
-    [200_000, 500_000, 1_800_000]);
+test('approved catalog has twelve unique plans with exact prices in kobo and durations', () => {
+  assert.equal(new Set(SUBSCRIPTION_PLANS.map(p => p.code)).size, 12);
+  const prices = {
+    starter: [200000, 540000, 1920000],
+    growth: [500000, 1350000, 4800000],
+    business: [1000000, 2700000, 9600000],
+    enterprise: [1800000, 4860000, 17280000],
+  };
+  for (const [tier, amounts] of Object.entries(prices)) {
+    const plans = SUBSCRIPTION_PLANS.filter(p => p.tier === tier);
+    assert.deepEqual(plans.map(p => p.amountKobo), amounts);
+    assert.deepEqual(plans.map(p => p.durationDays), [30, 90, 365]);
+    assert.deepEqual(plans.map(p => p.discountPercent), [0, 10, 20]);
+    for (const p of plans) assert.equal(tierForPlan(p.code), tier);
+  }
 });
 
-test('three tiers upgrade capabilities without restricting core cashier operations', () => {
-  const free = SUBSCRIPTION_ENTITLEMENTS.free;
-  const monthly = SUBSCRIPTION_ENTITLEMENTS.monthly;
-  const quarterly = SUBSCRIPTION_ENTITLEMENTS.quarterly;
-  const annual = SUBSCRIPTION_ENTITLEMENTS.annual;
-  assert.equal(free.maxBranches, 1);
-  assert.equal(free.maxStaff, 1);
-  assert.equal(free.features.customers, false);
-  assert.equal(monthly.maxStaff, 3);
-  assert.equal(monthly.features.customers, true);
-  assert.equal(monthly.features.reports, false);
-  assert.equal(quarterly.maxBranches, 3);
-  assert.equal(quarterly.features.reports, true);
-  assert.equal(quarterly.features.grossProfit, false);
-  assert.equal(annual.maxBranches, 10);
-  assert.equal(annual.maxStaff, 50);
-  assert.equal(Object.values(annual.features).every(Boolean), true);
+test('paid capacity and all core premium features depend on tier, not billing cycle', () => {
+  const limits = { starter: [1, 3], growth: [2, 10], business: [5, 25], enterprise: [10, 50] };
+  for (const [tier, expected] of Object.entries(limits)) {
+    const e = SUBSCRIPTION_ENTITLEMENTS[tier];
+    assert.deepEqual([e.maxBranches, e.maxStaff], expected);
+    assert.equal(e.ownerIncluded, false);
+    assert.equal(Object.values(e.features).every(Boolean), true);
+  }
+  assert.equal(SUBSCRIPTION_ENTITLEMENTS.free.maxStaff, 1);
+  assert.equal(SUBSCRIPTION_ENTITLEMENTS.monthly.ownerIncluded, true);
+  assert.equal(SUBSCRIPTION_ENTITLEMENTS.quarterly.features.grossProfit, false);
+  assert.equal(SUBSCRIPTION_ENTITLEMENTS.annual.maxStaff, 50);
 });
 
 test('expired or missing charges get the free tier; current paid tier is respected', async () => {
@@ -79,6 +83,35 @@ test('owner and pending invites count toward staff capacity; branches have a har
       /at most 3 staff account/);
     await assert.rejects(requireSubscriptionCapacity(prisma, 'business', 'branches'),
       /at most 1 branch/);
+  } finally {
+    if (old === undefined) delete process.env.KASSA_SUBSCRIPTION_FEATURE_GATES_ENABLED;
+    else process.env.KASSA_SUBSCRIPTION_FEATURE_GATES_ENABLED = old;
+  }
+});
+
+test('new paid tiers exclude owner, reserve pending staff invitations and ignore future periods', async () => {
+  const old = process.env.KASSA_SUBSCRIPTION_FEATURE_GATES_ENABLED;
+  process.env.KASSA_SUBSCRIPTION_FEATURE_GATES_ENABLED = 'true';
+  try {
+    let staff = 2;
+    const prisma = {
+      subscriptionCharge: { findFirst: async ({ where }) => {
+        assert.ok(where.OR.some(p => p.periodStart?.lte instanceof Date));
+        assert.ok(where.planCode.in.includes('starter_annual'));
+        return { planCode: 'starter_annual', periodEnd: new Date(Date.now() + 86400000) };
+      } },
+      businessMembership: { count: async ({ where }) => {
+        assert.deepEqual(where.role, { name: { not: 'Owner' } });
+        return staff;
+      } },
+      staffInvitation: { count: async () => 0 },
+      branch: { count: async () => 1 },
+    };
+    await requireSubscriptionCapacity(prisma, 'business', 'staff');
+    staff = 3;
+    await assert.rejects(requireSubscriptionCapacity(prisma, 'business', 'staff'), /excluding the owner/);
+    await assert.rejects(requireSubscriptionCapacity(prisma, 'business', 'branches'), /at most 1 branch/);
+    await requireSubscriptionFeature(prisma, 'business', 'dataExport');
   } finally {
     if (old === undefined) delete process.env.KASSA_SUBSCRIPTION_FEATURE_GATES_ENABLED;
     else process.env.KASSA_SUBSCRIPTION_FEATURE_GATES_ENABLED = old;

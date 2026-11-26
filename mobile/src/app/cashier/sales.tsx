@@ -154,7 +154,7 @@ export default function Sales() {
       router.push({ pathname: '/cashier/receipt', params: { saleId: sale.id } });
     } else {
       Alert.alert('Payment not completed',
-        'This sale is still awaiting confirmed payment. Do not release goods based on a transfer screenshot or pending transaction.');
+        'Payment pending. Verify receipt before releasing goods.');
     }
   };
 
@@ -183,9 +183,6 @@ export default function Sales() {
         <Text style={s.summaryValue}>{summary ? summary.today.paidSales : loading ? '…' : '—'}</Text>
       </View>
     </View>
-    {summary?.today.testSales ? (
-      <Text style={s.testNote}>Revenue excludes Paystack test payments.</Text>
-    ) : null}
 
     <View style={s.filters}>
       {filters.map(item => <Pressable
@@ -201,7 +198,7 @@ export default function Sales() {
 
     {disconnected && <View style={s.localBanner}>
       <Text style={s.localHeading}>OFFLINE · Live sales history is unavailable</Text>
-      <Text style={s.localDescription}>Locally queued cash sales are shown below. They are not included in confirmed cloud revenue yet.</Text>
+      <Text style={s.localDescription}>Saved sales awaiting sync.</Text>
     </View>}
     {visibleLocal.length > 0 && <>
       <View style={s.sectionRow}>

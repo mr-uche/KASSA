@@ -22,8 +22,8 @@ export default function ReviewSale() {
 
   return <KScreen showBrand={false} showPreviewLabel={false}>
     {store.offlineMode && <View style={{ borderWidth: 1, borderColor: C.mintBorder, backgroundColor: C.mint, borderRadius: 9, padding: 12, marginBottom: 15 }}>
-      <Text style={{ color: C.greenDark, fontWeight: '800', fontSize: 14 }}>OFFLINE · Cash only</Text>
-      <Text style={{ color: C.muted, fontSize: 13, marginTop: 5 }}>Connect internet to sync sales</Text>
+      <Text style={{ color: C.greenDark, fontWeight: '800', fontSize: 14 }}>Offline sale</Text>
+      <Text style={{ color: C.muted, fontSize: 13, marginTop: 5 }}>Reconnect to sync sales.</Text>
     </View>}
     <View style={s.header}>
       <Pressable accessibilityRole="button" accessibilityLabel="Back to product selection" onPress={() => router.replace('/cashier/new-sale')} style={s.back}>

@@ -21,7 +21,7 @@ export function KassaLogo({ compact = false, loginSize = false }: { compact?: bo
   </View>;
 }
 
-export function KScreen({ title, subtitle, children, nav = true, back = false, showBrand = true, showPreviewLabel = true, loginSizedBrand = false }: { title?: string; subtitle?: string; children: React.ReactNode; nav?: boolean; back?: boolean; showBrand?: boolean; showPreviewLabel?: boolean; loginSizedBrand?: boolean }) {
+export function KScreen({ title, subtitle, children, nav = true, back = false, showBrand = true, loginSizedBrand = false }: { title?: string; subtitle?: string; children: React.ReactNode; nav?: boolean; back?: boolean; showBrand?: boolean; showPreviewLabel?: boolean; loginSizedBrand?: boolean }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
@@ -44,7 +44,6 @@ export function KScreen({ title, subtitle, children, nav = true, back = false, s
       {title ? <Text style={s.title}>{title}</Text> : null}
       {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
       <View style={{ marginTop: title ? 22 : standaloneBrand ? 28 : 0 }}>{children}</View>
-      {showPreviewLabel ? <Text style={s.demoLabel}>KASSA SCREEN PREVIEW  ·  SAMPLE DATA ONLY</Text> : null}
     </ScrollView>
     {headerVisible && !keyboardVisible && <KassaBottomNavigation/>}
   </KeyboardAvoidingView></KassaBackground>;
@@ -93,5 +92,4 @@ const s = StyleSheet.create({
   tagSelected: { backgroundColor: C.green, borderColor: C.green }, tagText: { fontSize: 14, color: C.text, fontWeight: '600' },
   linkRow: { borderBottomWidth: 1, borderBottomColor: C.border, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', gap: 10 },
   linkTitle: { fontSize: 14, fontWeight: '700', color: C.title }, linkSubtitle: { fontSize: 14, color: C.muted, paddingTop: 5 },
-  demoLabel: { fontSize: 12, color: C.faint, marginTop: 42, textAlign: 'center', letterSpacing: 0.6 },
 });

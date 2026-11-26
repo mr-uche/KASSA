@@ -114,7 +114,7 @@ export default function OfflineSales() {
       await cacheOfflineCatalog(scope, catalog);
       setSelected({});
       await load();
-      setNotice('Latest prices and stock are saved on this phone for this cashier and branch.');
+      setNotice('Stock updated.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Connect to the internet before refreshing products.');
     } finally { setBusy(false); }
@@ -167,7 +167,7 @@ export default function OfflineSales() {
     Alert.alert('Confirm merchant payment received',
       'Confirm ' + naira(method === 'CASH' ? received : total) + ' was received by the business via ' + method +
       '. For bank transfers and POS, check merchant bank credit or terminal records, not the customer screenshot. ' +
-      'The sale stays on this device until synced. Do not collect payment twice.', [
+      'Saved until synced. Do not charge twice.', [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Payment received — save', onPress: () => { void record(); } },
       ]);
@@ -189,7 +189,7 @@ export default function OfflineSales() {
     <Text style={s.info}>{session.scope?.branchName} · Cash, bank transfer and POS</Text>
     <View style={s.banner}>
       <Text style={s.bannerTitle}>Saved locally until verified</Text>
-      <Text style={s.info}>Payments are recorded on this phone until synced. Cashiers must check bank/POS receipts from the merchant side. Reconnect and sync within 8 days.</Text>
+      <Text style={s.info}>Verify payments directly. Sync saved sales within 8 days.</Text>
     </View>
     <View style={s.stats}>
       <View style={s.stat}><Text style={s.number}>{pending.length}</Text><Text style={s.info}>Queued</Text></View>
@@ -214,7 +214,7 @@ export default function OfflineSales() {
         ])}><Text style={s.reviewText}>{reviews.length} sale(s) need reconciliation</Text></Pressable>}
     {typeof savedRef === 'string' && <View style={s.banner}>
       <Text style={s.bannerTitle}>Sale saved on this phone</Text>
-      <Text style={s.info}>Local reference #{savedRef.slice(0, 8).toUpperCase()}. This is not yet a cloud-confirmed sale. Your record remains below until synchronized.</Text>
+      <Text style={s.info}>Local reference #{savedRef.slice(0, 8).toUpperCase()}. Awaiting sync.</Text>
     </View>}
     <Pressable accessibilityRole="button" onPress={() => router.push('/cashier/scan-product')}
       style={s.scanEntry}>
@@ -284,7 +284,7 @@ export default function OfflineSales() {
         <Text style={s.scanEntryText}>View receipt</Text></View>
       <Text style={s.name}>{naira(Number(item.total))}</Text>
     </Pressable>)}
-    <Text style={s.info}>Offline sales support a previously signed-in cashier with recent cached stock. Keep this phone and local data safe until all sales are synchronized.</Text>
+    <Text style={s.info}>Keep device data safe until sales are synced.</Text>
   </KScreen>;
 }
 

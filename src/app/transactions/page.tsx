@@ -222,7 +222,7 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
   const failed = filteredTransactions.filter((row) => row.status === "Failed").length;
 
   function exportTransactions() {
-    const rows = [["Reference", "Customer", "Cashier", "Channel", "Items", "Amount (NGN)", "Status", "Created At", "Test transaction"],
+    const rows = [["Reference", "Customer", "Cashier", "Channel", "Items", "Amount (NGN)", "Status", "Created At", "Non-live transaction"],
       ...filteredTransactions.map((row) => [row.reference, row.customer, row.cashier, row.channel,
         row.items, String(row.total), row.status, row.createdAt, row.testMode ? "YES" : "NO"])];
     const safe = (value: string) => {
@@ -411,7 +411,7 @@ const [selectedBranch, setSelectedBranch] = useState("Main branch");
                       <StatusBadge status={transaction.status} />
                       {transaction.testMode && (
                         <span className="ml-2 inline-block rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-900">
-                          TEST
+                          Non-live
                         </span>
                       )}
                     </td>

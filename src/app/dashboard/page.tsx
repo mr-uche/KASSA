@@ -519,7 +519,7 @@ export default function DashboardPage() {
                       <td className="px-4 sm:px-6">
                         <StatusBadge status={transaction.status} />
                         {transaction.testMode && (
-                          <span className="ml-2 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-1 text-[10px] font-bold text-amber-900">TEST</span>
+                          <span className="ml-2 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-1 text-[10px] font-bold text-amber-900">Non-live</span>
                         )}
                       </td>
 

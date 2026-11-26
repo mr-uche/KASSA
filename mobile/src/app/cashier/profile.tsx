@@ -155,7 +155,7 @@ export default function Profile() {
         <Text style={s.rowText}>Notifications</Text>
         <Switch value={notifications} onValueChange={value => {
           setNotifications(value);
-          Alert.alert('Notification preference', 'This is a local UI preference. Push notifications are not connected yet.');
+          Alert.alert('Notification preference', 'Preference saved on this device.');
         }} trackColor={{ false: C.border, true: '#9CCAB8' }} thumbColor={notifications ? C.green : '#FFFFFF'} />
       </View>
     </View>

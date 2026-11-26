@@ -11,25 +11,25 @@ const topics = [
     title: 'How to make a new sale',
     subtitle: 'Add items, apply discounts, take payment',
     icon: { ios: 'cart', android: 'shopping_cart', web: 'shopping_cart' },
-    answer: 'Open New sale, select the products, tap Continue to payment, review quantities, and choose a payment method. Check the total before completing payment.',
+    answer: 'Select products, review the total and confirm payment.',
   },
   {
     title: 'Refund or void a sale',
     subtitle: 'Reverse a wrong or cancelled transaction',
     icon: { ios: 'arrow.uturn.backward', android: 'history', web: 'history' },
-    answer: 'Refunds and voids are not available from the cashier mobile screen yet. Contact your business manager with the sale reference before taking further action.',
+    answer: 'Contact your manager with the sale reference for refunds or voids.',
   },
   {
     title: 'Receipt printer not working',
     subtitle: 'Reconnect Bluetooth and reprint receipts',
     icon: { ios: 'printer', android: 'print', web: 'print' },
-    answer: 'Check that the printer is switched on, has paper, and is paired with the phone. You can also use the system Print receipt option on a confirmed sale.',
+    answer: 'Check printer power, paper and pairing, then select Print receipt.',
   },
   {
     title: 'Syncing & offline mode',
     subtitle: 'Keep selling when the network drops',
     icon: { ios: 'arrow.triangle.2.circlepath', android: 'sync', web: 'sync' },
-    answer: 'Mobile offline checkout is not enabled yet. Check your internet connection and refresh Products or Sales. Avoid retrying a pending payment without verifying it.',
+    answer: 'Refresh stock online before selling offline. Sync saved sales when connected.',
   },
 ] as const;
 
@@ -82,7 +82,7 @@ export default function Help() {
       <View style={s.statusDot} />
       <View style={{ flex: 1 }}>
         <Text style={s.hoursTitle}>Support information</Text>
-        <Text style={s.hoursCaption}>{supportHours || 'Support hours have not been configured'}</Text>
+        <Text style={s.hoursCaption}>{supportHours || 'Contact support for availability'}</Text>
       </View>
     </View>
 
@@ -98,7 +98,6 @@ export default function Help() {
     <Pressable accessibilityRole="button" style={s.chatButton} onPress={() => router.push('/cashier/chat')}>
       <Text style={s.chatButtonText}>Chat with support</Text>
     </Pressable>
-    <Text style={s.footer}>Chat opens an automated local support preview.</Text>
   </KScreen>;
 }
 

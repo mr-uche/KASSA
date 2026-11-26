@@ -5,13 +5,10 @@ import {
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  TEST_SUBSCRIPTION_PLANS, SUBSCRIPTION_ENTITLEMENTS,
+  SUBSCRIPTION_PLANS, SUBSCRIPTION_ENTITLEMENTS, PAID_PLAN_CODES,
   businessEntitlement, featureGatesEnabled,
 } from './subscription-access';
 
-type BillingPlan = {
-  code: string; name: string; amountKobo: number; durationDays: number;
-};
 type PaystackResponse = {
   status?: boolean;
   data?: {
@@ -34,36 +31,9 @@ function trustedCheckoutUrl(url: unknown): url is string {
 export class SubscriptionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Price, name, and term are set by KASSA's operator, never by the buyer. */
-  private plans(): BillingPlan[] {
-    const raw = process.env.KASSA_BILLING_PLANS_JSON?.trim();
-    // Pilot plans are clearly labelled test figures. Never allow these
-    // placeholder prices for a live Paystack key.
-    if (!raw) return process.env.PAYSTACK_SECRET_KEY?.trim().startsWith('sk_live_')
-      ? [] : TEST_SUBSCRIPTION_PLANS.map(plan => ({ ...plan }));
-    let input: unknown;
-    try { input = JSON.parse(raw); } catch { return []; }
-    if (!Array.isArray(input) || input.length !== TEST_SUBSCRIPTION_PLANS.length) return [];
-    const plans: BillingPlan[] = [];
-    const seen = new Set<string>();
-    for (const value of input) {
-      if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
-      const item = value as Partial<BillingPlan>;
-      if (typeof item.code !== 'string' ||
-          !TEST_SUBSCRIPTION_PLANS.some(tier => tier.code === item.code &&
-            tier.durationDays === item.durationDays) ||
-          seen.has(item.code) || typeof item.name !== 'string' ||
-          !item.name.trim() || item.name.length > 80 ||
-          !Number.isSafeInteger(item.amountKobo) || !(item.amountKobo! >= 100) ||
-          !(item.amountKobo! <= 2_000_000_000) ||
-          !Number.isSafeInteger(item.durationDays) || !(item.durationDays! >= 1) ||
-          !(item.durationDays! <= 366)) return [];
-      seen.add(item.code);
-      plans.push({ code: item.code, name: item.name.trim(),
-        amountKobo: item.amountKobo!, durationDays: item.durationDays! });
-    }
-    if (!TEST_SUBSCRIPTION_PLANS.every(tier => seen.has(tier.code))) return [];
-    return plans;
+  /** Approved catalog: server is the sole authority for price and term. */
+  private plans() {
+    return SUBSCRIPTION_PLANS;
   }
 
   private gateway(): { secret: string; domain: 'test' | 'live' } {
@@ -114,9 +84,16 @@ export class SubscriptionService {
     const charges = await this.prisma.subscriptionCharge.findMany({
       where: { businessId }, orderBy: { createdAt: 'desc' }, take: 40,
     });
-    const current = charges.filter(item => item.status === 'SUCCEEDED' &&
-      item.periodEnd !== null && item.periodEnd.getTime() > Date.now())
-      .sort((a, b) => (b.periodEnd?.getTime() ?? 0) - (a.periodEnd?.getTime() ?? 0))[0];
+    const now = new Date();
+    const current = await this.prisma.subscriptionCharge.findFirst({
+      where: { businessId, status: 'SUCCEEDED', planCode: { in: PAID_PLAN_CODES },
+        periodEnd: { gt: now }, OR: [{ periodStart: null }, { periodStart: { lte: now } }] },
+      orderBy: { periodEnd: 'desc' },
+    });
+    const scheduled = await this.prisma.subscriptionCharge.findFirst({
+      where: { businessId, status: 'SUCCEEDED', planCode: { in: PAID_PLAN_CODES }, periodStart: { gt: now } },
+      orderBy: { periodStart: 'asc' },
+    });
     const latest = charges.filter(item => item.status === 'SUCCEEDED')
       .sort((a, b) => (b.periodEnd?.getTime() ?? 0) - (a.periodEnd?.getTime() ?? 0))[0];
     const pending = charges.find(item => item.status === 'PENDING') ?? null;
@@ -135,11 +112,8 @@ export class SubscriptionService {
       configured, environment, currency: 'NGN',
       plans: this.plans().map(plan => ({
         ...plan,
-        testPricing: !process.env.KASSA_BILLING_PLANS_JSON?.trim(),
-        entitlement: SUBSCRIPTION_ENTITLEMENTS[
-          plan.code === 'monthly' || plan.code === 'quarterly' || plan.code === 'annual'
-            ? plan.code : 'free'
-        ],
+        testPricing: false,
+        entitlement: SUBSCRIPTION_ENTITLEMENTS[plan.tier],
       })),
       entitlement: await businessEntitlement(this.prisma, businessId),
       featureRestrictionsEnabled: featureGatesEnabled(),
@@ -150,6 +124,8 @@ export class SubscriptionService {
         status: 'EXPIRED' as const, planName: latest.planName,
         expiresAt: latest.periodEnd?.toISOString() ?? null,
       } : { status: 'NOT_ACTIVE' as const, planName: null, expiresAt: null },
+      scheduled: scheduled ? { planName: scheduled.planName,
+        startsAt: scheduled.periodStart?.toISOString() ?? null } : null,
       pending: pending ? { ...toCharge(pending),
         checkoutUrl: trustedCheckoutUrl(pending.checkoutUrl) ? pending.checkoutUrl : null } : null,
       history: charges.map(toCharge),

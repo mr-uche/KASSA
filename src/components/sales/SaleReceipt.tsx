@@ -55,7 +55,7 @@ export default function SaleReceipt({ sale }: { sale: SavedSale }) {
       <div className="flex flex-wrap items-center gap-2 print:hidden">
         <ReceiptText size={20} className="text-emerald-800" />
         <h2 className="text-lg font-semibold text-[#182033]">Receipt</h2>
-        <span className="text-sm text-gray-500">Preview of this confirmed sale</span>
+        <span className="text-sm text-gray-500">Confirmed sale</span>
       </div>
 
       <div id="kassa-receipt-document"
@@ -66,13 +66,13 @@ export default function SaleReceipt({ sale }: { sale: SavedSale }) {
             <p className="mt-1 text-sm text-gray-500">{merchant.branchName}</p>
           )}
           <p className="mt-3 text-sm font-semibold text-emerald-700">
-            {testPayment ? "PAYSTACK TEST RECEIPT" : "MERCHANT SALE RECEIPT"}
+            {testPayment ? "NON-LIVE RECEIPT" : "MERCHANT SALE RECEIPT"}
           </p>
           {testPayment && (
             <div className="mt-4 rounded-lg border-2 border-amber-500 bg-amber-50 p-3 text-sm font-bold uppercase tracking-wide text-amber-900">
-              TEST TRANSACTION — NO REAL MONEY RECEIVED
+              NO REAL FUNDS RECEIVED
               <p className="mt-1 text-xs font-medium normal-case tracking-normal">
-                For integration testing only. Not valid proof of payment or settlement.
+                Not valid proof of payment.
               </p>
             </div>
           )}
@@ -91,7 +91,7 @@ export default function SaleReceipt({ sale }: { sale: SavedSale }) {
           <span className="text-right font-medium">{successful.channel.replaceAll("_", " ")}</span>
           {testPayment && successful.providerReference && (
             <>
-              <span className="text-gray-500">Paystack test reference</span>
+              <span className="text-gray-500">Payment reference</span>
               <span className="break-all text-right font-medium">{successful.providerReference}</span>
             </>
           )}
@@ -133,7 +133,7 @@ export default function SaleReceipt({ sale }: { sale: SavedSale }) {
           </div>
         </div>
         <p className="mt-7 text-center text-xs text-gray-500">
-          {testPayment ? "TEST RECEIPT ONLY — DO NOT RELEASE REAL GOODS." : "Thank you for your purchase."}
+          {testPayment ? "Non-live receipt. Do not release goods." : "Thank you for your purchase."}
         </p>
       </div>
 

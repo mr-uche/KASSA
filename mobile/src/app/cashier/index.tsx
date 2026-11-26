@@ -24,7 +24,7 @@ type CashierDashboard = {
 };
 
 function saleStatus(sale: CashierDashboard['recentSales'][number]): string {
-  if (sale.status === 'PAID') return sale.testMode ? 'Test paid' : 'Paid';
+  if (sale.status === 'PAID') return sale.testMode ? 'Non-live' : 'Paid';
   if (sale.status === 'PENDING_PAYMENT') return 'Pending';
   return sale.status.toLowerCase().replaceAll('_', ' ');
 }
@@ -146,8 +146,7 @@ export default function CashierHome() {
           <Text style={s.activityNumber} adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1}>
             {dashboard ? naira(Number(dashboard.today.amountReceived)) : loading ? '…' : '—'}
           </Text>
-          <Text style={s.today}>{dashboard?.today.testSales
-            ? 'Excludes ' + dashboard.today.testSales + ' test sale(s)' : 'Today'}</Text>
+          <Text style={s.today}>Today</Text>
         </View>
       </View>
 

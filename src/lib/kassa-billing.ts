@@ -1,11 +1,15 @@
 export type BillingEntitlement = {
-  tier: "free" | "monthly" | "quarterly" | "annual";
+  tier: "free" | "monthly" | "quarterly" | "annual" | "starter" | "growth" | "business" | "enterprise";
+  ownerIncluded?: boolean;
   maxBranches: number; maxStaff: number;
   features: { customers: boolean; reports: boolean; grossProfit: boolean; dataExport: boolean };
 };
+export type BillingCycle = 'monthly' | 'quarterly' | 'annual';
 export type BillingPlan = {
   code: string; name: string; amountKobo: number; durationDays: number;
   testPricing: boolean; entitlement: BillingEntitlement;
+  tier?: string; tierName?: string; billingCycle?: BillingCycle;
+  discountPercent?: number; savingsKobo?: number; monthlyEquivalentKobo?: number;
 };
 export type BillingCharge = {
   id: string; reference: string; planName: string; amountKobo: number;
@@ -18,6 +22,7 @@ export type BillingStatus = {
   entitlement: BillingEntitlement & { expiresAt: string | null };
   featureRestrictionsEnabled: boolean;
   subscription: { status: "ACTIVE" | "EXPIRED" | "NOT_ACTIVE"; planName: string | null; expiresAt: string | null };
+  scheduled?: { planName: string; startsAt: string | null } | null;
   pending: (BillingCharge & { checkoutUrl: string | null }) | null;
   history: BillingCharge[];
   automaticRenewal: false;

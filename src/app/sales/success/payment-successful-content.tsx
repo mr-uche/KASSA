@@ -50,14 +50,14 @@ export default function PaymentSuccessfulContent() {
                 </div>
                 {testPayment && (
                   <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
-                    PAYSTACK TEST TRANSACTION — No real money received.
+                    Non-live transaction. No funds received.
                   </p>
                 )}
                 <h2 className="text-xl font-semibold text-gray-900">{paid ? "Payment recorded as received" : "Payment awaiting confirmation"}</h2>
                 <p className="mt-3 text-sm text-gray-500">
                   {paid
-                    ? "The cashier recorded that the business received payment, and the inventory movement has been saved. KASSA does not process customer money."
-                    : "This sale is still pending. A receipt is available only after confirmed payment."}
+                    ? "Payment recorded and stock updated."
+                    : "Confirm payment to view the receipt."}
                 </p>
                 <p className="mt-5 text-2xl font-bold text-emerald-700">{formatNaira(sale.total)}</p>
                 <p className="mt-2 break-all text-xs text-gray-500">Sale reference: {sale.reference}</p>

@@ -48,7 +48,7 @@ export default function TransactionDetailsPage() {
                     <p className="mt-1 text-xs text-gray-500">{new Date(sale.createdAt).toLocaleString("en-NG")}</p>
                     {sale.payments.some((payment) => payment.provider === "PAYSTACK_TEST") && (
                       <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs font-semibold text-amber-900">
-                        Paystack TEST payment — no real funds collected
+                        Non-live payment · No funds received
                       </p>
                     )}
                   </div>
