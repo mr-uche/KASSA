@@ -16,7 +16,6 @@ import {
 
 type OfflineSection = "home" | "new-sale" | "transactions" | "scan" |
   "reports" | "products" | "customers" | "backup";
-const SHOW_TEST_NOTES = process.env.NEXT_PUBLIC_KASSA_TEST_MODE === "true";
 const OFFLINE_TITLES: Record<OfflineSection, string> = {
   home: "Home", "new-sale": "New Sale", transactions: "Transactions",
   scan: "Scan Product", reports: "Reports & Analytics", products: "Products & Inventory",
@@ -139,7 +138,7 @@ export default function OfflineSalesPage() {
         const assets = performance.getEntriesByType("resource").map((entry) => entry.name)
           .filter((name) => name.includes("/_next/static/"));
         registration.active?.postMessage({ type: "PREPARE_OFFLINE", assets });
-      }).catch(() => setMessage("The offline page cache could not be installed. Keep the page open while testing."));
+      }).catch(() => setMessage("Offline access could not be prepared. Keep this page open."));
     }
     function onShellMessage(event: MessageEvent) {
       if (event.data?.type !== "KASSA_OFFLINE_SHELL") return;
@@ -368,11 +367,8 @@ export default function OfflineSalesPage() {
           <span>Cash sales only · Stock is estimated while offline.</span>
           {online && <Link href="/dashboard" className="font-semibold text-emerald-800 underline">Live dashboard</Link>}
         </div>
-        {SHOW_TEST_NOTES && <p className="text-xs text-amber-800">
-          Test build: use sample sales and stock. Electronic payments require online verification.
-        </p>}
         {interruptedPayment && <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-          An online sale or payment may already be pending. Check that transaction when connected and never collect payment for the same sale twice.
+          Check pending payments when online. Do not charge twice.
         </p>}
         {message && <p role="status" className="rounded-lg border border-gray-200 bg-white p-3 text-sm">{message}</p>}
 
@@ -384,7 +380,6 @@ export default function OfflineSalesPage() {
             </p>
             <p className={"mt-1 text-xs " + (fresh ? "text-emerald-800" : "text-amber-800")}>
               {fresh ? "Ready offline" : "Online refresh required"} · {OFFLINE_CACHE_DAYS}-day cache
-              {SHOW_TEST_NOTES ? (shellReady ? " · Page cached" : " · Cache pending") : ""}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -410,7 +405,7 @@ export default function OfflineSalesPage() {
         {!ready && <p>Loading saved offline data...</p>}
         {ready && !workspace && (
           <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-600">
-            Offline access isn't prepared for the current signed-in staff member.
+            Offline access needs setup.
             Connect online and select <strong>Refresh offline catalogue</strong>.
           </div>
         )}
@@ -619,7 +614,7 @@ export default function OfflineSalesPage() {
               <p className="mt-4 text-center text-xs font-semibold text-amber-800">
                 {selectedReceipt.status === "synced"
                   ? "Cloud reference: " + (selectedReceipt.cloudReference ?? "Confirmed")
-                  : "This receipt is recorded on this device, not yet verified by the cloud."}
+                  : "Saved on this device. Awaiting sync."}
               </p>
             </div>
             <button type="button" onClick={() => window.print()}
@@ -710,10 +705,6 @@ export default function OfflineSalesPage() {
           </p>
         </section>
         )}
-        {SHOW_TEST_NOTES && <p className="pb-6 text-xs leading-5 text-gray-500">
-          Device storage is encrypted; unsynced sales are not yet cloud backups.
-          Use your device screen lock and test stock conflicts on multiple devices.
-        </p>}
       </main>
       </div>
     </div>

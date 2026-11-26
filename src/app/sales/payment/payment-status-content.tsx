@@ -91,9 +91,9 @@ export default function PaymentStatusContent() {
     const payment = sale.payments[0];
     if (!payment || payment.status !== "PENDING" || payment.provider) return;
     if (payment.channel !== "CASH" && !merchantChannels.has(payment.channel)) return;
-    if (!window.confirm("Confirm that the business actually received " + formatNaira(sale.total) +
+    if (!window.confirm("Confirm receipt of " + formatNaira(sale.total) +
       " through " + (channelLabels[payment.channel] ?? payment.channel) +
-      "? A customer screenshot alone is NOT proof. This records YOUR confirmation and deducts stock.")) return;
+      "? Verify receipt, not screenshots. Confirmation updates stock.")) return;
     setSubmitting(true); setError(""); setNotice("");
     try {
       const confirmed = payment.channel === "CASH"
@@ -140,13 +140,11 @@ export default function PaymentStatusContent() {
             </div>
             <p className="mt-3 text-sm leading-6 text-gray-600">
               {paid
-                ? historicalTest ? "Historical Paystack test sale. No real funds were transferred."
-                  : "The business payment was marked received and the sale recorded. This is a staff confirmation, not an independent bank verification."
-                : "Customers pay the business directly. KASSA does not collect, process or hold customer funds. Confirm only after checking actual cash, bank account credit or successful POS terminal transaction."}
+                ? historicalTest ? "Non-live transaction. No real funds received."
+                  : "Payment recorded by staff."
+                : "Payments go directly to your business. Verify receipt before confirming."}
             </p>
-            {historicalTest && <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              Historical Paystack TEST transaction. The test checkout is retired. Do not treat it as a live merchant payment.
-            </p>}
+
             <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 border-t border-gray-100 pt-5 text-sm">
               <dt className="text-gray-500">Sale reference</dt>
               <dd className="break-all text-right font-medium text-gray-900">{sale.reference}</dd>
@@ -166,10 +164,10 @@ export default function PaymentStatusContent() {
             </h3>
             <p className="mt-2 text-sm leading-6 text-gray-600">
               {cash
-                ? "Count the physical cash. Only confirm when the full amount has been collected."
+                ? "Confirm the full cash amount received."
                 : payment?.channel === "BANK_TRANSFER"
-                  ? "Check the actual credit in the business's bank app or statement for the correct amount and recipient. A debit alert or screenshot from the customer is not enough."
-                  : "Check the POS terminal's successful transaction record and amount. A customer screenshot is not enough."}
+                  ? "Verify bank credit, not customer screenshots."
+                  : "Check the successful POS record and amount."}
             </p>
             {manualMerchant && <>
               {payment?.channel === "BANK_TRANSFER" && <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
@@ -184,37 +182,37 @@ export default function PaymentStatusContent() {
                   </select>
                   {receivingAccounts.filter(a => a.id === selectedBankId).map(a => (
                     <p key={a.id} className="mt-2 text-sm text-gray-700">{a.accountName}
-                      <span className="ml-2 text-xs text-amber-800">(Owner-supplied; bank not independently verified)</span>
+                      <span className="ml-2 text-xs text-amber-800">(Not bank-verified)</span>
                     </p>
                   ))}
                 </> : <p className="mt-2 text-sm text-amber-800">
-                  No receiving account has been added in Owner Settings. Ask the owner to set one up.
+                  No receiving account added.
                 </p>}
               </div>}
               <p className="mt-3 text-xs text-gray-600">
-                {checkingStatus ? "Checking KASSA's saved payment status…" :
+                {checkingStatus ? "Checking payment status…" :
                   verification?.status === "NOT_CONNECTED"
-                    ? "Automatic bank/POS verification is not connected yet. Use manual confirmation after checking the merchant's own records."
-                    : "There is no independently verified bank/POS receipt for this sale. Confirm manually only after checking the merchant's own records."}
+                    ? "Manual confirmation required."
+                    : "Verify payment in your bank or POS records."}
               </p>
             </>}
             <label className="mt-4 flex items-start gap-3 text-sm text-gray-800">
               <input type="checkbox" className="mt-1 accent-emerald-700"
                 checked={receiptChecked} onChange={event => setReceiptChecked(event.target.checked)}/>
               {cash
-                ? "I physically collected the full cash amount."
-                : "I checked the business's own bank or POS record and confirmed that the full amount was received."}
+                ? "I received the full cash amount."
+                : "I confirm the full amount was received."}
             </label>
             <button type="button" onClick={() => void confirmMerchantReceipt()}
               disabled={submitting || !receiptChecked}
               className="mt-5 w-full rounded-lg bg-emerald-800 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">
-              {submitting ? "Recording confirmation…" : "Confirm received by business"}
+              {submitting ? "Recording confirmation…" : "Confirm payment"}
             </button>
-            <p className="mt-3 text-xs text-gray-500">KASSA records the cashier's confirmation and deducts stock after the server accepts it. No money passes through KASSA.</p>
+            <p className="mt-3 text-xs text-gray-500">Confirmation updates stock.</p>
           </section>}
           {!paid && !eligible && <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             <div className="flex items-center gap-2 font-semibold"><AlertTriangle size={17}/> This payment needs business-owner review</div>
-            <p className="mt-2">Older gateway-managed transactions and unsupported payment methods cannot be converted into manually confirmed sales. Ask the business owner to reconcile or cancel this transaction.</p>
+            <p className="mt-2">Contact the owner to reconcile this payment.</p>
           </section>}
           {!paid && <button type="button" onClick={() => void refreshStatus()} disabled={refreshing || submitting}
             className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 disabled:opacity-50">

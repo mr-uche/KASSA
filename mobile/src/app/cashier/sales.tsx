@@ -183,9 +183,6 @@ export default function Sales() {
         <Text style={s.summaryValue}>{summary ? summary.today.paidSales : loading ? '…' : '—'}</Text>
       </View>
     </View>
-    {summary?.today.testSales ? (
-      
-    ) : null}
 
     <View style={s.filters}>
       {filters.map(item => <Pressable
